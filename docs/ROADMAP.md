@@ -4,7 +4,7 @@
 > Claude reads the **Now** section at session start.
 
 ## Now (max 3 items)
-- [ ] **<Task>**  | Done when: <observable outcome>  | Timebox: <e.g. 2 sessions>
+- [ ] **Playtest and tune the toy** (pistol, Boomstick, Spin Doctor, Gatling Copter prototype, dummies, wall bonk) | Done when: launching yourself feels hilarious within 30 seconds and you want to keep playing for 2 minutes | Timebox: 2 sessions
 
 ## Next
 - [ ] 
@@ -13,6 +13,11 @@
 - [ ] 
 
 ## Parking lot (ideas, no commitment)
+- Camera kick-out to third person on big launches (GDD; after the toy's feel is right)
+- Gatling Copter at x2 thrust climbs ~100 m in 5 s when aimed straight down: maybe a height falloff or more drag if it stops feeling like hovering
+- Sound captions on screen (the events have captions; they need the kit's dialogue build to show: SOP-20, Vertical slice)
+- Music (surf-rock / spy-jazz, Wavesmith chiptune) once the sound effects feel right
+- Melee / gunblade slash on F (right click is aim now)
 - 
 
 ## Milestones
@@ -27,6 +32,10 @@ detail.
 | M4 Release candidate (v1.0.0-rc.N, then v1.0.0) | `/release-check` green | |
 
 ## Done (recent, newest first)
+- 2026-11-21: Placeholder sounds made in code (14 events, 29 WAVs): every gun, copter rotor, slide-whistle launches, bonks, hits, knockouts, overheat, crash
+- 2026-11-21: Playtest 2 changes: right-click aim on every gun (zoom, Spin Doctor scope) with braced aimed fire vs full-yeet hip fire; Pea Pistol hop backward and a visible two-part blowback; Gatling Copter turns you right and wobbles the aim
+- 2026-11-21: Playtest 1 changes: stronger recoil (Boomstick and copter x2), first-person arms on every gun, Pea Pistol blowback over the head, Boomstick flings arms and legs into view
+- 2026-11-21: Toy built: recoil movement, 3 guns + Gatling Copter prototype, target dummies, wall bonk, HUD; 16 sim tests, autoplay tour
 - 2026-11-21: Project scaffolded
 
 ## Budget and cost log (SOP-12)

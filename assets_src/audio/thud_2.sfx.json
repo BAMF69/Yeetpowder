@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "thud_2",
+ "params": {
+  "wave": "noise",
+  "freq": 63.0,
+  "slide": -1.2,
+  "sustain": 0.015,
+  "decay": 0.12,
+  "punch": 0.4,
+  "lowpass": 1400,
+  "volume": 0.45
+ }
+}

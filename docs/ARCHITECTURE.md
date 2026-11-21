@@ -5,9 +5,12 @@
 
 ## Big picture
 ```
-<Boot> -> <Main loop/scene> -> <Systems> -> <Rendering/Audio/UI>
+main.ts -> shell (title, menus, pause) -> ThreeHost frame loop -> YeetWorld.update(dt)
+  YeetWorld: FpsInput (mouse, 1-4, R) + shell.input (WASD, Space, Esc) -> YeetInput
+           -> YeetSim.step() at a fixed 1/120 s  (src/core/yeet: rules, no three import)
+           -> YeetEvent[] -> effects: viewmodel kick, tracers, shake, HUD pops, kill feed
+           -> draw: camera from player state, dummy figures, HUD
 ```
-Replace with a real diagram as soon as one exists (ASCII is fine).
 
 ## Layers (dependency direction: top depends on bottom, never upward)
 1. **Game**: gameplay rules, entities, levels, content
@@ -29,17 +32,27 @@ Engine-specific folder layout is documented in `docs/ENGINE.md`. Universal folde
 ## Key systems
 | System | Responsibility | Entry point | Tests |
 |---|---|---|---|
-| | | | |
+| Tuning | Every feel number (movement, recoil per gun, bonk, dummies, copter) | `src/core/yeet/tuning.ts` | via sim tests |
+| Arena | Gray-box room as AABBs; body movement with sub-steps; ray casts | `src/core/yeet/arena.ts` | `tests/yeetSim.test.ts` |
+| Sim | Player run/jump/recoil/spin, guns and hitscan, wall bonk, dummies, Gatling Copter | `src/core/yeet/sim.ts` | `tests/yeetSim.test.ts` |
+| Autoplay | Scripted tour of every mechanic (browser `?play&autoplay` and Vitest) | `src/core/yeet/autoplay.ts` | `tests/yeetSim.test.ts` |
+| Play world | Fixed-step loop, input to YeetInput, events to effects, camera | `src/game/YeetWorld.ts` | smoke `--query "play&autoplay"` |
+| FPS input | Pointer lock, mouse look and buttons, weapon keys, R | `src/game/fpsInput.ts` | manual (pointer lock needs a real click) |
+| Visuals | Room from the arena boxes, dummy figures and stars, gun viewmodel, tracers, HUD | `src/game/yeet/` | smoke screenshots |
+| Sound | Sim events -> audio events through the kit's AudioPlayer/AudioDirector (takes, pitch, voices, cooldowns, sliders); files rendered in code | `src/game/yeet/sound.ts`, `data/audio_events.json`, `tools/audio/yeet_sounds.py` | `tests/yeetAudio.test.ts`; smoke `--until "29 sound files loaded"` |
 
 ## Data flow and events
-How systems talk (signals, event bus, direct calls). Pick one primary pattern and stick to it.
+The sim returns a list of `YeetEvent`s from each `step()`; `YeetWorld.onEvent` is the only place that turns them into
+effects and HUD (and, later, sound). The sim never calls the renderer.
 
 ## State and save data
 - What persists, format, version field, migration plan.
 - Rule: save files carry a version number from day one.
 
 ## Determinism and randomness
-- Seeded RNG, one source. Needed for replays, tests, and reproducing bugs.
+- The sim uses no randomness at all (shotgun pellets use a fixed ring pattern; the copter's wobble cycles with the
+  step count), so a scripted run replays exactly in Vitest. Cosmetic randomness (muzzle flash angle) lives only in
+  `src/game/`.
 
 ## Budgets
 | Budget | Target | Measured on | Last measured |
@@ -57,7 +70,13 @@ overrides it for one run). It is a guard for this machine's smoke runs, not the 
 draws nothing (a logic budget), and a browser run cannot go below its 60 Hz frame (about 16.7 ms).
 
 ## Debug tooling
-- Debug overlay, console commands, cheat keys, log channels. List them here so Claude and testers can find them.
+- `?play`: skip the title, straight into the play world. `?play&autoplay`: the scripted tour; logs `YEET_MARK_<moment>`
+  (pistol, launch, spin, copter, crash) and `YEET_AUTOPLAY_DONE hits=.. top=.. bonks=..`. Screenshot a moment with
+  `python tools/dev.py smoke --query "play&autoplay&hold=launch" --until YEET_MARK_launch --screenshot captures/progress/x.png`
+  (`hold=<mark>` freezes the game at that moment, so the slow headless renderer cannot drift past it).
+- `?aim` holds right-click aim during autoplay (stills of aimed fire, e.g. `play&autoplay&aim&hold=spin` for the scope).
+- `?debug`: log channels `yeet` (sim events) and `fps` (pointer lock).
+- R respawns the player.
 
 ## Open questions
 - 

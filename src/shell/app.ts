@@ -261,6 +261,8 @@ export class Shell {
       Log.info("core", `BOOT_OK ${GAME_NAME}`);
       if (this.drive) {
         runDrive(this, this.drive).catch((err: unknown) => Log.error("drive", `DRIVE_ABORT ${this.drive}: ${err instanceof Error ? err.message : String(err)}`));
+      } else if (this.params.has("play")) {
+        this.startGame("main"); // ?play: straight into the play world (quick iteration, smoke screenshots of play)
       }
     });
   }

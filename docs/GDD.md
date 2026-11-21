@@ -64,6 +64,7 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | System | One line | In the vertical slice? |
 |---|---|---|
 | Recoil movement | Each shot applies an impulse opposite the aim, plus camera/body spin; added on top of normal run/jump; limited air control | yes |
+| Hip vs aimed fire | Hip fire is the full yeet; right-click aim zooms in and braces the shot: about half the push, much less spin, a tight spread *(Claude's pick from playtest 2)* | yes |
 | Wall bonk | Impact above a speed threshold stuns ~0.5 s with a splat; no damage unless "Hard Walls" | yes |
 | Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol | toy's 3 guns only |
 | Hit knockback | Being shot pushes you too | yes |
@@ -79,8 +80,9 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Move | WASD | Left stick |
 | Aim | Mouse | Right stick |
 | Fire / recoil | Left click | Right trigger |
+| Aim (braced: less kick, tighter spread) | Right click (hold) | Left trigger |
 | Jump | Space | A |
-| Melee / gunblade slash | Right click | Right bumper |
+| Melee / gunblade slash | F (was right click: moved for aiming, playtest 2) | Right bumper |
 | Switch weapon | 1–4 / wheel | Y |
 | Killstreak | Q | Left bumper |
 
@@ -89,7 +91,7 @@ Touch (MVP): left virtual stick, drag right half to aim, Fire / Jump / Slash but
 ## Tunables that define feel
 Per weapon: recoil force, spin, fire rate, damage. Global: gravity, run speed, jump height, air control, wall-bonk speed threshold and stun time, hit knockback scale, Gatling Copter lift / tilt / heat rate.
 Targets from the PDF: no single shot moves a player more than ~25 m; two Boomstick blasts in a row cross a medium room; the Spin Doctor leaves its user disoriented for ~1 s.
-These live in data, not code. File: `public/assets/data/tuning.json` (create it with the toy).
+These live in data, not code. File: `src/core/yeet/tuning.ts` (one module; Vite hot-reloads it while `dev.py run` is open).
 
 ## Art and audio direction
 - Style, tone, and the kinds of enemies/NPCs the player sees: "N64 spy movie meets Saturday-morning cartoon": chunky low-poly shapes, bright flat colors, big readable silhouettes. Opponents are other players: stubby, big-headed figures in color-coded jumpsuits with goggles and helmets. Effects: oversized muzzle flashes, comic "BLAM!" / "YEET!" text pops, speed lines on launches, cartoon stars on bonks. No blood or gore. UI: chunky thumb-sized buttons, kill feed verbs "YEETED", "BONKED", "REAPED".
@@ -98,7 +100,7 @@ These live in data, not code. File: `public/assets/data/tuning.json` (create it 
 - Palette / resolution / camera: saturated primaries on warm, sunny environments; colorblind-safe team colors; under 2,000 triangles per character; first-person camera with launch kick-out.
 - Music mood and references (see `RESOURCES.md`): surf-rock and spy-jazz.
 - SFX style: punchy, exaggerated cartoon guns; slide-whistle launches; crowd "ooooh" for big airtime.
-- Sound source: made in code (Wavesmith) plus free packs.
+- Sound source: made in code (Wavesmith) plus free packs. Toy placeholders: `tools/audio/yeet_sounds.py` -> `public/assets/audio/sfx/`, events in `data/audio_events.json`.
 - Fill the style fragments in `BRIEFS.md` from this section.
 
 ## First-time user experience (FTUE, from E05 in `docs/EVIDENCE.md`)

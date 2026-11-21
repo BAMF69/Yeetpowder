@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "wup_2",
+ "params": {
+  "wave": "saw",
+  "freq": 65.1,
+  "vibrato_depth": 5,
+  "vibrato_rate": 16,
+  "sustain": 0.16,
+  "decay": 0.06,
+  "lowpass": 900,
+  "volume": 0.55
+ }
+}

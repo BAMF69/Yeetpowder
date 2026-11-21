@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "boom_1",
+ "params": {
+  "wave": "noise",
+  "freq": 95.0,
+  "slide": -0.9,
+  "sustain": 0.09,
+  "decay": 0.55,
+  "punch": 0.8,
+  "lowpass": 2600,
+  "volume": 0.42
+ }
+}

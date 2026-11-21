@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "bonk_1",
+ "params": {
+  "wave": "triangle",
+  "freq": 210.0,
+  "slide": -1.8,
+  "sustain": 0.03,
+  "decay": 0.26,
+  "punch": 0.9,
+  "lowpass": 2400,
+  "volume": 0.5
+ }
+}
