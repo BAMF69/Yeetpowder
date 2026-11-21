@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+# ---------------------------------------------------------------------------
+# frames_to_gif.py
+# Purpose : Turn a folder of numbered PNG frames into a small looping GIF for a
+#           README, a store page draft, or a bug report.
+# Usage   : python tools/art/frames_to_gif.py <frames-dir> <out.gif> [--fps 15] [--every 1]
+#                [--width 480] [--colors 64] [--overwrite] [--debug]
+#           Where frames come from:
+#             web:   python tools/dev.py smoke --query autoplay --until ESCAPED --record build/frames
+#             Godot: godot --path . --write-movie build/frames/f.png --fixed-fps 30 -- --autoplay
+# Needs   : Python 3.8+, Pillow (pip install pillow)
+# Exit    : 0 ok, 1 no frames or a frame could not be read, 2 usage/environment problem
+# Notes   : Frames are taken in file-name order (zero-padded names sort correctly).
+#           --every 2 keeps every second frame (halves the size of a 30 fps recording).
+#           --width scales down with nearest-neighbor, so pixel art stays crisp.
+#           GIFs get big fast: keep clips under about 10 s, 480 px wide, 64 colors.
+#           GIF frame delays are whole hundredths of a second, so --fps is rounded to the nearest one (15 fps is
+#           70 ms a frame) and capped at 50 fps with a warning: browsers play faster GIFs at 10 fps.
+# Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
+# Updated : 2026-11-14 with Claude (Opus 5.5, claude-opus-5-5): the C++ overlay records PNG frames now (#314); BMP frames still read
+# ---------------------------------------------------------------------------
+#
+# Pseudocode
+#   list *.png and *.bmp in frames-dir (BMP: the C++ overlay's smoke --record before kit #314), sorted; keep every Nth
+#   for each: open, convert to RGB, scale to --width (nearest), quantize to --colors
+#   save as an animated GIF, 100/fps cs per frame (rounded, at least 2 cs), loop forever
+import argparse
+import sys
+from pathlib import Path
+
+DEBUG = False
+MIN_DELAY_CS = 2   # GIF delays are whole centiseconds; browsers play 0 or 1 cs at 10 cs, so 2 cs (50 fps) is the top
+
+
+def dbg(msg):
+    if DEBUG:
+        print(f"[debug] {msg}", file=sys.stderr)
+
+
+def frame_delay_ms(fps):
+    """The per-frame delay a GIF can really hold for this fps: whole centiseconds (Pillow drops the rest), never
+    under MIN_DELAY_CS (browsers play a 0 or 1 cs delay at 100 ms, so a faster GIF would play slower)."""
+    return max(MIN_DELAY_CS, round(100 / fps)) * 10
+
+
+def build_gif(frames, out, delay_ms, width, colors, Image):
+    """Write the GIF. Returns the number of frames written. A frame that cannot be read raises OSError naming it."""
+    images = []
+    for f in frames:
+        try:
+            with Image.open(f) as src:
+                im = src.convert("RGB")
+        except (OSError, ValueError) as exc:
+            raise OSError(f"{f.name}: {exc}") from exc
+        if width and im.width > width:
+            # max(1, ...): a strip far wider than tall would round to 0 px, which Pillow refuses
+            im = im.resize((width, max(1, round(im.height * width / im.width))), Image.NEAREST)
+        images.append(im.quantize(colors=colors, method=getattr(Image, "Quantize", Image).MEDIANCUT))  # Pillow 9.1+ and older
+        dbg(f"frame {f.name} {im.size}")
+    images[0].save(out, save_all=True, append_images=images[1:], duration=delay_ms, loop=0, optimize=True)
+    return len(images)
+
+
+def main(argv=None):
+    global DEBUG
+    ap = argparse.ArgumentParser(description="Make a looping GIF from a folder of PNG frames.")
+    ap.add_argument("frames", help="folder with the PNG frames")
+    ap.add_argument("out", help="output .gif path")
+    ap.add_argument("--fps", type=float, default=15.0, help="playback frames per second (default 15)")
+    ap.add_argument("--every", type=int, default=1, help="keep every Nth frame (default 1 = all)")
+    ap.add_argument("--width", type=int, default=480, help="scale down to this width, 0 = keep (default 480)")
+    ap.add_argument("--colors", type=int, default=64, help="palette size 2..256 (default 64)")
+    ap.add_argument("--overwrite", action="store_true", help="replace an existing output file")
+    ap.add_argument("--debug", action="store_true", help="print each frame as it is processed")
+    args = ap.parse_args(argv)
+    DEBUG = args.debug
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+    try:
+        from PIL import Image
+    except ImportError:
+        print("[error] Pillow is required: pip install pillow", file=sys.stderr)
+        return 2
+    src, out = Path(args.frames), Path(args.out)
+    if not src.is_dir():
+        print(f"[error] not a folder: {src}", file=sys.stderr)
+        return 2
+    if out.suffix.lower() != ".gif":
+        print("[error] output must end in .gif", file=sys.stderr)
+        return 2
+    if out.exists() and not args.overwrite:
+        print(f"[error] {out} exists (use --overwrite)", file=sys.stderr)
+        return 2
+    if args.fps <= 0 or args.every < 1 or not 2 <= args.colors <= 256 or args.width < 0:
+        print("[error] need --fps > 0, --every >= 1, --colors 2..256, --width >= 0", file=sys.stderr)
+        return 2
+    frames = sorted([*src.glob("*.png"), *src.glob("*.bmp")])[:: args.every]
+    if not frames:
+        print(f"[error] no .png or .bmp frames in {src}", file=sys.stderr)
+        return 1
+    delay = frame_delay_ms(args.fps)
+    if 100 / args.fps < MIN_DELAY_CS:                 # over 50 fps: capped, the GIF plays slower than asked
+        print(f"[warn] a GIF frame lasts at least {MIN_DELAY_CS * 10} ms (browsers play shorter delays at 100 ms): "
+              f"{args.fps:g} fps plays at {1000 / delay:g} fps; drop frames with --every to keep the real speed",
+              file=sys.stderr)
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        n = build_gif(frames, out, delay, args.width, args.colors, Image)
+    except (OSError, ValueError) as exc:
+        print(f"[error] {exc}", file=sys.stderr)
+        return 1
+    print(f"[ OK ] {out}: {n} frames, {out.stat().st_size // 1024} KB, {n * delay / 1000:.1f} s")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

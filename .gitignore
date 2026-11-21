@@ -1,0 +1,75 @@
+# ---- Claude Code Game Kit ----
+# ---- Universal ignores (engine-specific ones are appended below by the scaffolder) ----
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# Secrets and local config (never commit)
+.env
+.env.*
+secrets/
+*.pem
+*.key
+*.keystore
+*.pfx
+*.p12
+*.jks
+*.p8
+# The private word list publish_check.py --terms reads (SOP-13 step 3)
+.private-terms.txt
+
+# Progress screenshots and GIF frames taken while building (CLAUDE.md "While building")
+captures/
+
+# Python tooling
+__pycache__/
+*.pyc
+
+# Downloaded asset packs (tools/fetch_asset.py keeps them here; only picked files enter assets/)
+.asset_cache/
+.venv/
+
+# Claude Code local-only files
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Scratch
+scratch/
+*.log
+*.tmp
+# Hand-polish backups (dotwork.py aseprite / pixelorama --overwrite keep the replaced source here)
+*.aseprite.bak
+*.pxo.bak
+# DAW round trip (wavesmith.py daw): REAPER's backups and peak files, the folder each re-export renders into
+*.rpp-bak
+*.rpp.bak
+*.reapeaks
+assets_src/daw/*/render/
+
+
+# Cloud deployments (tools/cloud/ship.py): OpenTofu state can hold generated secrets; never commit it
+/deploy/
+
+# ---- Web 3D (Three.js + Vite) ----
+node_modules/
+/dist/
+/build/
+.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/
+npm-debug.log*
+
+# ---- Yeetpowder concept material: videos and the original zip are too big for Git (kept locally) ----
+docs/concept/*.mp4
+docs/concept/*.zip
