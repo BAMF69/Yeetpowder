@@ -33,6 +33,8 @@ export interface FpsFrame {
   slash: boolean;
   /** F held right now (the hold moves). */
   slashHeld: boolean;
+  /** C pressed: toggle the launch camera kick-out. */
+  cameraToggle: boolean;
 }
 
 const WEAPON_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 };
@@ -50,6 +52,7 @@ export class FpsInput {
   private reload = false;
   private slash = false;
   private slashHeld = false;
+  private cameraToggle = false;
   private readonly off: Array<() => void> = [];
 
   constructor(private readonly canvas: HTMLElement) {
@@ -96,6 +99,7 @@ export class FpsInput {
       if (k.code === "KeyR") this.reload = true; // playtest 5: R reloads (respawn moved to Backspace)
       if (k.code === "Backspace") this.reset = true;
       if (k.code === "KeyF") this.slash = this.slashHeld = true;
+      if (k.code === "KeyC") this.cameraToggle = true;
       if (k.code === "ShiftLeft" || k.code === "ShiftRight") this.sprintHeld = true;
     });
   }
@@ -127,6 +131,7 @@ export class FpsInput {
       sprintHeld: this.sprintHeld,
       select: this.select, cycle: this.cycle, reset: this.reset, reload: this.reload, slash: this.slash,
       slashHeld: this.slashHeld && this.locked,
+      cameraToggle: this.cameraToggle,
     };
     this.dx = this.dy = 0;
     this.firePressed = false;
@@ -135,6 +140,7 @@ export class FpsInput {
     this.reset = false;
     this.reload = false;
     this.slash = false;
+    this.cameraToggle = false;
     return f;
   }
 

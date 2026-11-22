@@ -615,7 +615,13 @@ describe("gunblades (vertical slice)", () => {
       up.step({ ...NO_INPUT, slashHeld: true });
       top = Math.max(top, up.player.pos.y);
     }
-    expect(top).toBeGreaterThan(5);
+    expect(top).toBeGreaterThan(0.8); // a real lift (a level dash rises ~0.1 m)
+    // the upward push is always smaller than the forward one (playtest)
+    const up2 = duelDummy(SAKURA, 30);
+    hold(up2, 0.3);
+    up2.look(0, 1.5);
+    up2.step({ ...NO_INPUT, slashHeld: true, firePressed: true });
+    expect(up2.player.vel.y).toBeLessThan(Math.hypot(up2.player.vel.x, up2.player.vel.z));
 
     const down = duelDummy(SAKURA, 30);
     hold(down, 0.3);
@@ -841,6 +847,22 @@ describe("Fight Back: guns and pickups", () => {
       top = Math.max(top, sim.player.pos.y);
     }
     expect(top).toBeLessThan(TOWER_TOP - 0.5);
+  });
+
+  it("upward Sakura dashes cannot reach the tower top either (the upward push is the smaller one)", () => {
+    const sim = newSim(fightLevel());
+    parkDummies(sim);
+    sim.player.owned.push("sakura");
+    sim.player.weapon = "sakura";
+    sim.player.pos = vec(-13.5, 2.5, -19.5); // the highest crate
+    run(sim, 0.3, { slashHeld: true }); // into the dash stance
+    sim.look(0, 1.5);
+    let top = 0;
+    for (let i = 0; i < 400; i++) {
+      sim.step({ ...NO_INPUT, slashHeld: true, firePressed: true }); // every dash the gun allows, straight up
+      top = Math.max(top, sim.player.pos.y);
+    }
+    expect(top).toBeLessThan(TOWER_TOP - 1);
   });
 
   it("being knocked out resets your guns and puts the pickups back", () => {

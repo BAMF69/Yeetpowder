@@ -60,7 +60,14 @@ const FIRE_SOUND: Record<WeaponId, string> = {
 const FLIP_AXIS = { backflip: [1, 0], frontflip: [-1, 0], cartwheel: [0, 1] } as const;
 const SHAKE_TO_RAD = 0.0025; // shake offset pixels -> camera wobble radians
 const HARD_LANDING = 14; // m/s
-const CHASE = { back: 5, up: 2.2, blend: 0.18 };
+const CHASE = { back: 5, up: 2.2, blend: 0.18 }; // third-person camera: metres behind and above, seconds to swing out
+/**
+ * Launch camera kick-out (GDD art direction): a "YEET!" launch swings the camera out to your right side, low and a
+ * little behind, for `out + hold + back` s, then snaps back. At most once per `cooldown` s, never while zoomed.
+ * C toggles it (remembered on this device); reduce motion turns it off.
+ */
+const KICK = { out: 0.15, hold: 0.3, back: 0.25, cooldown: 2, side: 1.15, distance: 4, up: 0.8, maxAim: 0.3 };
+const KICK_KEY = "yeetpowder.launchCamera";
 const AIM_KNOCK = 0.45; // s out of zoom after a shot (the recoil animation), then back in if right click is held // third-person camera: metres behind and above, seconds to swing out
 
 interface DummyView {
@@ -122,6 +129,10 @@ export class YeetWorld implements World {
   private bodyRoll = 0;
   private kos = 0;
   private flipT = 99;
+  /** Launch kick-out: seconds since it started (99 = idle), when it may next play, and whether it is on. */
+  private kickT = 99;
+  private kickReady = 0;
+  private kickOn = YeetWorld.loadKickSetting();
   private flipKind: keyof typeof FLIP_AXIS = "backflip";
   private killer = "";
   private autoplayDone = false;
@@ -253,6 +264,7 @@ export class YeetWorld implements World {
     this.aimKnock = Math.max(0, this.aimKnock - dt);
     const aiming = f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless;
     this.updateAim(aiming, dt);
+    if (f.cameraToggle) this.toggleKick();
     let first = this.frameInput(f, aiming);
     if (this.carry) {
       const c = this.carry;
@@ -464,6 +476,7 @@ export class YeetWorld implements World {
       case "yeet":
         if (this.third < 0.5) this.hud.pop("YEET!");
         this.sound.play("whistle");
+        this.startKick();
         break;
       case "bonk":
         this.stats.bonks++;
@@ -625,30 +638,73 @@ export class YeetWorld implements World {
     }
     const step = dt / CHASE.blend;
     this.third = wantThird ? Math.min(1, this.third + step) : Math.max(0, this.third - step * 2);
-    this.vm.root.visible = this.third < 0.5;
-    this.body.root.visible = this.third > 0.05;
-    if (this.third === 0) return;
+    // the launch kick-out (when not already tumbling): out, hold, snap back
+    this.kickT += dt;
+    const kick = this.third > 0 ? 0 : this.kickBlend();
+    this.vm.root.visible = Math.max(this.third, kick) < 0.5;
+    this.body.root.visible = Math.max(this.third, kick) > 0.05;
+    if (this.third === 0 && kick === 0) return;
+    const kicking = this.third === 0;
 
     // your body: facing where you face, flipping head over heels at the sim's tumble rate
-    this.bodyRoll += pl.tumbleRoll * dt;
+    this.bodyRoll = kicking ? 0 : this.bodyRoll + pl.tumbleRoll * dt;
     this.body.root.position.set(pl.pos.x, pl.pos.y + PIVOT, pl.pos.z);
     facing(pl.yaw, this.body.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.bodyRoll));
     this.body.update(dt, this.camera);
 
     // the chase point, pulled in if a wall is in the way
     const mid = vec(pl.pos.x, pl.pos.y + 1, pl.pos.z);
-    const want = vec(mid.x + Math.sin(this.chaseYaw) * CHASE.back, mid.y + CHASE.up, mid.z + Math.cos(this.chaseYaw) * CHASE.back);
+    // tumbling: behind you, high; kick-out: off your right side, low, for a dramatic angle on the launch
+    const cy = kicking ? pl.yaw + KICK.side : this.chaseYaw;
+    const back = kicking ? KICK.distance : CHASE.back;
+    const want = vec(mid.x + Math.sin(cy) * back, mid.y + (kicking ? KICK.up : CHASE.up), mid.z + Math.cos(cy) * back);
     const d = vec(want.x - mid.x, want.y - mid.y, want.z - mid.z);
     const full = len(d);
     const dist = Math.max(0.5, Math.min(full, rayArena(this.sim.arena, mid, normalize(d), full) - 0.3));
     const k = dist / full;
     const chase = this.tmpA.set(mid.x + d.x * k, mid.y + d.y * k, mid.z + d.z * k);
-    const blend = this.third * this.third * (3 - 2 * this.third);
+    const t3 = kicking ? kick : this.third;
+    const blend = t3 * t3 * (3 - 2 * t3);
     this.qB.copy(this.camera.quaternion);
     this.camera.position.lerp(chase, blend);
     this.lookM.lookAt(this.camera.position, this.tmpB.set(mid.x, mid.y, mid.z), Y_AXIS);
     this.qA.setFromRotationMatrix(this.lookM);
     this.camera.quaternion.copy(this.qB).slerp(this.qA, blend);
+  }
+
+  // ---- launch camera kick-out ----------------------------------------------------
+  private static loadKickSetting(): boolean {
+    try {
+      return localStorage.getItem(KICK_KEY) !== "off";
+    } catch {
+      return true; // storage blocked: default on
+    }
+  }
+
+  private toggleKick(): void {
+    this.kickOn = !this.kickOn;
+    this.kickT = 99;
+    try {
+      localStorage.setItem(KICK_KEY, this.kickOn ? "on" : "off");
+    } catch {
+      // storage blocked: the toggle still works for this session
+    }
+    this.hud.pop(this.kickOn ? "LAUNCH CAMERA ON" : "LAUNCH CAMERA OFF");
+  }
+
+  private startKick(): void {
+    if (!this.kickOn || shell.settings.access.reduce_motion || this.time < this.kickReady || this.aim > KICK.maxAim) return;
+    this.kickT = 0;
+    this.kickReady = this.time + KICK.cooldown;
+  }
+
+  /** 0..1: how far the kick-out camera is swung out right now. */
+  private kickBlend(): number {
+    const t = this.kickT;
+    if (t >= KICK.out + KICK.hold + KICK.back) return 0;
+    if (t < KICK.out) return t / KICK.out;
+    if (t < KICK.out + KICK.hold) return 1;
+    return 1 - (t - KICK.out - KICK.hold) / KICK.back;
   }
 
   private drawDummies(dt: number): void {

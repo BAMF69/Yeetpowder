@@ -243,9 +243,9 @@ export const TUNING = {
     finisherRange: 3,
     finisherKnockback: 22,
     finisherLift: 8,
-    /** Hold F (past holdTime): blade reversed; each Fire propels you `speed` along your aim (level, or up when you
-     * look up: never down into the floor) instead of kicking you back. */
-    dash: { holdTime: 0.2, speed: 22 },
+    /** Hold F (past holdTime): blade reversed; each Fire propels you `speed` forward, plus `up` of it upward as you
+     * look up (playtest: the upward push stays smaller than the forward one; never down into the floor). */
+    dash: { holdTime: 0.2, speed: 22, up: 0.4 },
     /**
      * ULTRASLASH (playtest): letting go of the stance after a dash-fire, while still faster than minSpeed (above a
      * sprint), rapid-fires every round left: one wide cut per round, `interval` apart, each nudging you forward; the

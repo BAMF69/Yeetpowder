@@ -720,11 +720,12 @@ export class YeetSim {
     }
     if (dash) {
       // the blade held backwards: the revolver fires behind you and throws you forward
-      // along your aim when you look up (a dash up a wall of air); level when you look down
-      const f = aimDir(pl.yaw, Math.max(0, pl.pitch));
-      pl.vel.x = f.x * t.sakura.dash.speed;
-      pl.vel.z = f.z * t.sakura.dash.speed;
-      pl.vel.y = Math.max(f.y * t.sakura.dash.speed, 2);
+      // full speed forward; looking up adds an upward push, always smaller than the forward one
+      const f = aimDir(pl.yaw, 0);
+      const d = t.sakura.dash;
+      pl.vel.x = f.x * d.speed;
+      pl.vel.z = f.z * d.speed;
+      pl.vel.y = Math.max(Math.sin(Math.max(0, pl.pitch)) * d.speed * d.up, 2);
       pl.onGround = false;
       pl.stanceDashed = true;
       ev.push({ type: "dash" });
