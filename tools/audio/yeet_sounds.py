@@ -108,6 +108,9 @@ SOUNDS = {
     # dummy respawn: a soft pop-in
     "popin": ({"wave": "square", "freq": 420, "slide": 1.6, "duty": 0.35, "sustain": 0.05, "decay": 0.12,
                "lowpass": 6000, "volume": 0.3}, [1.0]),
+    # yeetpowder burning: a bright crackling fizz layered on every shot (the pink propellant, design doc Lore)
+    "fizz": ({"wave": "noise", "freq": 2600, "slide": -0.5, "vibrato_depth": 4, "vibrato_rate": 38, "attack": 0.004,
+              "sustain": 0.05, "decay": 0.28, "highpass": 2200, "lowpass": 9000, "volume": 0.32}, [1.0, 1.1, 0.92]),
 }
 
 

@@ -16,7 +16,9 @@
 //           (reduce motion keeps first person). Sound: src/game/yeet/sound.ts; audio starts on the first click.
 //           DEBUG: ?debug logs sim events on the "yeet" channel; ?weapon=0..3 starts with that gun in hand;
 //           ?tumble trips a tumble 1 s in (logs YEET_MARK_tumble 0.4 s later, ?hold=tumble freezes there).
-//           ?showcase holds the camera in front of your third-person operative (art review); &pose=kneel|fling|
+//           ?hero fires Reaper's Kick straight down 1 s in (YEET_MARK_hero mid hero landing, ?hold=hero freezes).
+//           ?showcase holds the camera in front of your third-person operative (art review);
+//           ?flash holds the muzzle flash on (stills). &pose=kneel|fling|
 //           tumble|run|aim|ko forces that pose; &side=<rad> turns the camera round you (0 behind, 3.14 in front).
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // Updated : 2026-11-21 with Claude (Opus 5.5, claude-opus-5-5): playtest 3: levels, pickups, AI, tumbles, zoom
@@ -68,11 +70,13 @@ const CHASE = { back: 5, up: 2.2, blend: 0.18 }; // third-person camera: metres 
 /**
  * Launch camera kick-out (GDD art direction): a "YEET!" launch swings the camera out to your right side, low and a
  * little behind, for `out + hold + back` s, then snaps back. Only launches of `minSpeed` m/s or more, at most once per `cooldown` s, never while zoomed.
- * Boomstick launches never pop out (the first-person legs show those); a hero landing always does, for the kneel.
- * C toggles it (remembered on this device); reduce motion turns it off.
+ * Boomstick launches never pop out (the first-person legs show those); a hero landing always does, for the kneel,
+ * even with C off or while aiming. C toggles the launch pops (remembered on this device); reduce motion stops all.
  */
 const KICK = { out: 0.15, hold: 0.3, back: 0.25, cooldown: 6, minSpeed: 18, side: 1.15, distance: 4, up: 0.8, maxAim: 0.3 };
 const KICK_KEY = "yeetpowder.launchCamera";
+/** Crowd reactions: seconds of airtime that earn an "ooooh" (a Boomstick floor launch is about 1.5 s up and down). */
+const CROWD = { oohAir: 1.1 };
 /** ?showcase camera: in front of you, a little to your right, close and at chest height. */
 const SHOWCASE = { side: Math.PI - 0.6, distance: 1.9, up: 0.1 };
 const AIM_KNOCK = 0.45; // s out of zoom after a shot (the recoil animation), then back in if right click is held // third-person camera: metres behind and above, seconds to swing out
@@ -129,9 +133,14 @@ export class YeetWorld implements World {
   private carry: YeetInput | null = null;
   private readonly forceAim = shell.params.has("aim");
   private readonly debugTumble = shell.params.has("tumble");
+  /** ?hero: 1 s in, fire Reaper's Kick straight down (a backflip, then a hero landing; logs YEET_MARK_hero). */
+  private readonly debugHero = shell.params.has("hero");
+  private heroFired = false;
   /** ?showcase: the camera stays in front of your operative; ?pose=...: force a pose (art review stills). */
   private readonly showcase = shell.params.has("showcase");
   private readonly forcePose = shell.params.get("pose");
+  /** ?flash: hold the muzzle flash on (first person and your operative), for stills of it. */
+  private readonly debugFlash = shell.params.has("flash");
   /** ?side=<rad>: the showcase camera's angle round you (0 behind, pi in front). */
   private readonly showcaseSide = Number(shell.params.get("side") ?? SHOWCASE.side);
   private tumbled = false;
@@ -144,9 +153,14 @@ export class YeetWorld implements World {
   /** Launch kick-out: seconds since it started (99 = idle), when it may next play, and whether it is on. */
   private kickT = 99;
   private kickReady = 0;
+  /** Seconds in the air this flight, and whether the crowd has ooh'd at it yet. */
+  private airT = 0;
+  private oohed = false;
   private kickHold: number = KICK.hold;
   private kickOn = YeetWorld.loadKickSetting();
   private flipKind: keyof typeof FLIP_AXIS = "backflip";
+  /** +1 cartwheel to the right (D), -1 to the left (A). */
+  private flipSide = 1;
   private killer = "";
   private autoplayDone = false;
   /** ?hold=<mark>: the tour stopped at that moment (everything frozen, still drawn). */
@@ -279,6 +293,10 @@ export class YeetWorld implements World {
     this.aimKnock = Math.max(0, this.aimKnock - dt);
     const aiming = f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless;
     this.updateAim(aiming, dt);
+    if (this.debugFlash) {
+      this.vm.holdFlash();
+      this.body.fire(pl.weapon);
+    }
     if (f.cameraToggle) this.toggleKick();
     let first = this.frameInput(f, aiming);
     if (this.carry) {
@@ -315,6 +333,13 @@ export class YeetWorld implements World {
         }
         input = { ...s.input, aiming };
       }
+      if (this.debugHero && !this.heroFired && this.sim.time >= 1) {
+        this.heroFired = true;
+        pl.weapon = "reaper";
+        this.vm.show("reaper");
+        pl.pitch = -1.4; // straight down: the backflip
+        input = { ...input, firePressed: true };
+      }
       if (this.link) {
         for (const e of this.link.stepLocal(input, this.lookYaw, this.lookPitch)) this.onEvent(e);
         this.lookYaw = this.lookPitch = 0;
@@ -326,6 +351,7 @@ export class YeetWorld implements World {
       this.stats.top = Math.max(this.stats.top, pl.pos.y);
     }
     if (!stepped) this.carry = first; // nothing simulated this frame: keep its clicks for the next one
+    this.crowdAirtime(pl, dt);
     // ?tumble: trip a tumble 1 s in and mark it 0.4 s later (stills of the third-person camera)
     if (this.debugTumble && this.sim.time >= 1 && !this.tumbled) {
       this.tumbled = true;
@@ -336,7 +362,7 @@ export class YeetWorld implements World {
       this.marks.sort((a, b) => a[0] - b[0]);
     }
     // smoke can stop at these to screenshot a moment: --until YEET_MARK_launch (spin, copter)
-    while ((this.autoplay || this.debugTumble) && this.marks.length && this.sim.time >= this.marks[0][0]) {
+    while ((this.autoplay || this.debugTumble || this.debugHero) && this.marks.length && this.sim.time >= this.marks[0][0]) {
       const mark = this.marks.shift()![1];
       Log.info("yeet", `YEET_MARK_${mark}`);
       if (shell.params.get("hold") === mark) this.held = true; // ?hold=<mark>: freeze here for a screenshot
@@ -450,6 +476,8 @@ export class YeetWorld implements World {
       case "fire": {
         const w = TUNING.weapons[e.weapon];
         this.vm.fired(e.weapon, w.trauma, e.aimed);
+        this.sound.play("fizz"); // yeetpowder burning: every shot crackles (design doc Lore)
+        this.body.fire(e.weapon); // seen when the camera is out (pops, tumbles)
         this.sound.play(FIRE_SOUND[e.weapon]);
         this.shake.addTrauma(w.trauma * (e.aimed ? 0.6 : 1));
         // every gun but the Gatling Copter knocks you out of zoom (playtest 3)
@@ -480,6 +508,8 @@ export class YeetWorld implements World {
         const v = this.views[e.dummy];
         this.hud.feedLine(v.lastWeapon === "crash" ? "SQUASHED" : v.lastWeapon === "yeetreap" ? "YEETREAPED" : DOWN_VERB[v.lastWeapon], v.name);
         this.sound.play("boing");
+        this.sound.play("crowd_cheer");
+        this.announce("knockout");
         this.kos++;
         break;
       }
@@ -499,6 +529,8 @@ export class YeetWorld implements World {
         this.sound.play("bonk");
         if (e.who === "player") {
           this.hud.pop("BONK!");
+          this.sound.play("crowd_aww"); // the crowd feels it with you
+          this.announce("bonked");
           this.shake.addTrauma(TUNING.bonk.trauma);
         } else {
           this.hud.feedLine("BONKED", this.views[e.who].name);
@@ -535,6 +567,7 @@ export class YeetWorld implements World {
         this.vm.show(pl.weapon);
         this.hud.pop(`GOT THE ${TUNING.weapons[e.weapon].name.toUpperCase()}!`);
         this.sound.play("pickup");
+        if (e.weapon === "copter") this.announce("copter_yeat");
         break;
       case "dummyAim":
         this.sound.play("alert");
@@ -555,6 +588,8 @@ export class YeetWorld implements World {
         this.killer = this.views[e.dummy]?.name ?? "a dummy";
         this.hud.feedLine("WAS KNOCKED OUT BY", this.killer);
         this.sound.play("ko");
+        this.sound.play("crowd_aww");
+        this.announce("wipeout");
         break;
       case "playerRespawn":
         this.vm.setHold("none"); // respawning ends any hold move
@@ -579,6 +614,7 @@ export class YeetWorld implements World {
       case "flip":
         this.flipT = 0;
         this.flipKind = e.kind;
+        this.flipSide = e.side;
         break;
       case "lunge":
         this.sound.play("swish");
@@ -595,6 +631,8 @@ export class YeetWorld implements World {
         this.views[e.dummy].lastWeapon = "yeetreap";
         this.hud.pop("YEETREAP!", true);
         this.sound.play("kaboom");
+        this.sound.play("crowd_cheer");
+        this.announce("yeetreap");
         this.shake.addTrauma(0.7);
         this.vm.setHold("none");
         break;
@@ -617,11 +655,19 @@ export class YeetWorld implements World {
         this.sound.play("thud");
         this.shake.addTrauma(0.4);
         this.hud.pop("HERO LANDING!");
+        this.sound.play("crowd_cheer");
+        this.announce("hero_landing");
         this.startKick(0, TUNING.reaper.heroLanding.time); // watch yourself land: out for the whole kneel
+        if (this.debugHero) {
+          this.marks.push([this.sim.time + 0.35, "hero"]);
+          this.marks.sort((a, b) => a[0] - b[0]);
+        }
         break;
       case "finisher":
         this.hud.pop("FINISHER!", true);
         this.sound.play("boom");
+        this.sound.play("crowd_cheer");
+        this.announce("finisher");
         this.shake.addTrauma(0.5);
         break;
     }
@@ -643,7 +689,8 @@ export class YeetWorld implements World {
       const turn = Math.PI * 2 * (k * k * (3 - 2 * k));
       const [p, r] = FLIP_AXIS[this.flipKind];
       flipPitch = p * turn;
-      roll += r * turn;
+      // camera roll z > 0 turns the view anticlockwise; a right cartwheel spins it clockwise (playtest)
+      roll -= r * turn * this.flipSide;
     }
     this.camera.rotation.set(pl.pitch + flipPitch + s.y * SHAKE_TO_RAD, pl.yaw + s.x * SHAKE_TO_RAD, roll);
 
@@ -705,6 +752,31 @@ export class YeetWorld implements World {
     }
   }
 
+  /**
+   * The announcer: plays voice event "vo_<id>" with its subtitle (data/dialogue.json "announcer.<id>"). Until the
+   * voice files exist it stays silent and shows nothing, so it never doubles the HUD's own pops.
+   */
+  private announce(id: string): void {
+    if (!this.sound.has(`vo_${id}`)) return;
+    this.sound.play(`vo_${id}`);
+    shell.subtitles.say(`announcer.${id}`, { typewriter: false });
+  }
+
+  /** The crowd's "ooooh": once per flight, when you have been in the air long enough to impress (GDD SFX). */
+  private crowdAirtime(pl: { onGround: boolean; dead: number }, dt: number): void {
+    if (pl.onGround || pl.dead > 0) {
+      this.airT = 0;
+      this.oohed = false;
+      return;
+    }
+    this.airT += dt;
+    if (!this.oohed && this.airT >= CROWD.oohAir) {
+      this.oohed = true;
+      this.sound.play("crowd_ooh");
+      this.announce("big_air");
+    }
+  }
+
   // ---- launch camera kick-out ----------------------------------------------------
   private static loadKickSetting(): boolean {
     try {
@@ -726,10 +798,13 @@ export class YeetWorld implements World {
   }
 
   /** Only big launches (speed in m/s at the YEET) pop the camera out (playtest: every pistol hop was too often). */
-  /** hold (s): a forced kick-out held that long (the hero landing), skipping the speed and cooldown checks. */
+  /**
+   * hold (s): a forced kick-out held that long (the hero landing). It ignores the C toggle, aiming, the speed and
+   * the cooldown (playtest: hero landings should always pop out); only reduce motion stops it.
+   */
   private startKick(speed: number, hold?: number): void {
-    if (!this.kickOn || shell.settings.access.reduce_motion || this.aim > KICK.maxAim) return;
-    if (hold === undefined && (speed < KICK.minSpeed || this.time < this.kickReady)) return;
+    if (shell.settings.access.reduce_motion) return;
+    if (hold === undefined && (!this.kickOn || this.aim > KICK.maxAim || speed < KICK.minSpeed || this.time < this.kickReady)) return;
     this.kickHold = hold ?? KICK.hold;
     this.kickT = 0;
     this.kickReady = this.time + KICK.cooldown;
@@ -818,9 +893,11 @@ export class YeetWorld implements World {
         this.killer = `Player ${e.by + 1}`;
         this.hud.feedLine("WAS KNOCKED OUT BY", this.killer);
         this.sound.play("ko");
+        this.sound.play("crowd_aww");
       } else if (e.by === me) {
         this.hud.feedLine("YEETED", `Player ${e.target + 1}`);
         this.sound.play("boing");
+        this.sound.play("crowd_cheer");
       }
       return;
     }
@@ -828,6 +905,8 @@ export class YeetWorld implements World {
     switch (e.type) {
       case "fire":
         this.sound.play(FIRE_SOUND[e.weapon]);
+        this.others[e.p]?.fire(e.weapon);
+        this.sound.play("fizz");
         for (const t of e.tracers) {
           this.fx.tracer(this.tmpA.set(t.from.x, t.from.y - 0.2, t.from.z), this.tmpB.set(t.to.x, t.to.y, t.to.z), t.hit);
           this.fx.puff(this.tmpB);

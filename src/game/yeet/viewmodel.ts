@@ -24,6 +24,7 @@ import type { WeaponId } from "../../core/yeet/tuning";
 import { buildGlove } from "./glove";
 import { buildWeapon } from "./gunModels";
 import { MaterialBank } from "./materials";
+import { buildMuzzleFlash } from "./muzzleFlash";
 
 // ---- Tunables (presentation) --------------------------------------------------
 /** Sleeve radius at the wrist and at the shoulder (a tapered six-sided tube: the GDD's faceted N64 look). */
@@ -32,10 +33,20 @@ const SLEEVE = { wrist: 0.032, shoulder: 0.046, sides: 6 };
  * How each gun is held (the grip, foregrip and muzzle come from its model, gunModels.ts): the gun hand's offset
  * from HAND_R and the gun's tilt about the grip (sizes come from the models). The Gatling is held low by its rear
  * D-handle with the left hand on the carry handle (playtest); the scythe is tilted up and right so its crescent
- * stays clear of the crosshair.
+ * stays clear of the crosshair. `aim` replaces the usual aimed pose (barrel under the crosshair): the Gatling slides
+ * to the middle but stays at hip height and straightens, so it never covers what you shoot at (playtest).
  */
-const HOLD: Partial<Record<WeaponId, { hand: THREE.Vector3; tilt: THREE.Euler }>> = {
-  copter: { hand: new THREE.Vector3(0.1, -0.2, 0.12), tilt: new THREE.Euler(0.1, 0.18, 0) },
+interface Hold {
+  hand: THREE.Vector3;
+  tilt: THREE.Euler;
+  aim?: { hand: THREE.Vector3; tilt: THREE.Euler };
+}
+const HOLD: Partial<Record<WeaponId, Hold>> = {
+  copter: {
+    hand: new THREE.Vector3(0.1, -0.2, 0.12),
+    tilt: new THREE.Euler(0.1, 0.18, 0),
+    aim: { hand: new THREE.Vector3(0, -0.43, -0.3), tilt: new THREE.Euler(0.08, 0, 0) },
+  },
   reaper: { hand: new THREE.Vector3(0.02, -0.05, 0.06), tilt: new THREE.Euler(0.12, -0.22, 0) },
 };
 /** Glove size: chunky, but small enough that the Pea Pistol still shows in the fist. */
@@ -74,6 +85,8 @@ interface GunModel {
   grip: THREE.Vector3;
   fore: THREE.Vector3 | null;
   muzzle: THREE.Vector3;
+  /** At the hand: carries the gun's tilt (HOLD), eased toward the aimed tilt while aiming. */
+  pivot: THREE.Group;
   /** Model units to metres (from the model). */
   scale: number;
   spinner?: THREE.Object3D;
@@ -107,8 +120,8 @@ export class Viewmodel {
   private readonly bank = new MaterialBank();
   private readonly hips = new THREE.Group();
   private readonly legs: THREE.Group[] = [];
-  private readonly flash: THREE.Mesh;
-  private readonly flashMat: THREE.Material;
+  private readonly flash: THREE.Group;
+  private readonly flashMats: THREE.Material[];
   private kickAmt = 0;
   private flashT = 0;
   private blowT = 99;
@@ -132,6 +145,8 @@ export class Viewmodel {
   private time = 0;
   private readonly tmp = new THREE.Vector3();
   private readonly tmp2 = new THREE.Vector3();
+  private readonly qRest = new THREE.Quaternion();
+  private readonly qAim = new THREE.Quaternion();
 
   constructor() {
     const suit = this.bank.paint("navy");
@@ -178,18 +193,10 @@ export class Viewmodel {
     // the guns: low-poly models (gunModels.ts) held by the hand at their grip
     for (const id of ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura"] as WeaponId[]) this.addGun(id);
 
-    // muzzle flash: a flat yellow star at the barrel's end
-    const s = new THREE.Shape();
-    for (let i = 0; i < 16; i++) {
-      const r = i % 2 ? 0.025 : 0.07;
-      const a = (i / 16) * Math.PI * 2;
-      if (i === 0) s.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      else s.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    }
-    const fm = new THREE.MeshBasicMaterial({ color: "#ffe066", depthTest: false, transparent: true, side: THREE.DoubleSide });
-    this.flashMat = fm;
-    this.flash = new THREE.Mesh(this.geo(new THREE.ShapeGeometry(s)), fm);
-    this.flash.renderOrder = 1001;
+    // muzzle flash: yeetpowder's pink star at the barrel's end, over everything (muzzleFlash.ts)
+    const flash = buildMuzzleFlash(this.bank, { overlay: true });
+    this.flash = flash.group;
+    this.flashMats = flash.materials;
     this.mount.add(this.flash);
     this.show("pistol");
   }
@@ -220,6 +227,11 @@ export class Viewmodel {
       this.flingT = 0;
       this.flingAmp = aimed ? FLING.aimed : 1;
     }
+  }
+
+  /** Debug (?flash): keeps the muzzle flash showing, for stills. */
+  holdFlash(): void {
+    this.flashT = Math.max(this.flashT, 0.05);
   }
 
   /** A gunblade slash: the arm sweeps across (Sakura cuts alternate direction through a combo). */
@@ -254,6 +266,8 @@ export class Viewmodel {
   /** The gun hand's aimed position for the current gun (centred so the barrel sits under the crosshair). */
   private aimHand(out: THREE.Vector3): THREE.Vector3 {
     const g = this.guns.get(this.current)!;
+    const own = HOLD[this.current]?.aim;
+    if (own) return out.copy(own.hand);
     return out.set(0, -(g.muzzle.y - g.grip.y) * g.scale - AIM_BELOW, AIM_Z);
   }
 
@@ -261,10 +275,7 @@ export class Viewmodel {
   muzzleWorld(out: THREE.Vector3): THREE.Vector3 {
     const g = this.guns.get(this.current)!;
     const hand = this.aimHand(new THREE.Vector3()).lerp(this.restHand(this.tmp2), 1 - this.aim);
-    out.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale);
-    const tilt = HOLD[this.current]?.tilt;
-    if (tilt) out.applyEuler(tilt);
-    out.add(hand);
+    out.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale).applyQuaternion(g.pivot.quaternion).add(hand);
     return this.root.localToWorld(out);
   }
 
@@ -296,6 +307,7 @@ export class Viewmodel {
     hand.y += up * BLOW_UP;
     hand.z -= up * 0.05;
     this.placeHand(hand);
+    this.tiltGun(aimNow);
     // reloading: the gun dips down and rolls over, then comes back up (a placeholder reload)
     const dip = this.reloadP > 0 ? Math.sin(Math.PI * this.reloadP) : 0;
     this.armR.rotation.x -= dip * 0.55;
@@ -350,8 +362,10 @@ export class Viewmodel {
       });
     }
 
-    this.flashT = Math.max(0, this.flashT - dt);
+    // visible first, then count down: a shot always shows for at least one drawn frame, even when a frame takes
+    // longer than the flash (slow devices, the headless smoke browser)
     this.flash.visible = this.flashT > 0;
+    this.flashT = Math.max(0, this.flashT - dt);
     this.flash.scale.setScalar(this.current === "shotgun" ? 2.2 : this.current === "sniper" ? 1.8 : 1);
     this.spin += (copterFiring ? 30 : 0) * dt;
     if (g.spinner) g.spinner.rotation.z = this.spin;
@@ -359,7 +373,7 @@ export class Viewmodel {
 
   dispose(): void {
     this.bank.dispose();
-    this.flashMat.dispose();
+    for (const m of this.flashMats) m.dispose();
   }
 
   /** Puts the gun hand at h (relative to the shoulder pivot) and stretches the sleeve to it. */
@@ -412,6 +426,16 @@ export class Viewmodel {
     group.visible = false;
     pivot.add(group);
     this.mount.add(pivot);
-    this.guns.set(id, { group, grip, fore, muzzle, scale, spinner: model.spinner });
+    this.guns.set(id, { group, grip, fore, muzzle, pivot, scale, spinner: model.spinner });
+  }
+
+  /** Eases the current gun's tilt from its rest hold to its aimed hold (only guns with HOLD.aim change). */
+  private tiltGun(aim: number): void {
+    const h = HOLD[this.current];
+    if (!h?.aim) return;
+    const g = this.guns.get(this.current)!;
+    this.qRest.setFromEuler(h.tilt);
+    this.qAim.setFromEuler(h.aim.tilt);
+    g.pivot.quaternion.slerpQuaternions(this.qRest, this.qAim, aim);
   }
 }

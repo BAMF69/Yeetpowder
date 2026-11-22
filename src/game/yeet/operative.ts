@@ -21,6 +21,7 @@ import { PIVOT } from "./figures";
 import { buildGlove } from "./glove";
 import { buildWeapon } from "./gunModels";
 import { MaterialBank } from "./materials";
+import { buildMuzzleFlash } from "./muzzleFlash";
 import { POSE, targetPose, type PoseInput, type PoseTargets, type V3 } from "./operativePose";
 
 // ---- Proportions (metres before BODY_SCALE) ------------------------------------
@@ -37,10 +38,15 @@ const GLOVE_SIZE = 1.25;
 /** How fast joints ease toward their pose (1/s). */
 const EASE = 16;
 const BOOT_DARK = "#1c1c1f";
+/** Muzzle flash: seconds shown, and size per gun (bigger than first person: it is seen from metres away). */
+const FLASH_TIME = 0.06;
+const FLASH_SIZE: Partial<Record<WeaponId, number>> = { shotgun: 3, sniper: 2.6, copter: 2, reaper: 2.6 };
 
 export interface Operative extends DummyFigure {
   /** What the operative is doing (operativePose.ts): applied, eased, on the next update. */
   setPose(input: PoseInput): void;
+  /** A shot: the pink muzzle flash at the held gun's barrel for a moment. */
+  fire(weapon: WeaponId): void;
 }
 
 export interface Arm {
@@ -60,6 +66,7 @@ interface HeldGun {
   mount: THREE.Group;
   grip: THREE.Vector3;
   fore: THREE.Vector3 | null;
+  muzzle: THREE.Vector3;
   scale: number;
 }
 
@@ -179,11 +186,16 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       m.group.position.copy(m.grip).multiplyScalar(-m.scale); // the grip at the holder's origin
       m.group.traverse((o) => (o.castShadow = true));
       mount.add(m.group);
-      g = { holder, mount, grip: m.grip, fore: m.fore, scale: m.scale };
+      g = { holder, mount, grip: m.grip, fore: m.fore, muzzle: m.muzzle, scale: m.scale };
       guns.set(id, g);
     }
     return g;
   };
+
+  // ---- the pink muzzle flash (crossed planes: it reads from any side) ----
+  const muzzle = buildMuzzleFlash(bank, { crossed: true });
+  extraMats.push(...muzzle.materials);
+  let muzzleT = 0;
 
   // ---- health bar (as the toy dummies) ----
   const barRoot = new THREE.Group();
@@ -252,6 +264,14 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     setPose(p) {
       input = p;
     },
+    fire(weapon) {
+      const g = gunFor(weapon);
+      g.mount.add(muzzle.group);
+      muzzle.group.position.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale);
+      muzzle.group.scale.setScalar(FLASH_SIZE[weapon] ?? 1.6);
+      muzzle.group.rotation.z = Math.random() * Math.PI; // cosmetic only, never part of the sim
+      muzzleT = FLASH_TIME;
+    },
     setHp(frac) {
       const f = Math.max(0, Math.min(1, frac));
       fg.scale.x = Math.max(0.001, f);
@@ -271,6 +291,8 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       apply(targetPose(input, time, stride), first ? 1 : 1 - Math.exp(-EASE * dt));
       first = false;
       flashT = Math.max(0, flashT - dt);
+      muzzle.group.visible = muzzleT > 0 && input.weapon !== null && !input.dead; // shown before the countdown:
+      muzzleT = Math.max(0, muzzleT - dt); // a shot always gets at least one drawn frame
       pulse += dt * 14;
       const e = flashT > 0 ? 0.9 : 0;
       const red = alert > 0 ? (0.45 + 0.35 * Math.sin(pulse)) * alert : 0;

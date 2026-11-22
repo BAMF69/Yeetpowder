@@ -414,6 +414,20 @@ describe("gunblades (vertical slice)", () => {
     expect(flip(0)).toBe("backflip"); // look ahead: pushed back against the run
   });
 
+  it("Reaper's Kick: a cartwheel knows which way you strafed (D right +1, A left -1) so the camera spins that way", () => {
+    const side = (moveX: number) => {
+      const sim = newSim();
+      parkDummies(sim);
+      sim.player.pos = vec(15, 0, 15);
+      select(sim, REAPER);
+      run(sim, 0.6, { moveX }); // strafing, looking ahead: the shot pushes you back, across your run
+      const f = fire(sim).find((e) => e.type === "flip");
+      return f && f.type === "flip" ? `${f.kind} ${f.side}` : "none";
+    };
+    expect(side(1)).toBe("cartwheel 1");
+    expect(side(-1)).toBe("cartwheel -1");
+  });
+
   it("Reaper's Kick slash sweeps 180 degrees: hits beside you, not behind", () => {
     const side = duelDummy(REAPER);
     side.dummies[0].pos = vec(13, 0, 10); // straight to the left

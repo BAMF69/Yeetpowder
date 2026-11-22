@@ -1,7 +1,7 @@
 # Architecture
 
 > How the code is organized and why. Keep it short and true. Update when structure changes.
-> Last reviewed: 2026-11-21
+> Last reviewed: 2026-11-22
 
 ## Big picture
 ```
@@ -43,7 +43,7 @@ Engine-specific folder layout is documented in `docs/ENGINE.md`. Universal folde
 | Duel netcode | Protocol (inputs with look deltas up, 30 Hz snapshots down), socket-free Room (queues, acks, 120 Hz authoritative sim), client Predictor (replay unacked inputs) | `src/net/protocol.ts`, `src/net/room.ts`, `src/net/predict.ts` | `tests/net.test.ts` |
 | Duel server | `ws` rooms by 4-letter code on this PC, port 7357 (ADR 0002) | `server/main.ts` (`npm run duel`, `npm run duel:server`) | `tools/duel_smoke.mjs` (sockets), `tools/duel_browser_smoke.mjs` (two headless pages) |
 | Duel client | Connection, lobby (make / join a room, share link), other player drawn 100 ms behind from snapshots, server events for hits and knockouts | `src/game/net/` (`duelLink.ts`, `netClient.ts`, `remote.ts`) | the browser smoke |
-| Sound | Sim events -> audio events through the kit's AudioPlayer/AudioDirector (takes, pitch, voices, cooldowns, sliders); files rendered in code | `src/game/yeet/sound.ts`, `data/audio_events.json`, `tools/audio/yeet_sounds.py` | `tests/yeetAudio.test.ts`; smoke `--until "29 sound files loaded"` |
+| Sound | Sim events -> audio events through the kit's AudioPlayer/AudioDirector (takes, pitch, voices, cooldowns, sliders); crowd reactions and the yeetpowder fizz; match music through the kit's MusicPlayer on the music bus; sound captions (throttled) and announcer lines through the subtitle bar (`data/dialogue.json` built to `data/dialogue/en.built.json`; the announcer stays silent until voice files `vo_<id>` exist); files rendered in code | `src/game/yeet/sound.ts`, `data/audio_events.json`, `data/music.json`, `data/dialogue.json`, `tools/audio/yeet_sounds.py`, `tools/audio/crowd.py`, `tools/audio/yeet_music.py`, `tools/audio/announcer.py` (recorded announcer lines in) | `tests/yeetAudio.test.ts`; smoke loads every sound and the music |
 
 ## Data flow and events
 The sim returns a list of `YeetEvent`s from each `step()`; `YeetWorld.onEvent` is the only place that turns them into
@@ -82,6 +82,7 @@ draws nothing (a logic budget), and a browser run cannot go below its 60 Hz fram
 - Duel: `npm run duel` starts the duel server and the game on the home network; open `?play&level=duel` (menu: Duel
   (online)); `&room=ABCD` joins a room at once; `&lag=120` adds 120 ms each way; `&debug` shows ping, snapshots per
   second, pending inputs and the worst prediction correction.
+- Art review: `?showcase` holds the camera in front of your operative (`&pose=kneel|fling|tumble|run|aim|ko`, `&side=<rad>`, 3.14 is in front); `?flash` holds the pink muzzle flash on; `?hero` fires Reaper's Kick straight down 1 s in and logs `YEET_MARK_hero` mid hero landing (`?hold=hero` freezes there).
 - `?level=sandbox|fight|duel` picks the level (the menu: Play = fight, Sandbox = sandbox via `shell.worldOption`).
 - `?weapon=0..5` starts with that weapon in hand; the tour logs `YEET_MARK_kick` mid kick-out (`hold=kick`); `?tumble` trips a tumble 1 s in (`YEET_MARK_tumble`, `hold=tumble`).
 - `?aim` holds right-click aim during autoplay (stills of aimed fire, e.g. `play&autoplay&aim&hold=spin` for the scope).

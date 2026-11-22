@@ -24,6 +24,15 @@ Tasks created (ROADMAP):
 ```
 
 ## Entries
+### 2026-11-22  Build art pass 3 (feat/reload 789127b)  Tester: self (Elaina the Great)
+Quotes (exact words):
+- "when the gatling gun zooms in just move it to the center but keep it low, so it doesn't move up into where the crosshair would be. currently it blocks view of what you're shooting at"
+- "for the reaper kick cartwheel to the right (D) the camera should spin clockwise"
+- "I'm also not seeing the camera pop out to third person on hero landings"
+Decisions / tuning changes:
+- Gatling aimed: slides to the middle at hip height and straightens (HOLD.copter.aim in viewmodel.ts) instead of rising to put the barrel under the crosshair
+- Cartwheel camera roll follows the strafe: the flip event carries side (+1 right, -1 left); right spins clockwise (test added)
+- Hero landing pop: it worked in a test run (?hero), but the C toggle and aiming could cancel it; hero landings now ignore both (reduce motion still stops it). Ask Elaina whether C was off.
 ### 2026-11-22  Build art pass 2 review (feat/reload f8f686a)  Tester: self (Elaina the Great)
 Question being tested: do the first-person arms and weapons match the concept art?
 Quotes (exact words):

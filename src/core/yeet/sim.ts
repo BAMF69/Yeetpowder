@@ -97,7 +97,8 @@ export type YeetEvent =
   | { type: "reloaded"; weapon: WeaponId }
   | { type: "dry"; weapon: WeaponId }
   | { type: "slash"; weapon: WeaponId; hits: number; reap: boolean; combo: number }
-  | { type: "flip"; kind: FlipKind }
+  /** side: which way you were moving across your aim, +1 right (D), -1 left (A), 0 for flips. */
+  | { type: "flip"; kind: FlipKind; side: number }
   | { type: "lunge" }
   | { type: "finisher"; dummy: number }
   | { type: "hook"; dummy: number }
@@ -716,7 +717,7 @@ export class YeetSim {
     if (pl.weapon === "reaper") {
       const kind = this.flipKind(aim, velBefore);
       if (kind === "backflip") pl.backflipAir = true;
-      ev.push({ type: "flip", kind });
+      ev.push({ type: "flip", kind, side: kind === "cartwheel" ? this.moveSide(aim, velBefore) : 0 });
     }
     if (dash) {
       // the blade held backwards: the revolver fires behind you and throws you forward
@@ -762,6 +763,12 @@ export class YeetSim {
     if (along > 0.5) return "frontflip";
     if (along > -0.5) return "cartwheel";
     return "backflip";
+  }
+
+  /** +1 if you were moving to the right of where you aim, -1 to the left (picks the cartwheel's direction). */
+  private moveSide(aim: Vec3, vel: Vec3): number {
+    // right of a horizontal facing (fx, fz) with +Y up is (-fz, fx): facing -Z, right is +X
+    return -aim.z * vel.x + aim.x * vel.z >= 0 ? 1 : -1;
   }
 
   // ---- gunblade melee (F) ---------------------------------------------------------

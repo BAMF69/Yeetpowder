@@ -62,6 +62,8 @@ const CSS = `
 .yh-stars span { position: absolute; font-size: calc(26px * var(--s)); color: #ffd84a; text-shadow: 0 0 3px #000;
   transform: translate(-50%, -50%); }
 .yh-slots { position: absolute; right: 18px; bottom: 18px; display: flex; gap: 8px; }
+/* the shell's subtitle bar (announcer, sound captions) sits above the weapon slots while playing */
+#subtitles { bottom: calc(6vh + 64px); }
 .yh-slot { background: rgba(20, 24, 34, 0.65); border: 3px solid rgba(255, 255, 255, 0.25); border-radius: 14px;
   padding: 6px 12px; font-weight: 800; font-size: calc(15px * var(--s)); }
 .yh-slot b { color: #ffd84a; margin-right: 6px; }

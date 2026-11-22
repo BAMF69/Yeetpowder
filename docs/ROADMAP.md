@@ -9,8 +9,8 @@
 ## Next
 - [ ] Duel modes: first to 5 knockouts, timed round, Ring Out; the duel room with a Gatling pickup
 - [ ] Minimal touch controls for the phone
-- [ ] Sound captions on screen (the events have captions; wire the kit's dialogue build: SOP-20)
-- [ ] Music: surf-rock / spy-jazz loop made in code (Wavesmith chiptune)
+- [ ] Announcer voices: Elaina records the 8 lines (`python tools/audio/announcer.py --list`) as WAV into `assets_src/voice/announcer/`, then `python tools/audio/announcer.py` (add `--pa --echo` for the stadium sound) imports, levels and wires them. The local voice tool does not fit this laptop (no NVIDIA GPU, 7.7 GB RAM)
+- [ ] Menu music and stingers
 - [ ] Art approval sample (GDD): one operative model and one separate shotgun in the painted room, compared with the shotgun keyframe; then figures and guns
 - [ ] `/asset-intake` + Wavesmith: free model packs with licences checked for the slice's figures and room; balance the code-made sounds
 
@@ -39,6 +39,7 @@ detail.
 | M4 Release candidate (v1.0.0-rc.N, then v1.0.0) | `/release-check` green | |
 
 ## Done (recent, newest first)
+- 2026-11-22: Sound pass: crowd reactions (ooh, cheer, aww) and a yeetpowder fizz made in code; match music (surf / spy chiptune loop) on the music bus; sound captions through the subtitle bar; announcer lines written and wired (voices pending); pink muzzle flashes, tracers and puffs (design doc Lore); GDD and design doc export synced to the game (gdd-sync)
 - 2026-11-22: First art pass (/shader item): painted textures in code, ceilings with light panels, wall band, steel doors, crates, hazard trim, interior lighting; kit shader goldens unchanged (11/11)
 - 2026-11-22: Art pass 2: first-person navy sleeves with folded cuffs and black tactical gloves; the six weapons rebuilt as faceted painted low-poly models (gunModels.ts, 300-1,200 triangles each, tested); third-person body and opponents still placeholders
 - 2026-11-22: Art pass 2 rework after review: weapons from bevelled profiles to the keyframes, bigger Gatling (left hand on top) and crescent scythe, fingerless gloves; camera pop for big launches (not the Boomstick) and hero landings; budgets raised to 6,000 per character and 2,500 per weapon (Elaina)
