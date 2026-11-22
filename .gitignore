@@ -73,3 +73,7 @@ npm-debug.log*
 # ---- Yeetpowder concept material: videos and the original zip are too big for Git (kept locally) ----
 docs/concept/*.mp4
 docs/concept/*.zip
+
+# Raw Quaternius "Ultimate Modular Men" source pack (265 MB, CC0, re-downloadable from quaternius.com).
+# The game ships only the runtime copy in public/assets/models/quaternius/modular_men/ (ASSET_LOG A-0004).
+/Modular Men/

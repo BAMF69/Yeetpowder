@@ -1,0 +1,13 @@
+Yeetpowder operative trial 01
+Input: front-v1.png (single front image, not an action keyframe)
+Goal: match face, navy uniform, tactical vest and angular silhouette.
+Tripo Studio: Image to 3D; Smart Mesh / low-poly option if available.
+Target: 1,800 triangles if the UI exposes a target; verify the exported triangle count later.
+Texture: standard; no HD/8K upgrades. Final game target 256 px atlas, adjusted after inspection.
+Generate one draft first. No rigging or animation purchase yet.
+Inspect: front, profile, back; arms separated from torso, two distinct legs, usable hands and boots, no fused equipment.
+Export: GLB with textures if available on your plan. Preserve raw export as operative-01-tripo-raw.glb here.
+Record actual model/version, options, credits used and output license with export.
+This reference image was made using built-in OpenAI image generation on 2026-11-21 from the shotgun keyframe. No Tripo credits have been used by Codex.
+Open-source distribution requires rights to redistribute and sublicense the model. Noncommercial use alone does not establish those rights. Confirm your tier terms before publishing a Tripo output or source reference through Tripo.
+Next: inspect raw mesh in Blender, prepare <=1,999 triangles and a small texture atlas; test rig deformation. Then build separate shotgun and modular corridor and compare in-game with the first keyframe.

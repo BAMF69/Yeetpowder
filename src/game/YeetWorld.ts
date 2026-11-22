@@ -248,7 +248,12 @@ export class YeetWorld implements World {
 
   /** Loads the sounds while the loading screen shows. */
   async load(progress: (v: number) => void): Promise<void> {
-    await this.sound.load(progress);
+    await this.sound.load((v) => progress(shell.params.has("operative") ? v * 0.5 : v));
+    if (shell.params.has("operative")) {
+      // the dummies only: your body is the code-built operative (operative.ts) since art pass 3
+      await Promise.all(this.views.map((view) => view.fig.loadOperative?.()));
+      progress(1);
+    }
   }
 
   dispose(): void {
