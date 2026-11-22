@@ -12,7 +12,7 @@
 - **Working title:** Yeetpowder
 - **One-line pitch:** A silly first-person party shooter where every gun's recoil throws you across the map, playable in a browser with no download and no account.
 - **Genre:** Arena party FPS / physics comedy
-- **Perspective:** 3D first person. On big launches the camera briefly kicks out to a dramatic third-person angle, then snaps back (option to turn it off for motion-sensitive players). Third person is also used for replays. No permanent third-person mode.
+- **Perspective:** 3D first person. On big launches the camera briefly kicks out to a dramatic third-person angle, then snaps back (option to turn it off for motion-sensitive players). Third person is also used for replays. Large-launch kick-out and replays are planned; the toy currently uses third person during tumbles. No permanent third-person mode.
 - **Reference games (2 to 3) and what you borrow from each:** GoldenEye 64 / Perfect Dark for arena feel, weapon variety and map pickups; Quake for rocket jumping; Gang Beasts for physical comedy; Krunker.io for instant browser play. Original art and designs only: the feel, not the assets.
 - **The twist:** Newton's third law turned up to eleven. Firing *is* moving: pistols nudge, shotguns launch, snipers spin.
 
@@ -54,11 +54,11 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 ## Content list (MVP)
 | Item | Count | Status |
 |---|---|---|
-| Levels / areas | 1 map (plus the toy test room) | not started |
-| Enemies / obstacles | Bots (other players), walls for bonks | not started |
-| Player abilities | 6 guns, run, jump, melee slash | not started |
+| Levels / areas | 1 release map | Sandbox and Fight Back toy arenas playable; release art/map pending |
+| Enemies / obstacles | Multiplayer opponents, fill-in bots, walls for bonks | Shooting dummies and wall bonks playable; multiplayer and fill-in bots pending |
+| Player abilities | 6 guns, run, jump, melee slash | 3 guns + Gatling Copter prototype, run/jump/sprint playable; remaining guns and melee pending |
 | Music tracks | 1 to 2 (surf-rock / spy-jazz) | not started |
-| SFX sets | Guns, launches (slide whistle), bonks, crowd "ooooh", announcer | not started |
+| SFX sets | Guns, launches (slide whistle), bonks, crowd "ooooh", announcer | Procedural toy gun/launch/impact sounds present; remaining sets and polish pending |
 
 ## Systems overview
 | System | One line | In the vertical slice? |
@@ -69,7 +69,7 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Run-and-gun tumble | A shot fired while moving may knock you into a tumble (no control; the camera pops out to third person to watch). Chance grows with speed and recoil, halves when aimed; the copter never tumbles you (Elaina's call) *(playtest 3)* | yes |
 | Levels | Sandbox (the open test room, every gun) and Fight Back (dummies shoot back; start with Pea Pistol + Boomstick; Spin Doctor on the ground; Gatling Copter on an 11 m tower only a Boomstick launch reaches) *(playtest 3)* | yes |
 | Wall bonk | Impact above a speed threshold stuns ~0.5 s with a splat; no damage unless "Hard Walls" | yes |
-| Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol | toy's 3 guns only |
+| Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol | 3 standard guns; decide the Gatling prototype's slice role before implementation |
 | Hit knockback | Being shot pushes you too | yes |
 | Health and damage | Cartoon damage, respawn | yes |
 | Ragdoll-lite | Tumble/flail animation over a physics capsule; full ragdoll only on death (client-side) | yes |
@@ -83,13 +83,15 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Move | WASD | Left stick |
 | Aim | Mouse | Right stick |
 | Fire / recoil | Left click | Right trigger |
-| Aim (braced: less kick, tighter spread) | Right click (hold) | Left trigger |
+| Aim (braced: same push, less twist, tighter spread) | Right click (hold) | Left trigger |
 | Jump | Space | A |
 | Melee / gunblade slash | F (was right click: moved for aiming, playtest 2) | Right bumper |
 | Sprint (a few seconds) | Shift (hold) | |
 | Respawn (toy) | R | |
 | Switch weapon | 1–4 / wheel | Y |
 | Killstreak | Q | Left bumper |
+
+Keyboard/mouse controls describe the toy where implemented; gamepad bindings are planned. Melee (F) and killstreak activation (Q) are planned, not implemented toy actions.
 
 Touch (MVP): left virtual stick, drag right half to aim, Fire / Jump / Slash buttons, tap weapon icon. Light aim assist for touch. Full table in the PDF.
 
@@ -99,14 +101,18 @@ Targets from the PDF: no single shot moves a player more than ~25 m; two Boomsti
 These live in data, not code. File: `src/core/yeet/tuning.ts` (one module; Vite hot-reloads it while `dev.py run` is open).
 
 ## Art and audio direction
-- Style, tone, and the kinds of enemies/NPCs the player sees: "N64 spy movie meets Saturday-morning cartoon": chunky low-poly shapes, bright flat colors, big readable silhouettes. Opponents are other players: stubby, big-headed figures in color-coded jumpsuits with goggles and helmets. Effects: oversized muzzle flashes, comic "BLAM!" / "YEET!" text pops, speed lines on launches, cartoon stars on bonks. No blood or gore. UI: chunky thumb-sized buttons, kill feed verbs "YEETED", "BONKED", "REAPED".
-- Art source: code-drawn shapes plus free packs (Kenney, Quaternius, Poly Haven), each license checked (`/asset-intake`).
-- Main character: picture: `docs/concept/` (ChatGPT concept images and keyframes): a color-coded jumpsuit figure with goggles and helmet.
-- Palette / resolution / camera: saturated primaries on warm, sunny environments; colorblind-safe team colors; under 2,000 triangles per character; first-person camera with launch kick-out.
-- Music mood and references (see `RESOURCES.md`): surf-rock and spy-jazz.
-- SFX style: punchy, exaggerated cartoon guns; slide-whistle launches; crowd "ooooh" for big airtime.
-- Sound source: made in code (Wavesmith) plus free packs. Toy placeholders: `tools/audio/yeet_sounds.py` -> `public/assets/audio/sfx/`, events in `data/audio_events.json`.
-- Fill the style fragments in `BRIEFS.md` from this section.
+- **Visual target:** N64-inspired spy action, using the keyframes in `docs/concept/keyframes/` as the primary visual reference. Angular low-poly people, painted surface detail, industrial architecture and restrained lighting. Match the reference at gameplay distance; literal N64 hardware limits are not required.
+- **Character design:** Human-proportioned operatives with strong angular faces, chunky hands and boots, simple hair, tactical vests and utility clothing. The navy operative and olive guards in the keyframes establish the direction. The toy's stubby figures with helmets and goggles are placeholders, not the final character brief.
+- **Environment:** Concrete bunkers, steel doors, warehouses, shipping containers, tanks, catwalks, chain-link fences and wooden crates. Use modular geometry and repeating painted textures for grime, rivets, seams and grates. Maintain clear routes, ledges and silhouettes for recoil movement.
+- **Palette:** Muted navy, olive, concrete gray, rusty brown and worn teal; yellow hazard markings and warm lights provide accents. Bright muzzle flashes, readable pickups and accessible team identifiers stand out against the subdued scenery. Identify teams through shape or symbols as well as color.
+- **Shading and textures:** Small painted color textures, selectively hard edges and simple lighting. Preserve readable faces and silhouettes. Avoid making untextured flat colors, heavy outlines or glossy materials the default look. Start with softly filtered textures; tune filtering against the keyframes in engine.
+- **Asset budgets:** Fewer than 2,000 exported triangles per character, including clothing and accessories but excluding the separately budgeted held weapon. Start with a 256×256 character color atlas; allow 512×512 only when close-view readability justifies it. Starting targets: 300–1,200 triangles per held weapon and 12–200 per simple prop. These are production targets, subject to gameplay and mobile profiling. Generic pipeline hero/NPC presets do not override this game's budget.
+- **Asset workflow:** Create clean, consistent A-pose references from the approved character design; generate or model the character without a weapon. Build weapons separately so they can swap, recoil and animate. Use the existing Bozzetto/Blender pipeline for drafts, cleanup, UVs, rigging and GLB export. Prefer a reusable modeled kit for industrial scenery. Inspect silhouettes, hidden surfaces and shoulder/elbow/hip/knee deformation before accepting generated characters. Record asset sources and licenses in `ASSET_LOG.md`.
+- **Art approval:** First match the shotgun corridor keyframe with one operative, one separate shotgun and a small modular room. Compare proportions, palette, texture scale and lighting in game, then inspect the character during a launch and tumble. Approve this sample before producing the full asset set. This defines the vertical-slice art target; it does not advance the current scope tier.
+- **Tone and effects:** Physical comedy comes from absurd recoil, flips, bonks and reactions within the spy-action setting. Oversized muzzle flashes, speed trails, comic "BLAM!" / "YEET!" pops and bonk stars remain readable accents. No blood or gore. UI uses chunky, readable controls and kill-feed verbs "YEETED", "BONKED", "REAPED".
+- **Camera:** First-person play with the existing third-person tumble view. Large-launch kick-out and replays remain planned features; preserve a motion-reduction option as the presentation develops.
+- **Music:** Surf-rock and spy-jazz (see `RESOURCES.md`); tracks remain planned.
+- **SFX:** Punchy exaggerated guns, slide-whistle launches, crowd "ooooh" for airtime and comic impacts. Procedural toy sounds already exist: `tools/audio/yeet_sounds.py` → `public/assets/audio/sfx/`, with events in `data/audio_events.json`.
 
 ## First-time user experience (FTUE, from E05 in `docs/EVIDENCE.md`)
 | Lesson | Mechanic taught | How we know they got it |
@@ -125,7 +131,7 @@ These live in data, not code. File: `src/core/yeet/tuning.ts` (one module; Vite 
 | Tool | Why (the part of the plan that calls for it) | Tier |
 |---|---|---|
 | `/game-feel` | Launches, screen shake, bonks and hits must feel punchy | Toy |
-| `/shader` | Toon / outline look for the N64 cartoon style | Vertical slice |
+| `/shader` | Painted low-resolution textures, simple lighting and selective hard edges matched to the keyframes | Vertical slice |
 | `docs/sop/SOP-20-accessibility.md`, `tools/access/colour_check.py` | Colorblind-safe team colors, reduced camera-spin option, subtitles | Vertical slice |
 | `/asset-intake`, Wavesmith (`tools/audio/wavesmith/`) | Free model packs; sounds and music made in code | Vertical slice |
 | `/game-ai` | Bots fill empty slots so a match always feels busy | MVP |
