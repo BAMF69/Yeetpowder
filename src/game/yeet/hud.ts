@@ -39,6 +39,10 @@ export interface HudState {
   winded: boolean;
   /** Tumbling: show the tip. */
   tumbling: boolean;
+  /** Rounds in the magazine and its size; reload progress 0..1 (0 = not reloading). */
+  ammo: number;
+  magSize: number;
+  reload: number;
 }
 
 const CSS = `
@@ -110,6 +114,14 @@ const CSS = `
   border: 3px solid #ffd84a; border-radius: 14px; padding: 10px 18px; font-weight: 800;
   font-size: calc(18px * var(--s)); text-align: center; max-width: 80vw; display: none; }
 .yh-tip em { color: #ffd84a; font-style: normal; letter-spacing: 1px; }
+.yh-ammo { position: absolute; right: 18px; bottom: 66px; text-align: right; font-weight: 900;
+  font-size: calc(30px * var(--s)); text-shadow: 0 0 4px #000; }
+.yh-ammo small { font-size: 0.5em; opacity: 0.8; margin-left: 4px; }
+.yh-ammo.empty { color: #ff5252; }
+.yh-ammo .rl { display: none; height: 6px; width: 150px; margin-left: auto; margin-top: 4px; border-radius: 3px;
+  background: rgba(0, 0, 0, 0.5); overflow: hidden; }
+.yh-ammo .rl div { height: 100%; width: 0; background: #ffd84a; }
+.yh-ammo.reloading .rl { display: block; }
 .yh-click { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); background: rgba(20, 24, 34, 0.8);
   padding: 12px 22px; border-radius: 16px; font-weight: 800; font-size: calc(22px * var(--s)); border: 3px solid #ffd84a; }
 @keyframes yh-pop {
@@ -155,6 +167,9 @@ export class YeetHud {
   private readonly stam: HTMLDivElement;
   private readonly stamFill: HTMLDivElement;
   private readonly tip: HTMLDivElement;
+  private readonly ammo: HTMLDivElement;
+  private readonly ammoText: HTMLDivElement;
+  private readonly ammoBar: HTMLDivElement;
   private hitT = 0;
   private starT = 0;
   private popN = 0;
@@ -190,6 +205,9 @@ export class YeetHud {
     const bar = el("bar", this.heat);
     this.heatFill = el("fill", bar);
     this.speed = el("yh-speed", this.root);
+    this.ammo = el("yh-ammo", this.root);
+    this.ammoText = el("", this.ammo);
+    this.ammoBar = el("", el("rl", this.ammo));
     this.stam = el("yh-stam", this.root);
     this.stamFill = el("fill", this.stam);
     this.tip = el("yh-tip", this.root);
@@ -197,7 +215,7 @@ export class YeetHud {
     this.hp = el("yh-hp", this.root);
     this.hpFill = el("fill", el("bar", this.hp));
     el("yh-hint", this.root,
-      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · 1-4 or wheel switch guns · R respawn · Esc pause");
+      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · 1-4 or wheel switch guns · Backspace respawn · Esc pause");
     this.feed = el("yh-feed", this.root);
     this.pops = el("yh-pops", this.root);
     this.click = el("yh-click", this.root, "Click to play");
@@ -246,6 +264,11 @@ export class YeetHud {
       this.hpFill.style.width = `${Math.round(s.hp * 100)}%`;
       this.hp.classList.toggle("low", s.hp < 0.35);
     }
+    const ammoHtml = s.reload > 0 ? "RELOADING" : `${s.ammo}<small>/ ${s.magSize}</small>`;
+    if (this.ammoText.innerHTML !== ammoHtml) this.ammoText.innerHTML = ammoHtml;
+    this.ammo.classList.toggle("reloading", s.reload > 0);
+    this.ammo.classList.toggle("empty", s.ammo === 0 && s.reload === 0);
+    this.ammoBar.style.width = `${Math.round((1 - s.reload) * 100)}%`;
     this.stamFill.style.width = `${Math.round(s.stamina * 100)}%`;
     this.stam.classList.toggle("winded", s.winded);
     this.stam.style.opacity = s.stamina >= 0.999 && !s.winded ? "0" : "1";
@@ -257,7 +280,7 @@ export class YeetHud {
     this.heat.style.display = s.showHeat ? "block" : "none";
     this.heatFill.style.width = `${Math.round(s.heat * 100)}%`;
     this.heat.classList.toggle("hot", s.overheated);
-    this.heatLbl.textContent = s.overheated ? "OVERHEATED: cooling down" : "COPTER HEAT";
+    this.heatLbl.textContent = s.overheated ? "OVERYEATED: cooling down" : "COPTER YEAT";
     this.speed.textContent = `${s.speed.toFixed(1)} m/s`;
     this.rush.style.opacity = s.reduceMotion ? "0" : String(Math.min(0.85, s.rush));
     this.click.style.display = s.locked || s.autoplay ? "none" : "block";

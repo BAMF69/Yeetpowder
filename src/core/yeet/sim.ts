@@ -50,10 +50,12 @@ export interface YeetInput {
   aiming: boolean;
   /** Shift held: sprint while stamina lasts. */
   sprint: boolean;
+  /** Reload the current gun (R). */
+  reload: boolean;
 }
 
 export const NO_INPUT: YeetInput = {
-  moveX: 0, moveZ: 0, jump: false, firePressed: false, fireHeld: false, select: -1, reset: false, aiming: false, sprint: false,
+  moveX: 0, moveZ: 0, jump: false, firePressed: false, fireHeld: false, select: -1, reset: false, aiming: false, sprint: false, reload: false,
 };
 
 export interface Tracer {
@@ -81,7 +83,10 @@ export type YeetEvent =
   | { type: "dummyFire"; dummy: number }
   | { type: "ballPop"; at: Vec3 }
   | { type: "playerHit"; dummy: number; damage: number; at: Vec3 }
-  | { type: "playerDown"; dummy: number };
+  | { type: "playerDown"; dummy: number }
+  | { type: "reload"; weapon: WeaponId }
+  | { type: "reloaded"; weapon: WeaponId }
+  | { type: "dry"; weapon: WeaponId };
 
 export interface PlayerState {
   pos: Vec3;
@@ -116,6 +121,10 @@ export interface PlayerState {
   /** Emptied the stamina: no sprint until it refills past sprint.winded. */
   winded: boolean;
   sprintRest: number;
+  /** Rounds left in each gun's magazine (reserve is infinite). */
+  mag: Record<WeaponId, number>;
+  /** > 0 while reloading the current gun: seconds left. */
+  reloading: number;
 }
 
 export interface DummyState {
@@ -173,12 +182,18 @@ export class YeetSim {
       weapon: level.startWeapons[0], owned: [...level.startWeapons], cooldown: 0, heat: 0, crashing: false,
       overheated: false, yeeted: false, hp: t.player.hp, dead: 0, tumbling: 0, tumbleAge: 0, tumbleRoll: 0,
       stamina: t.sprint.stamina, sprinting: false, winded: false, sprintRest: 0,
+      mag: this.fullMags(), reloading: 0,
     };
     this.dummies = level.arena.dummySpawns.map((sp, i) => ({
       pos: copy(sp), vel: vec(), spawn: copy(sp), hp: t.dummy.hp, onGround: true, stun: 0, down: 0, tumble: 0,
       face: 0, aiming: 0, aiCooldown: 1.5 + i * 0.45,
     }));
     this.pickups = level.pickups.map((p) => ({ weapon: p.weapon, pos: copy(p.pos), taken: false }));
+  }
+
+  private fullMags(): Record<WeaponId, number> {
+    const w = this.t.weapons;
+    return { pistol: w.pistol.mag, shotgun: w.shotgun.mag, sniper: w.sniper.mag, copter: w.copter.mag };
   }
 
   get arena() {
@@ -252,6 +267,7 @@ export class YeetSim {
       const w = t.weaponOrder[input.select];
       if (w !== pl.weapon && pl.owned.includes(w)) {
         pl.weapon = w;
+        pl.reloading = 0; // switching guns drops a reload in progress
         pl.cooldown = Math.max(pl.cooldown, 0.1);
         ev.push({ type: "switch", weapon: w });
       }
@@ -387,8 +403,19 @@ export class YeetSim {
     const pl = this.player;
     const w = this.weaponTuning;
     pl.cooldown = Math.max(0, pl.cooldown - dt);
+    // reloading: count down, then a full magazine (reserve ammo is infinite for now)
+    if (pl.reloading > 0) {
+      pl.reloading = Math.max(0, pl.reloading - dt);
+      if (pl.reloading === 0) {
+        pl.mag[pl.weapon] = w.mag;
+        ev.push({ type: "reloaded", weapon: pl.weapon });
+      }
+    } else if (input.reload && pl.mag[pl.weapon] < w.mag && !pl.crashing) {
+      this.startReload(ev);
+    }
+    const loaded = pl.reloading === 0 && pl.mag[pl.weapon] > 0;
 
-    const copterFiring = pl.weapon === "copter" && input.fireHeld && !pl.crashing && !pl.overheated;
+    const copterFiring = pl.weapon === "copter" && input.fireHeld && !pl.crashing && !pl.overheated && loaded;
     if (copterFiring) {
       // continuous push opposite the aim: aim at the floor to lift, tilt to drift (wobbly by design)
       addScaled(pl.vel, aimDir(pl.yaw, pl.pitch), -t.copter.thrust * dt);
@@ -417,9 +444,25 @@ export class YeetSim {
 
     const wants = w.auto ? input.fireHeld : input.firePressed;
     if (!wants || pl.cooldown > 0) return;
+    if (!loaded) {
+      // pulling the trigger on an empty gun: click, and start reloading
+      if (pl.reloading === 0 && !pl.crashing && (input.firePressed || pl.weapon !== "copter")) {
+        ev.push({ type: "dry", weapon: pl.weapon });
+        this.startReload(ev);
+      }
+      return;
+    }
     if (pl.weapon === "copter" && !copterFiring) return;
     pl.cooldown = w.cooldown;
+    pl.mag[pl.weapon]--;
     this.shoot(w, input, speedBefore, ev);
+    if (pl.mag[pl.weapon] === 0) this.startReload(ev); // the last round: reload on its own
+  }
+
+  private startReload(ev: YeetEvent[]): void {
+    const pl = this.player;
+    pl.reloading = this.weaponTuning.reload;
+    ev.push({ type: "reload", weapon: pl.weapon });
   }
 
   /** One shot of the current gun: recoil and twist on the shooter, hitscan pellets, maybe a run-and-gun tumble. */
@@ -440,7 +483,8 @@ export class YeetSim {
       pl.onGround = false;
     }
     if (w.recoil > 0 && pl.onGround && aim.y < 0) pl.onGround = false; // a floor shot leaves the floor this step
-    pl.spin -= w.twist * (aimed ? w.aimedTwist : 1); // hip fire twists you right; aimed, the gun is centred
+    // hip fire twists you right; aimed, the gun is centred; in mid-air, some guns twist harder (airTwist)
+    pl.spin -= w.twist * (aimed ? w.aimedTwist : 1) * (grounded ? 1 : w.airTwist);
 
     const from = this.eye();
     const tracers: Tracer[] = [];
@@ -557,6 +601,7 @@ export class YeetSim {
       if (d > this.t.pickupRadius) continue;
       p.taken = true;
       if (!pl.owned.includes(p.weapon)) pl.owned.push(p.weapon);
+      pl.mag[p.weapon] = this.t.weapons[p.weapon].mag;
       if (!pl.crashing) {
         pl.weapon = p.weapon;
         pl.cooldown = Math.max(pl.cooldown, 0.15);
@@ -584,6 +629,8 @@ export class YeetSim {
     pl.onGround = true;
     pl.stamina = this.t.sprint.stamina;
     pl.winded = false;
+    pl.reloading = 0;
+    pl.mag = this.fullMags();
     if (fullReset) {
       pl.owned = [...lv.startWeapons];
       if (!pl.owned.includes(pl.weapon)) pl.weapon = pl.owned[0];

@@ -65,6 +65,8 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 |---|---|---|
 | Recoil movement | Each shot applies an impulse opposite the aim, plus camera/body spin; added on top of normal run/jump; limited air control | yes |
 | Hip vs aimed fire | Same push either way. Hip fire twists you right (the gun sits right of your centre); aimed, the gun is centred: little twist, tight spread. Firing any gun but the Gatling Copter knocks you out of zoom for the recoil (0.45 s), then back in if you still hold right click; a scoped Spin Doctor shot still spins you *(playtests 3, 4)* | yes |
+| Magazines | Pea Pistol 9, Boomstick 2, Spin Doctor 5, Gatling 200; reserve infinite for now; auto reload when empty, R to reload early *(playtest 5)* | yes |
+| Airborne kick | Pea Pistol and Spin Doctor shots in mid-air kick and twist twice as hard (upward kick capped, so the Gatling tower stays Boomstick-only) *(playtest 5)* | yes |
 | Sprint | Shift: 11 m/s for 3 s, refills after a rest; firing while sprinting doubles the tumble chance *(playtest 4)* | yes |
 | Run-and-gun tumble | A shot fired while moving may knock you into a tumble (no control; the camera pops out to third person to watch). Chance grows with speed and recoil, halves when aimed; the copter never tumbles you (Elaina's call) *(playtest 3)* | yes |
 | Levels | Sandbox (the open test room, every gun) and Fight Back (dummies shoot back; start with Pea Pistol + Boomstick; Spin Doctor on the ground; Gatling Copter on an 11 m tower only a Boomstick launch reaches) *(playtest 3)* | yes |
@@ -87,7 +89,8 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Jump | Space | A |
 | Melee / gunblade slash | F (was right click: moved for aiming, playtest 2) | Right bumper |
 | Sprint (a few seconds) | Shift (hold) | |
-| Respawn (toy) | R | |
+| Reload | R | |
+| Respawn (toy) | Backspace (was R) | |
 | Switch weapon | 1–4 / wheel | Y |
 | Killstreak | Q | Left bumper |
 

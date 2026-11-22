@@ -225,7 +225,7 @@ export class YeetWorld implements World {
     if (this.carry) {
       const c = this.carry;
       first = { ...first, firePressed: first.firePressed || c.firePressed, jump: first.jump || c.jump,
-        reset: first.reset || c.reset, select: first.select >= 0 ? first.select : c.select };
+        reset: first.reset || c.reset, reload: first.reload || c.reload, select: first.select >= 0 ? first.select : c.select };
       this.carry = null;
     }
     let stepped = false;
@@ -247,7 +247,7 @@ export class YeetWorld implements World {
       }
       for (const e of this.sim.step(input)) this.onEvent(e);
       stepped = true;
-      first = { ...input, jump: false, firePressed: false, select: -1, reset: false };
+      first = { ...input, jump: false, firePressed: false, select: -1, reset: false, reload: false };
       this.stats.top = Math.max(this.stats.top, pl.pos.y);
     }
     if (!stepped) this.carry = first; // nothing simulated this frame: keep its clicks for the next one
@@ -278,6 +278,7 @@ export class YeetWorld implements World {
     const copterFiring = pl.weapon === "copter" && f.fireHeld && !pl.overheated && !this.sim.helpless;
     if (copterFiring) this.sound.play("wup"); // its cooldown in the events file sets the chop rate
     this.sound.update(shell.settings.audio);
+    this.vm.setReload(pl.reloading > 0 ? 1 - pl.reloading / TUNING.weapons[pl.weapon].reload : 0);
     this.vm.update(dt, copterFiring);
     this.fx.update(dt);
     const speed = len(pl.vel);
@@ -302,6 +303,9 @@ export class YeetWorld implements World {
       stamina: pl.stamina / TUNING.sprint.stamina,
       winded: pl.winded,
       tumbling: pl.tumbling > 0 && pl.dead === 0,
+      ammo: pl.mag[pl.weapon],
+      magSize: TUNING.weapons[pl.weapon].mag,
+      reload: pl.reloading > 0 ? pl.reloading / TUNING.weapons[pl.weapon].reload : 0,
     });
   }
 
@@ -348,6 +352,7 @@ export class YeetWorld implements World {
       reset: f.reset,
       aiming,
       sprint: f.sprintHeld,
+      reload: f.reload,
     };
   }
 
@@ -418,7 +423,7 @@ export class YeetWorld implements World {
         }
         break;
       case "overheat":
-        this.hud.pop("OVERHEAT!", true);
+        this.hud.pop("OVERYEATED!", true);
         this.sound.play("sputter");
         break;
       case "crash":
@@ -464,6 +469,15 @@ export class YeetWorld implements World {
         break;
       case "playerRespawn":
         this.vm.show(pl.weapon);
+        break;
+      case "reload":
+        this.sound.play("reload");
+        break;
+      case "reloaded":
+        this.sound.play("loaded");
+        break;
+      case "dry":
+        this.sound.play("dry");
         break;
     }
   }

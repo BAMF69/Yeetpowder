@@ -51,6 +51,9 @@
              "max_voices": 1, "caption": "[tumbling]"},
   "alert": {"bus": "sfx", "files": ["sfx/alert.wav"], "pitch_semitones": [-1, 1], "volume_db": [-4, -2], "max_voices": 3,
             "cooldown_ms": 100, "caption": "[dummy takes aim]", "directional": true},
+  "reload": {"bus": "sfx", "files": ["sfx/reload.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "caption": "[reloading]"},
+  "loaded": {"bus": "sfx", "files": ["sfx/loaded.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "caption": "[reloaded]"},
+  "dry": {"bus": "sfx", "files": ["sfx/dry.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "cooldown_ms": 120, "caption": "[click: empty]"},
   "popin": {"bus": "sfx", "files": ["sfx/popin.wav"], "pitch_semitones": [-2, 2], "volume_db": [-4, -2],
             "max_voices": 3, "caption": "[pop]"}
  }

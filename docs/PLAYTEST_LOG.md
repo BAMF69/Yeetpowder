@@ -24,6 +24,19 @@ Tasks created (ROADMAP):
 ```
 
 ## Entries
+### 2026-11-21  Build 8d10b5d + playtest-5 changes (feat/reload, uncommitted)  Tester: self (Elaina the Great)
+Question being tested: (requests, not a play session)
+Quotes (exact words):
+- "if you fire the pea shooter or sniper while airborne the knockback and twist should double"
+- "change \"copter heat\" to \"copter yeat\""
+- "guns should have to reload - pistol can be 9 shots, shotgun 2, sniper 5, gatling 200. for now guns can have infinite ammo"
+Decisions / tuning changes:
+- Pea Pistol and Spin Doctor: airborne shots kick and twist x2. Their mid-air upward kick stays capped (pistol 1 m/s,
+  Spin Doctor 4 m/s): uncapped, chained Spin Doctor floor shots climbed to 72 m, past the Boomstick-only tower
+- HUD: COPTER YEAT
+- Magazines: 9 / 2 / 5 / 200, infinite reserve; reload 1.0 / 1.4 / 1.8 / 3 s; reloads on its own after the last
+  round or on an empty trigger; R reloads early; switching guns cancels a reload. Respawn moved from R to Backspace
+
 ### 2026-11-21  Build playtest-3 changes (uncommitted)  Tester: self (Elaina the Great)  Duration: a few minutes
 Question being tested: Do the new aiming rules, tumbles and Fight Back work?
 Quotes (exact words):

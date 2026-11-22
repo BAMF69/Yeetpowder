@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // fpsInput.ts
 // Purpose : The FPS controls the shell's action map does not cover: pointer-lock mouse look, mouse buttons
-//           (left fire, right aim), weapon keys 1-4, the wheel, Shift to sprint, and R to respawn. WASD, Space and Esc stay with the
+//           (left fire, right aim), weapon keys 1-4, the wheel, Shift to sprint, R to reload and Backspace to respawn. WASD, Space and Esc stay with the
 //           shell (shell.input), so rebinding and pause keep working.
 // Usage   : const fps = new FpsInput(canvas); each frame: const f = fps.take(); ... ; fps.dispose() when leaving
 // Notes   : Pointer lock needs a click (browser rule). Esc unlocks it; the game then shows "Click to play".
@@ -25,7 +25,10 @@ export interface FpsFrame {
   select: number;
   /** -1 / +1 from the wheel, or 0. */
   cycle: number;
+  /** Backspace: respawn. */
   reset: boolean;
+  /** R: reload. */
+  reload: boolean;
 }
 
 const WEAPON_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 };
@@ -40,6 +43,7 @@ export class FpsInput {
   private select = -1;
   private cycle = 0;
   private reset = false;
+  private reload = false;
   private readonly off: Array<() => void> = [];
 
   constructor(private readonly canvas: HTMLElement) {
@@ -82,7 +86,8 @@ export class FpsInput {
       const k = e as KeyboardEvent;
       if (k.repeat) return;
       if (k.code in WEAPON_KEYS) this.select = WEAPON_KEYS[k.code];
-      if (k.code === "KeyR") this.reset = true;
+      if (k.code === "KeyR") this.reload = true; // playtest 5: R reloads (respawn moved to Backspace)
+      if (k.code === "Backspace") this.reset = true;
       if (k.code === "ShiftLeft" || k.code === "ShiftRight") this.sprintHeld = true;
     });
   }
@@ -112,13 +117,14 @@ export class FpsInput {
       dx: this.dx, dy: this.dy, firePressed: this.firePressed, fireHeld: this.fireHeld && this.locked,
       aimHeld: this.aimHeld && this.locked,
       sprintHeld: this.sprintHeld,
-      select: this.select, cycle: this.cycle, reset: this.reset,
+      select: this.select, cycle: this.cycle, reset: this.reset, reload: this.reload,
     };
     this.dx = this.dy = 0;
     this.firePressed = false;
     this.select = -1;
     this.cycle = 0;
     this.reset = false;
+    this.reload = false;
     return f;
   }
 

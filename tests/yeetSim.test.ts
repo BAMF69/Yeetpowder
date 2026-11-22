@@ -89,17 +89,33 @@ describe("recoil", () => {
     expect(pushed).toBeLessThan(8); // a shove, not a launch
   });
 
-  it("a Pea Pistol shot in mid-air pushes much less than one from the ground (hover-skip)", () => {
-    const ground = newSim();
-    run(ground, 0.1);
-    fire(ground);
-    const g = ground.player.vel.z;
-    const air = newSim();
-    air.player.pos = vec(0, 6, 14);
-    air.player.onGround = false;
-    fire(air);
-    expect(air.player.vel.z).toBeLessThan(g * 0.5);
-    expect(air.player.vel.z).toBeGreaterThan(0);
+  it("Pea Pistol and Spin Doctor shots in mid-air kick and twist twice as hard (playtest 5)", () => {
+    for (const gun of [0, 2]) {
+      const w = TUNING.weapons[TUNING.weaponOrder[gun]];
+      const air = newSim();
+      select(air, gun);
+      run(air, 0.2);
+      air.player.pos = vec(0, 8, 14);
+      air.player.vel = vec(0, 0, 0);
+      air.player.onGround = false;
+      fire(air);
+      const ground = newSim();
+      select(ground, gun);
+      run(ground, 0.2);
+      fire(ground);
+      expect(air.player.vel.z, `gun ${gun} kick`).toBeCloseTo(w.recoil * 2, 0);
+      expect(air.player.spin / ground.player.spin, `gun ${gun} twist`).toBeCloseTo(2, 5);
+    }
+  });
+
+  it("a mid-air Pea Pistol shot at the floor never adds climb (no pistol jetpack)", () => {
+    const sim = newSim();
+    sim.player.pos = vec(0, 8, 14);
+    sim.player.vel = vec(0, -2, 0);
+    sim.player.onGround = false;
+    sim.look(0, -10);
+    fire(sim);
+    expect(sim.player.vel.y).toBeLessThanOrEqual(TUNING.weapons.pistol.airLiftCap + 1e-9);
   });
 
   it("a Boomstick shot at the floor is a super jump, and stays under the 25 m cap", () => {
@@ -220,7 +236,7 @@ describe("run-and-gun tumbles", () => {
     for (let i = 0; i < shots * 400 && fired < shots; i++) {
       // keep running back and forth across the room so speed stays up
       if (Math.abs(sim.player.pos.z) > 12) sim.player.yaw += Math.PI;
-      const ev = sim.step({ ...NO_INPUT, moveZ: 1, firePressed: true, fireHeld: true, aiming });
+      const ev = sim.step({ ...NO_INPUT, moveZ: 1, firePressed: true, fireHeld: true, aiming, reload: false });
       if (has(ev, "fire")) fired++;
       if (has(ev, "tumble")) tumbles++;
     }
@@ -294,6 +310,58 @@ describe("sprint (playtest 4)", () => {
     const sim = newSim();
     const w = sim.t.weapons.pistol;
     expect(sim.tumbleChance(w, 7, false, true)).toBeCloseTo(sim.tumbleChance(w, 7, false) * 2, 6);
+  });
+});
+
+describe("magazines and reloading (playtest 5)", () => {
+  it("each gun holds its magazine: pistol 9, shotgun 2, sniper 5, gatling 200", () => {
+    const sim = newSim();
+    expect(sim.player.mag).toEqual({ pistol: 9, shotgun: 2, sniper: 5, copter: 200 });
+  });
+
+  it("emptying the Boomstick reloads it on its own; it cannot fire until the reload is done, then it is full", () => {
+    const sim = newSim();
+    parkDummies(sim);
+    select(sim, 1);
+    run(sim, 0.2);
+    fire(sim);
+    run(sim, TUNING.weapons.shotgun.cooldown + 0.05);
+    const ev = fire(sim);
+    expect(has(ev, "fire")).toBe(true);
+    expect(has(ev, "reload")).toBe(true); // the last shell
+    expect(sim.player.mag.shotgun).toBe(0);
+    run(sim, TUNING.weapons.shotgun.cooldown + 0.05);
+    expect(has(fire(sim), "fire")).toBe(false); // still reloading
+    const later = run(sim, TUNING.weapons.shotgun.reload);
+    expect(has(later, "reloaded")).toBe(true);
+    expect(sim.player.mag.shotgun).toBe(2);
+    expect(has(fire(sim), "fire")).toBe(true);
+  });
+
+  it("R reloads a part-used magazine; switching guns cancels a reload; reserve ammo never runs out", () => {
+    const sim = newSim();
+    parkDummies(sim);
+    fire(sim);
+    expect(sim.player.mag.pistol).toBe(8);
+    expect(has(sim.step({ ...NO_INPUT, reload: true }), "reload")).toBe(true);
+    select(sim, 1);
+    expect(sim.player.reloading).toBe(0);
+    expect(sim.player.mag.pistol).toBe(8); // the cancelled reload did not fill it
+    select(sim, 0);
+    let shots = 0;
+    for (let i = 0; i < 120 * 30; i++) if (has(sim.step({ ...NO_INPUT, firePressed: true }), "fire")) shots++;
+    expect(shots).toBeGreaterThan(50); // many magazines, never out
+  });
+
+  it("the Gatling Copter stops pushing when its 200 rounds run out mid-burst, then reloads", () => {
+    const sim = newSim();
+    parkDummies(sim);
+    select(sim, 3);
+    run(sim, 0.2);
+    sim.player.mag.copter = 3;
+    const ev = run(sim, 0.5, { fireHeld: true });
+    expect(ev.filter((e) => e.type === "fire").length).toBe(3);
+    expect(has(ev, "reload")).toBe(true);
   });
 });
 
@@ -478,6 +546,23 @@ describe("Fight Back: guns and pickups", () => {
       top = Math.max(top, sim.player.pos.y);
     }
     expect(top).toBeLessThan(TOWER_TOP - 1);
+  });
+
+  it("the Spin Doctor cannot reach the tower top either, firing at the floor from the ground and again in mid-air", () => {
+    const sim = newSim(fightLevel());
+    parkDummies(sim);
+    sim.player.owned.push("sniper");
+    select(sim, 2);
+    run(sim, 0.2);
+    sim.player.pos = vec(-13.5, 2.5, -19.5); // on the highest crate
+    sim.player.onGround = true;
+    sim.look(0, -10);
+    let top = 0;
+    for (let i = 0; i < 600; i++) {
+      sim.step({ ...NO_INPUT, firePressed: true }); // every shot the gun allows, ground and air
+      top = Math.max(top, sim.player.pos.y);
+    }
+    expect(top).toBeLessThan(TOWER_TOP - 0.5);
   });
 
   it("being knocked out resets your guns and puts the pickups back", () => {

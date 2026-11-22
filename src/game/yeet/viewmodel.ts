@@ -99,6 +99,8 @@ export class Viewmodel {
   private blowAmp = BLOW.angle;
   private flingAmp = 1;
   private aim = 0;
+  /** Reload progress 0..1 (0 = not reloading): the gun dips and tilts. */
+  private reloadP = 0;
   /** True while the Spin Doctor's scope covers the view (the HUD draws the scope). */
   scoped = false;
   private spin = 0;
@@ -218,6 +220,11 @@ export class Viewmodel {
     }
   }
 
+  /** Reload progress 0..1 (0 when not reloading). */
+  setReload(p: number): void {
+    this.reloadP = Math.max(0, Math.min(1, p));
+  }
+
   /** How far the gun is raised to the sights, 0 (hip) .. 1 (aimed). */
   setAim(a: number): void {
     this.aim = Math.max(0, Math.min(1, a));
@@ -264,8 +271,12 @@ export class Viewmodel {
     hand.y += up * BLOW_UP;
     hand.z -= up * 0.05;
     this.placeHand(hand);
+    // reloading: the gun dips down and rolls over, then comes back up (a placeholder reload)
+    const dip = this.reloadP > 0 ? Math.sin(Math.PI * this.reloadP) : 0;
+    this.armR.rotation.x -= dip * 0.55;
     // the wrist snaps the barrel up before the arm follows (pistol)
     this.mount.rotation.x = flip * FLIP.angle * (this.blowAmp / BLOW.angle);
+    this.mount.rotation.z = dip * 0.9;
     this.scoped = this.current === "sniper" && this.aim > SCOPE_AT;
     this.armR.visible = !this.scoped;
 

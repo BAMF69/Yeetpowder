@@ -24,8 +24,14 @@ export interface WeaponTuning {
   cooldown: number;
   /** Velocity kick on the shooter, opposite the aim (m/s). The heart of the game. Same aimed or hip. */
   recoil: number;
-  /** Fraction of the recoil a shot fired in mid-air gives (the pistol's hover-skip; 1 = full). */
+  /** Multiplier on the recoil of a shot fired in mid-air (playtest 5: Pea Pistol and Spin Doctor double). */
   airRecoil: number;
+  /** Multiplier on the twist of a shot fired in mid-air. */
+  airTwist: number;
+  /** Rounds per magazine; reserve ammo is infinite for now (playtest 5). */
+  mag: number;
+  /** Seconds to reload a magazine. */
+  reload: number;
   /**
    * Mid-air shots cannot push your upward speed past this (m/s): the pistol can slow a fall (hover-skip) but not
    * climb. Big guns: no cap (999).
@@ -53,6 +59,12 @@ export interface WeaponTuning {
   /** Screen shake trauma added per shot (0..1). */
   trauma: number;
 }
+
+/**
+ * The airborne Spin Doctor's lift cap (m/s): its doubled air kick chained floor shots up to 72 m (tests), past the
+ * Boomstick-only Gatling tower. Up to 4 m/s, a mid-air floor shot only slows a fall; sideways kicks still double.
+ */
+const SNIPER_AIR_LIFT = 4;
 
 export const TUNING = {
   /** Fixed simulation step (s). The render loop runs as many steps as real time needs. */
@@ -162,23 +174,24 @@ export const TUNING = {
     pistol: {
       name: "Pea Pistol", auto: false, cooldown: 0.16,
       recoil: 11, // playtest 3: 7.5 -> 11 ("still more kickback")
-      airRecoil: 0.32, // mid-air taps roughly cancel gravity: hover-skip, not a jetpack (keeps the tower shotgun-only)
-      airLiftCap: 1, // ... and they can slow a fall but never add climb
+      airRecoil: 2, airTwist: 2, // playtest 5: airborne shots kick and twist twice as hard
+      airLiftCap: 1, // ... but mid-air pistol shots never add climb (no jetpack; keeps the tower shotgun-only)
+      mag: 9, reload: 1.0,
       twist: 1.2, aimedTwist: 0.15, hop: 4.5, damage: 15, pellets: 1,
       spread: 0, knockback: 2.5, range: 80, trauma: 0.14,
     },
     shotgun: {
-      name: "Boomstick", auto: false, cooldown: 0.75, recoil: 30, airRecoil: 1, airLiftCap: 999,
+      name: "Boomstick", auto: false, cooldown: 0.75, recoil: 30, airRecoil: 1, airTwist: 1, airLiftCap: 999, mag: 2, reload: 1.4,
       twist: 3, aimedTwist: 0.15, hop: 0, damage: 9, pellets: 9,
       spread: 0.09, knockback: 2.2, range: 30, trauma: 0.5,
     },
     sniper: {
-      name: "Spin Doctor", auto: false, cooldown: 1.1, recoil: 16, airRecoil: 1, airLiftCap: 999,
+      name: "Spin Doctor", auto: false, cooldown: 1.1, recoil: 16, airRecoil: 2, airTwist: 2, airLiftCap: SNIPER_AIR_LIFT, mag: 5, reload: 1.8,
       twist: 14, aimedTwist: 0.7, hop: 0, damage: 100, pellets: 1, // a top from the hip; scoped, still a spin (playtest 4)
       spread: 0, knockback: 16, range: 200, trauma: 0.55,
     },
     copter: {
-      name: "Gatling Copter", auto: true, cooldown: 0.06, recoil: 0, airRecoil: 1, airLiftCap: 999, twist: 0, aimedTwist: 0, hop: 0, damage: 5,
+      name: "Gatling Copter", auto: true, cooldown: 0.06, recoil: 0, airRecoil: 1, airTwist: 1, airLiftCap: 999, mag: 200, reload: 3, twist: 0, aimedTwist: 0, hop: 0, damage: 5,
       pellets: 1, spread: 0.03, knockback: 1.2, range: 60, trauma: 0.06,
     },
   } satisfies Record<WeaponId, WeaponTuning>,

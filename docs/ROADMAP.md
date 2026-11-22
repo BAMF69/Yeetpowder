@@ -18,6 +18,7 @@
 - Sound captions on screen (the events have captions; they need the kit's dialogue build to show: SOP-20, Vertical slice)
 - Music (surf-rock / spy-jazz, Wavesmith chiptune) once the sound effects feel right
 - Melee / gunblade slash on F (right click is aim now)
+- Limited reserve ammo and ammo pickups (magazines are in; reserve is infinite for now)
 - Fight Back win condition (knock them all out within a time? waves?) and dummies that move
 - Next tier: Fight Back's shooting dummies are MVP-style bots; consider /next-tier once the toy's fun is proven
 - 
@@ -34,6 +35,7 @@ detail.
 | M4 Release candidate (v1.0.0-rc.N, then v1.0.0) | `/release-check` green | |
 
 ## Done (recent, newest first)
+- 2026-11-21: Playtest 5 changes: airborne Pea Pistol and Spin Doctor kick and twist x2, COPTER YEAT, magazines and reloading (R; respawn on Backspace)
 - 2026-11-21: Playtest 4 changes: auto re-zoom after the recoil, Shift sprint (doubles tumble chance), tumble tip, logo title screen, scoped Spin Doctor spins, lowest audio latency + lost-click fix on fast monitors
 - 2026-11-21: Playtest 3 changes: arm glitch fixed; twist-based hip vs aimed fire (same push), zoom knock-out on every gun but the copter; Pea Pistol 11 m/s with a hover-skip that cannot climb; run-and-gun tumbles with a third-person camera; levels (Sandbox + Fight Back: dummies shoot back, pickups, Boomstick-only Gatling tower); 7 more sounds
 - 2026-11-21: Placeholder sounds made in code (14 events, 29 WAVs): every gun, copter rotor, slide-whistle launches, bonks, hits, knockouts, overheat, crash

@@ -23,6 +23,9 @@ The toy is playable (Toy tier, nothing committed yet for it). One gray-box room:
 - Copter now climbs ~100 m in 5 s at full thrust: watch whether hovering still works in play.
 - Twist amounts, tumble chances and AI timing are Claude's picks (TUNING.weapons.*.twist, TUNING.tumble, TUNING.ai): confirm in play.
 - Decided (Elaina, 2026-11-21): the Gatling Copter never tumbles you when fired on the run.
+- Playtest 5 on branch feat/reload (from main 8d10b5d): airborne x2 kick/twist, COPTER YEAT, magazines + reload.
+- The ?operative art experiment (Quaternius SWAT model, Meshy trials) lives on its own branch, feat/operative-art,
+  built on feat/reload. The raw 265 MB "Modular Men" pack stays local and is gitignored (CC0, re-downloadable).
 - "Gunshots seem late" (playtest 4): files and scheduling are immediate; asked for the lowest latency and log it ("audio latency: ..." after the first click, ?debug not needed). Ask Elaina if it is better; if not, check the logged output latency.
 - Placeholder sounds are in (Elaina asked): balance by ear in play; tune recipes in tools/audio/yeet_sounds.py and rerun it.
 - Pointer lock, mouse look and the feel on a real GPU are not verified by a test (headless smoke cannot click-lock); first human run checks them.

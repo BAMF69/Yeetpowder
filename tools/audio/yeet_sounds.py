@@ -87,6 +87,15 @@ SOUNDS = {
     # a dummy starts glowing: about to shoot
     "alert": ({"wave": "square", "freq": 1100, "duty": 0.3, "repeat": 0.09, "sustain": 0.17, "decay": 0.03,
                "volume": 0.26}, [1.0]),
+    # reload starts: a mechanical clack (magazine out)
+    "reload": ({"wave": "noise", "freq": 900, "slide": -1.0, "repeat": 0.09, "sustain": 0.16, "decay": 0.05,
+                "punch": 0.5, "lowpass": 5000, "highpass": 400, "volume": 0.32}, [1.0]),
+    # reload done: a two-tone "chk-chk"
+    "loaded": ({"wave": "square", "freq": 700, "arp_mult": 1.6, "arp_time": 0.05, "duty": 0.25, "sustain": 0.06,
+                "decay": 0.06, "punch": 0.5, "lowpass": 6000, "volume": 0.3}, [1.0]),
+    # pulling the trigger on an empty gun: a dry click
+    "dry": ({"wave": "noise", "freq": 1800, "sustain": 0.008, "decay": 0.03, "punch": 0.6, "highpass": 800,
+             "volume": 0.3}, [1.0]),
     # dummy respawn: a soft pop-in
     "popin": ({"wave": "square", "freq": 420, "slide": 1.6, "duty": 0.35, "sustain": 0.05, "decay": 0.12,
                "lowpass": 6000, "volume": 0.3}, [1.0]),

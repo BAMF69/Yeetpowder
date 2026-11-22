@@ -1,0 +1,16 @@
+{
+ "tool": "sfx_synth",
+ "name": "reload",
+ "params": {
+  "wave": "noise",
+  "freq": 900.0,
+  "slide": -1.0,
+  "repeat": 0.09,
+  "sustain": 0.16,
+  "decay": 0.05,
+  "punch": 0.5,
+  "lowpass": 5000,
+  "highpass": 400,
+  "volume": 0.32
+ }
+}
