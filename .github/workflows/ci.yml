@@ -91,6 +91,10 @@ jobs:
         run: |
           if [ "$ENGINE" = love2d ]; then xvfb-run -a python tools/dev.py check; else python tools/dev.py check; fi
 
+      - name: Test wrapper regression tests (web, web-3d)
+        if: env.ENGINE == 'web' || env.ENGINE == 'web-3d'
+        run: python -m unittest discover -s tests -p test_dev.py
+
       - name: dev.py test
         if: env.ENGINE != 'unity' && env.ENGINE != 'unreal' && env.ENGINE != 'rpgmaker-mz'
         run: |
