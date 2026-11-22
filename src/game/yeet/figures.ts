@@ -9,6 +9,7 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
+import { loadCharacter, type Character } from "../character";
 
 export const PIVOT = 0.85; // m: figure centre above the feet
 
@@ -19,6 +20,8 @@ const LENS = "#7fd6ff";
 const BOOT = "#3a3a44";
 
 export interface DummyFigure {
+  /** Optional art experiment; retains the existing pivot, health bar and hit feedback. */
+  loadOperative(): Promise<void>;
   root: THREE.Group;
   /** 0..1: the health bar above the head. */
   setHp(frac: number): void;
@@ -50,6 +53,9 @@ export function makeDummy(suit: string): DummyFigure {
     parent.add(mesh);
     return mesh;
   };
+  let operative: Character | null = null;
+  let reactionLeft = 0;
+  const operativeMats: THREE.MeshStandardMaterial[] = [];
   const suitMat = mat(suit);
   // legs and boots
   add(new THREE.CapsuleGeometry(0.11, 0.3, 3, 8), suitMat, -0.13, 0.3, 0);
@@ -97,6 +103,31 @@ export function makeDummy(suit: string): DummyFigure {
   let pulse = 0;
   return {
     root,
+    async loadOperative() {
+      const model = await loadCharacter("assets/models/quaternius/modular_men/Swat.gltf");
+      const bounds = new THREE.Box3().setFromObject(model.root);
+      const scale = (PIVOT * 2) / (bounds.max.y - bounds.min.y);
+      model.root.scale.multiplyScalar(scale);
+      model.root.position.set(-(bounds.min.x + bounds.max.x) * scale / 2, -bounds.min.y * scale,
+        -(bounds.min.z + bounds.max.z) * scale / 2);
+      model.root.traverse((node) => {
+        if (!(node instanceof THREE.Mesh)) return;
+        node.castShadow = true;
+        geos.push(node.geometry);
+        for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+          mats.push(material);
+          if (material instanceof THREE.MeshStandardMaterial) {
+            material.roughness = 0.95;
+            operativeMats.push(material);
+          }
+        }
+      });
+      // Keep primitive resources until dispose, but hide them once the model is ready.
+      for (const child of body.children) child.visible = false;
+      body.add(model.root);
+      operative = model;
+      model.play("Idle_Gun", { fade: 0 });
+    },
     setHp(frac) {
       const f = Math.max(0, Math.min(1, frac));
       fg.scale.x = Math.max(0.001, f);
@@ -106,6 +137,10 @@ export function makeDummy(suit: string): DummyFigure {
     },
     flash() {
       flashT = 0.08;
+      if (operative?.clips.has("HitRecieve")) {
+        reactionLeft = operative.clips.get("HitRecieve")!.duration;
+        operative.play("HitRecieve", { loop: false, restart: true, fade: 0.04 });
+      }
     },
     setAlert(v) {
       alert = Math.max(0, Math.min(1, v));
@@ -116,12 +151,20 @@ export function makeDummy(suit: string): DummyFigure {
       const e = flashT > 0 ? 0.9 : 0;
       const red = alert > 0 ? (0.45 + 0.35 * Math.sin(pulse)) * alert : 0;
       suitMat.emissive.setRGB(Math.max(e, red), e, e);
+      for (const material of operativeMats) material.emissive.copy(suitMat.emissive);
+      if (operative && reactionLeft > 0) {
+        reactionLeft = Math.max(0, reactionLeft - dt);
+        if (reactionLeft === 0) operative.play("Idle_Gun", { fade: 0.1 });
+      }
+      operative?.update(dt);
       // the bar faces the camera whatever the body's tumble
       barRoot.quaternion.copy(root.quaternion).invert().multiply(camera.quaternion);
     },
     dispose() {
-      for (const g of geos) g.dispose();
-      for (const m of mats) m.dispose();
+      operative?.mixer.stopAllAction();
+      if (operative) operative.mixer.uncacheRoot(operative.root);
+      for (const g of new Set(geos)) g.dispose();
+      for (const m of new Set(mats)) m.dispose();
     },
   };
 }
