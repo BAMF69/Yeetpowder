@@ -11,7 +11,7 @@
 - [ ] Minimal touch controls for the phone
 - [ ] Sound captions on screen (the events have captions; wire the kit's dialogue build: SOP-20)
 - [ ] Music: surf-rock / spy-jazz loop made in code (Wavesmith chiptune)
-- [ ] `/shader`: the keyframes' look (painted low-res textures, simple lighting, selective hard edges) on the slice room, figures and guns
+- [ ] Art approval sample (GDD): one operative model and one separate shotgun in the painted room, compared with the shotgun keyframe; then figures and guns
 - [ ] `/asset-intake` + Wavesmith: free model packs with licences checked for the slice's figures and room; balance the code-made sounds
 
 ## Later
@@ -35,6 +35,7 @@ detail.
 | M4 Release candidate (v1.0.0-rc.N, then v1.0.0) | `/release-check` green | |
 
 ## Done (recent, newest first)
+- 2026-11-22: First art pass (/shader item): painted textures in code, ceilings with light panels, wall band, steel doors, crates, hazard trim, interior lighting; kit shader goldens unchanged (11/11)
 - 2026-11-22: Launch camera kick-out (YEET launches swing the camera out to your right for ~0.7 s; C toggles, reduce motion off); Sakura upward dash smaller than forward (tower Boomstick-only again); hero landing after Reaper backflips
 - 2026-11-21: Duel netcode first build: multiplayer sim (PvP), Duel room, ws server on this PC (rooms by code), client prediction (exact in tests), lobby + share link, other player interpolated; socket and two-browser smokes pass. Not yet played by two humans
 - 2026-11-21: Gunblades single-player done (Elaina: Reap and full Sakura combo landed on purpose; "both are fun", "yeetreap is awesome")

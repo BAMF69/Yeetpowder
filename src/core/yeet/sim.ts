@@ -499,7 +499,7 @@ export class YeetSim {
     }
     pl.onGround = res.onGround;
 
-    if (res.wallImpact >= t.bonk.speed && res.wallNormal) {
+    if (res.wallImpact >= t.bonk.speed && res.wallNormal && res.wallNormal.y === 0) { // walls bonk; a ceiling just stops you
       pl.stun = Math.max(pl.stun, t.bonk.stun);
       addScaled(pl.vel, res.wallNormal, res.wallImpact * t.bonk.bounce);
       ev.push({ type: "bonk", who: "player", at: copy(pl.pos), speed: res.wallImpact });
@@ -1187,7 +1187,7 @@ export class YeetSim {
     d.vel.y -= t.gravity * dt;
     const res = moveBody(this.arena, d.pos, d.vel, dt, t.player.halfWidth, t.player.height);
     d.onGround = res.onGround;
-    if (res.wallImpact >= t.bonk.speed && res.wallNormal) {
+    if (res.wallImpact >= t.bonk.speed && res.wallNormal && res.wallNormal.y === 0) { // walls bonk; a ceiling just stops you
       d.stun = t.bonk.stun * 2; // dummies stay dizzy a bit longer: it reads better from across the room
       addScaled(d.vel, res.wallNormal, res.wallImpact * t.bonk.bounce);
       ev.push({ type: "bonk", who: i, at: copy(d.pos), speed: res.wallImpact });

@@ -155,16 +155,18 @@ export class YeetWorld implements World {
   };
 
   constructor(aspect: number) {
-    this.scene.background = new THREE.Color("#9fcbea");
-    this.scene.fog = new THREE.Fog("#9fcbea", 45, 130);
+    // an interior (the rooms have ceilings now): dark, with soft fog for depth (GDD: restrained lighting)
+    this.scene.background = new THREE.Color("#1c1e22");
+    this.scene.fog = new THREE.Fog("#30343a", 55, 170); // light fog: the keyframe has almost none, and the 24 m ceiling must not vanish
     this.camera = new THREE.PerspectiveCamera(75, aspect, 0.05, 300);
     this.camera.rotation.order = "YXZ";
     this.scene.add(this.camera);
     this.camera.add(this.vm.root);
 
-    this.scene.add(new THREE.HemisphereLight("#e8f3ff", "#6b5a48", 1.3));
-    const sun = new THREE.DirectionalLight("#fff4e0", 2.2);
-    sun.position.set(12, 30, 8);
+    // cool fluorescent fill from above, warm bounce from the floor, and one overhead key for shadows
+    this.scene.add(new THREE.HemisphereLight("#d6e2ef", "#4a3f33", 1.05));
+    const sun = new THREE.DirectionalLight("#f3f1e6", 1.7);
+    sun.position.set(6, 30, 4);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera;
