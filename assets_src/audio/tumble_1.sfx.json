@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "tumble_1",
+ "params": {
+  "wave": "sine",
+  "freq": 700.0,
+  "slide": -2.0,
+  "vibrato_depth": 2,
+  "vibrato_rate": 14,
+  "sustain": 0.35,
+  "decay": 0.12,
+  "volume": 0.4
+ }
+}

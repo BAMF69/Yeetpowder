@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "ko",
+ "params": {
+  "wave": "sine",
+  "freq": 900.0,
+  "slide": -1.4,
+  "vibrato_depth": 0.6,
+  "vibrato_rate": 8,
+  "sustain": 0.7,
+  "decay": 0.25,
+  "volume": 0.42
+ }
+}

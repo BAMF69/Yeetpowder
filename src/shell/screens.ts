@@ -64,9 +64,16 @@ export function boot(shell: Shell): Screen {
 
 export function title(shell: Shell): Screen {
   const s = built("title", "", (root) => {
+    // Yeetpowder: the logo art is the title screen (letterboxed on its own near-black, never cropped); the game's
+    // name is the screen's aria-label for screen readers. Art: public/assets/ui/title_logo.jpg (docs/ASSET_LOG.md A-0002).
+    root.style.background = "#0e0c0a url(assets/ui/title_logo.jpg) center / contain no-repeat";
+    root.style.alignItems = "flex-end";
     const col = el("div", "");
     col.style.textAlign = "center";
-    col.append(tl(shell.i18n, "game.title", "bigtitle", { name: GAME_NAME }, "div"), tl(shell.i18n, "title.press", "press blink", {}, "div"));
+    col.style.marginBottom = "12vh";
+    root.setAttribute("role", "img"); // the logo picture carries the name for screen readers
+    root.setAttribute("aria-label", shell.i18n.t("game.title", { name: GAME_NAME }));
+    col.append(tl(shell.i18n, "title.press", "press blink", {}, "div"));
     root.append(col, tl(shell.i18n, "version", "corner", { v: GAME_VERSION }, "div"));
     root.addEventListener("click", () => shell.topId === "title" && shell.replace(menu(shell)));
   }, {
@@ -109,7 +116,14 @@ export function menu(shell: Shell): Screen {
     p.append(tl(shell.i18n, "game.title", "heading", { name: GAME_NAME }, "div"));
     const list = el("div", "list");
     const add = (key: string, fn: () => void) => list.append(m.add(buttonItem(shell.i18n, key, fn)).el);
-    add("menu.play", () => shell.startGame("main"));
+    add("menu.play", () => {
+      shell.worldOption = ""; // Yeetpowder: Fight Back
+      shell.startGame("main");
+    });
+    add("menu.sandbox", () => {
+      shell.worldOption = "sandbox"; // Yeetpowder: the open test room, every gun
+      shell.startGame("main");
+    });
     add("menu.settings", () => shell.push(settingsScreen(shell)));
     add("menu.credits", () => shell.push(creditsScreen(shell)));
     if (shell.debugBuild) add("menu.juice", () => shell.startGame("juice"));

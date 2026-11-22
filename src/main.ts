@@ -6,7 +6,7 @@
 // Notes   : The shell is imported first: its crash hook (crash file + Log.error, which `dev.py smoke` fails on) is
 //           in place before anything else runs, a renderer that cannot start included. The shell starts after the
 //           FIRST RENDERED FRAME and logs BOOT_OK once the title screen is up, so smoke proves the renderer really
-//           draws, not just that the script loaded. Worlds: "main" (Play, src/game/Game.ts) and "juice" (the juice
+//           draws, not just that the script loaded. Worlds: "main" (Play, src/game/YeetWorld.ts: the Yeetpowder toy) and "juice" (the juice
 //           demo, src/game/JuiceWorld.ts); the Backdrop is the still picture behind the menus. The shell's input
 //           layer (src/shell/input.ts) reads keyboard and pads for menus and worlds alike. Under automation the
 //           Dotwork check (src/game/dotwork/boot.ts) loads every asset manifest before the shell starts.
@@ -18,7 +18,7 @@ import { shell } from "./shell/app";
 import * as THREE from "three";
 import { Backdrop } from "./game/Backdrop";
 import { dotworkCheck } from "./game/dotwork/boot";
-import { Game } from "./game/Game";
+import { YeetWorld } from "./game/YeetWorld";
 import { JuiceWorld } from "./game/JuiceWorld";
 import { ThreeHost } from "./game/threeHost";
 
@@ -44,7 +44,7 @@ const aspect = host.clientWidth / Math.max(host.clientHeight, 1);
 export const game = new ThreeHost(
   renderer,
   new Backdrop(aspect),
-  { main: (a) => new Game(a), juice: (a) => new JuiceWorld(a) },
+  { main: (a) => new YeetWorld(a), juice: (a) => new JuiceWorld(a) },
   (err) => shell.crash(err),
 );
 window.addEventListener("resize", () => game.resize(host.clientWidth, host.clientHeight));

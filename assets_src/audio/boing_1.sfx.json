@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "boing_1",
+ "params": {
+  "wave": "sine",
+  "freq": 260.0,
+  "slide": 0.9,
+  "vibrato_depth": 5,
+  "vibrato_rate": 13,
+  "sustain": 0.28,
+  "decay": 0.22,
+  "volume": 0.45
+ }
+}

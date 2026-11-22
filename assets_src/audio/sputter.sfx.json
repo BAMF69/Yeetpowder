@@ -1,0 +1,17 @@
+{
+ "tool": "sfx_synth",
+ "name": "sputter",
+ "params": {
+  "wave": "square",
+  "freq": 760.0,
+  "slide": -0.8,
+  "duty": 0.3,
+  "vibrato_depth": 3,
+  "vibrato_rate": 19,
+  "repeat": 0.12,
+  "sustain": 0.45,
+  "decay": 0.15,
+  "lowpass": 5000,
+  "volume": 0.36
+ }
+}

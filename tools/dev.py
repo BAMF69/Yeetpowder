@@ -390,8 +390,11 @@ def cmd_test(args):
     if re.search(r"No test files found", out):
         print("[FAIL] no tests ran (nothing matches tests/**/*.test.ts)")
         return 2
-    m = re.search(r"Tests\s+(?:(\d+) failed \| )?(\d+) passed", out)
-    skipped = re.search(r"Tests\s+(\d+) skipped", out)
+    # CI reporters can put ANSI styling between the count and "passed".
+    # Parse visible text, while preserving the original output for diagnostics.
+    summary = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out)
+    m = re.search(r"Tests\s+(?:(\d+) failed \| )?(\d+) passed", summary)
+    skipped = re.search(r"Tests\s+(\d+) skipped", summary)
     if rc == 0 and not m and skipped:   # #295: every test skipped (it.skip, skipIf) is a setup gap, not a failure
         print(f"[SKIP] all {skipped.group(1)} test(s) skipped, none ran (exit 2): it.skip, describe.skip or skipIf")
         return 2

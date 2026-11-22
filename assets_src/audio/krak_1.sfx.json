@@ -1,0 +1,15 @@
+{
+ "tool": "sfx_synth",
+ "name": "krak_1",
+ "params": {
+  "wave": "noise",
+  "freq": 620.0,
+  "slide": -2.2,
+  "sustain": 0.025,
+  "decay": 0.4,
+  "punch": 0.9,
+  "lowpass": 7000,
+  "highpass": 180,
+  "volume": 0.45
+ }
+}

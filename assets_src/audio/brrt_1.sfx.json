@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "brrt_1",
+ "params": {
+  "wave": "noise",
+  "freq": 320.0,
+  "slide": -1.5,
+  "sustain": 0.008,
+  "decay": 0.045,
+  "punch": 0.6,
+  "lowpass": 4500,
+  "volume": 0.4
+ }
+}

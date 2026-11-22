@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "splat_1",
+ "params": {
+  "wave": "noise",
+  "freq": 240.0,
+  "slide": -1.6,
+  "sustain": 0.01,
+  "decay": 0.12,
+  "punch": 0.5,
+  "lowpass": 2200,
+  "volume": 0.4
+ }
+}

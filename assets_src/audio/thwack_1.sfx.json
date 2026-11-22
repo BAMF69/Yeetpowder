@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "thwack_1",
+ "params": {
+  "wave": "saw",
+  "freq": 380.0,
+  "slide": -3.0,
+  "sustain": 0.02,
+  "decay": 0.12,
+  "punch": 0.5,
+  "lowpass": 3500,
+  "volume": 0.38
+ }
+}

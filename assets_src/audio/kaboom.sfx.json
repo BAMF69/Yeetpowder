@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "kaboom",
+ "params": {
+  "wave": "noise",
+  "freq": 105.0,
+  "slide": -0.6,
+  "sustain": 0.15,
+  "decay": 0.95,
+  "punch": 0.7,
+  "lowpass": 3000,
+  "volume": 0.45
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "lob_2",
+ "params": {
+  "wave": "square",
+  "freq": 324.0,
+  "slide": 1.8,
+  "duty": 0.4,
+  "sustain": 0.04,
+  "decay": 0.1,
+  "lowpass": 4000,
+  "volume": 0.35
+ }
+}
