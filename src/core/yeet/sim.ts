@@ -64,6 +64,9 @@ export const NO_INPUT: YeetInput = {
 
 export type FlipKind = "backflip" | "frontflip" | "cartwheel";
 
+/** Targets of melee, the hook and the finisher: a dummy index, or PLAYER_CODE + a player index. */
+export const PLAYER_CODE = 1000;
+
 export interface Tracer {
   from: Vec3;
   to: Vec3;
@@ -102,7 +105,12 @@ export type YeetEvent =
   | { type: "yeetreap"; dummy: number }
   | { type: "stance"; on: boolean }
   | { type: "dash" }
-  | { type: "ultraslash"; hits: number; round: number; last: boolean };
+  | { type: "ultraslash"; hits: number; round: number; last: boolean }
+  | { type: "pvpHit"; by: number; target: number; damage: number; at: Vec3 }
+  | { type: "pvpDown"; by: number; target: number };
+
+/** An event with the index of the player it belongs to (step() tags every player-caused event). */
+export type TaggedEvent = YeetEvent & { p?: number };
 
 export interface PlayerState {
   pos: Vec3;
@@ -200,7 +208,12 @@ const PM_A = 16807;
 const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 export class YeetSim {
-  readonly player: PlayerState;
+  /** Every player in the room (index 0 = player 1). Single player: one. */
+  readonly players: PlayerState[];
+  /** Knockouts scored by each player on other players (duels). */
+  readonly kos: number[];
+  /** The player being stepped right now; between steps, player 1. Most rules read `this.player`. */
+  private cur = 0;
   readonly dummies: DummyState[];
   readonly balls: Ball[] = [];
   readonly pickups: PickupState[];
@@ -208,14 +221,39 @@ export class YeetSim {
   time = 0;
   private seed: number;
 
-  constructor(
-    readonly t: Tuning,
-    readonly level: Level,
-  ) {
+  readonly t: Tuning;
+  readonly level: Level;
+
+  constructor(t: Tuning, level: Level, playerCount = 1) {
+    this.t = t;
+    this.level = level;
     this.seed = Math.max(1, Math.floor(level.seed) % PM_M);
-    const s = level.spawn;
-    this.player = {
-      pos: copy(s), vel: vec(), yaw: level.spawnYaw, pitch: 0, spin: 0, onGround: true, stun: 0,
+    this.players = [];
+    for (let i = 0; i < Math.max(1, playerCount); i++) this.players.push(this.makePlayer(i));
+    this.kos = this.players.map(() => 0);
+    this.dummies = level.arena.dummySpawns.map((sp, i) => ({
+      pos: copy(sp), vel: vec(), spawn: copy(sp), hp: t.dummy.hp, onGround: true, stun: 0, down: 0, tumble: 0,
+      face: 0, aiming: 0, aiCooldown: 1.5 + i * 0.45,
+    }));
+    this.pickups = level.pickups.map((p) => ({ weapon: p.weapon, pos: copy(p.pos), taken: false }));
+  }
+
+  /** The player being stepped (between steps: player 1). */
+  get player(): PlayerState {
+    return this.players[this.cur];
+  }
+
+  private spawnOf(i: number): { pos: Vec3; yaw: number } {
+    const lv = this.level;
+    return { pos: copy(lv.spawns?.[i] ?? lv.spawn), yaw: lv.spawnYaws?.[i] ?? lv.spawnYaw };
+  }
+
+  private makePlayer(i: number): PlayerState {
+    const t = this.t;
+    const level = this.level;
+    const sp = this.spawnOf(i);
+    return {
+      pos: sp.pos, vel: vec(), yaw: sp.yaw, pitch: 0, spin: 0, onGround: true, stun: 0,
       weapon: level.startWeapons[0], owned: [...level.startWeapons], cooldown: 0, heat: 0, crashing: false,
       overheated: false, yeeted: false, hp: t.player.hp, dead: 0, tumbling: 0, tumbleAge: 0, tumbleRoll: 0,
       stamina: t.sprint.stamina, sprinting: false, winded: false, sprintRest: 0,
@@ -224,11 +262,6 @@ export class YeetSim {
       holdT: 0, holdUsed: false, hook: -1, hookT: 0, stance: false, slashHit: -1,
       stanceDashed: false, ultraLeft: 0, ultraT: 0, ultraRound: 0,
     };
-    this.dummies = level.arena.dummySpawns.map((sp, i) => ({
-      pos: copy(sp), vel: vec(), spawn: copy(sp), hp: t.dummy.hp, onGround: true, stun: 0, down: 0, tumble: 0,
-      face: 0, aiming: 0, aiCooldown: 1.5 + i * 0.45,
-    }));
-    this.pickups = level.pickups.map((p) => ({ weapon: p.weapon, pos: copy(p.pos), taken: false }));
   }
 
   private fullMags(): Record<WeaponId, number> {
@@ -247,9 +280,9 @@ export class YeetSim {
     return (this.seed - 1) / (PM_M - 1);
   }
 
-  /** Mouse/stick look, applied between steps (rad). */
-  look(dYaw: number, dPitch: number): void {
-    const pl = this.player;
+  /** Mouse/stick look, applied between steps (rad). `who` = which player (default player 1). */
+  look(dYaw: number, dPitch: number, who = 0): void {
+    const pl = this.players[who] ?? this.player;
     pl.yaw += dYaw;
     pl.pitch = Math.max(-this.t.player.maxPitch, Math.min(this.t.player.maxPitch, pl.pitch + dPitch));
   }
@@ -269,14 +302,91 @@ export class YeetSim {
     return vec(p.x, p.y + this.t.player.eyeHeight, p.z);
   }
 
-  step(input: YeetInput): YeetEvent[] {
-    const ev: YeetEvent[] = [];
+  /** One fixed step. One input (single player) or one per player (a duel). Events carry `p`, their player. */
+  step(input: YeetInput | YeetInput[]): TaggedEvent[] {
+    const inputs = Array.isArray(input) ? input : [input];
+    const ev: TaggedEvent[] = [];
     const dt = this.t.step;
     this.time += dt;
-    this.stepPlayer(input, dt, ev);
+    for (let i = 0; i < this.players.length; i++) {
+      this.cur = i;
+      const start = ev.length;
+      this.stepPlayer(inputs[i] ?? NO_INPUT, dt, ev);
+      for (let k = start; k < ev.length; k++) if (ev[k].p === undefined) ev[k].p = i;
+    }
+    this.cur = 0;
     this.dummies.forEach((d, i) => this.stepDummy(d, i, dt, ev));
     this.stepBalls(dt, ev);
     return ev;
+  }
+
+  // ---- targets: dummies and (in a duel) the other players ------------------------------
+  /** Calls fn for every standing target the current player could hit: dummies, then the other live players. */
+  private eachTarget(fn: (code: number, pos: Vec3) => void): void {
+    this.dummies.forEach((d, i) => {
+      if (d.down === 0) fn(i, d.pos);
+    });
+    this.players.forEach((p, j) => {
+      if (j !== this.cur && p.dead === 0) fn(PLAYER_CODE + j, p.pos);
+    });
+  }
+
+  private bodyOf(code: number): { pos: Vec3; vel: Vec3; alive: boolean } | null {
+    if (code >= PLAYER_CODE) {
+      const p = this.players[code - PLAYER_CODE];
+      return p ? { pos: p.pos, vel: p.vel, alive: p.dead === 0 } : null;
+    }
+    const d = this.dummies[code];
+    return d ? { pos: d.pos, vel: d.vel, alive: d.down === 0 } : null;
+  }
+
+  private placeBody(code: number, pos: Vec3, vel: Vec3): void {
+    if (code >= PLAYER_CODE) {
+      const p = this.players[code - PLAYER_CODE];
+      p.pos = pos;
+      p.vel = vel;
+      p.stun = Math.max(p.stun, 0.2); // hooked: helpless
+      p.onGround = false;
+      return;
+    }
+    const d = this.dummies[code];
+    d.pos = pos;
+    d.vel = vel;
+    d.stun = Math.max(d.stun, 0.2);
+    d.aiming = 0;
+  }
+
+  /** Damage and knock a target (a dummy, or another player in a duel). lift adds upward speed after the knock. */
+  private hitTarget(code: number, dir: Vec3, damage: number, knockback: number, at: Vec3, ev: YeetEvent[], lift = 0): void {
+    if (code < PLAYER_CODE) {
+      this.hitDummy(code, dir, damage, knockback, at, ev);
+      this.dummies[code].vel.y += lift;
+      return;
+    }
+    const j = code - PLAYER_CODE;
+    const v = this.players[j];
+    if (!v || v.dead > 0) return;
+    addScaled(v.vel, dir, knockback);
+    v.vel.y += this.t.dummy.lift * Math.min(1, knockback / 4) + lift;
+    v.onGround = false;
+    v.hp -= damage;
+    ev.push({ type: "pvpHit", by: this.cur, target: j, damage, at });
+    if (v.hp <= 0) {
+      this.knockOut(v);
+      this.kos[this.cur]++;
+      ev.push({ type: "pvpDown", by: this.cur, target: j });
+    }
+  }
+
+  /** A player at 0 hp: knocked out, flying off in a tumble the third-person camera can watch, respawn later. */
+  private knockOut(v: PlayerState): void {
+    v.hp = 0;
+    v.dead = this.t.player.respawnDelay;
+    v.crashing = false;
+    v.tumbling = this.t.player.respawnDelay;
+    v.tumbleAge = 1e-6;
+    v.tumbleRoll = this.t.tumble.roll;
+    v.vel.y += 5;
   }
 
   // ---- player ----------------------------------------------------------------
@@ -471,7 +581,7 @@ export class YeetSim {
       pl.spin -= t.copter.torque * (input.aiming ? b.copterTurn : 1) * dt;
       const n = this.time;
       const wob = t.copter.wobble * (input.aiming ? b.copterWobble : 1) * dt;
-      this.look(Math.cos(n * 5.7 + 1) * wob, (Math.sin(n * 7.3) + Math.sin(n * 12.1) * 0.5) * wob);
+      this.look(Math.cos(n * 5.7 + 1) * wob, (Math.sin(n * 7.3) + Math.sin(n * 12.1) * 0.5) * wob, this.cur);
       pl.heat += t.copter.heatPerSecond * dt;
       if (pl.heat >= t.copter.heatMax) {
         pl.heat = t.copter.heatMax;
@@ -604,9 +714,8 @@ export class YeetSim {
     if (pl.weapon === "reaper") {
       const s = t.reaper.slash;
       const reap = this.time - pl.lastShotAt <= t.reaper.reapWindow;
-      const before = this.dummies.map((d) => d.hp);
       const hits = this.meleeHits(s.range, s.arc, s.damage * (reap ? t.reaper.reapMult : 1), s.knockback, s.lift, ev);
-      pl.slashHit = this.dummies.findIndex((d, i) => d.hp < before[i]);
+      pl.slashHit = this.lastMeleeHit;
       pl.slashCd = s.cooldown;
       ev.push({ type: "slash", weapon: "reaper", hits, reap, combo: 1 });
       return;
@@ -638,8 +747,8 @@ export class YeetSim {
         pl.holdUsed = true;
         const h = t.reaper.hook;
         // the enemy your opening slash just hit (shoved away by it) is yanked back with extra reach
-        const hit = this.dummies[pl.slashHit];
-        const yank = hit && hit.down === 0 && Math.hypot(hit.pos.x - pl.pos.x, hit.pos.z - pl.pos.z) <= h.range * h.yankReach;
+        const hit = pl.slashHit >= 0 ? this.bodyOf(pl.slashHit) : null;
+        const yank = !!hit && hit.alive && Math.hypot(hit.pos.x - pl.pos.x, hit.pos.z - pl.pos.z) <= h.range * h.yankReach;
         const target = yank ? pl.slashHit : this.nearestInFront(h.range, h.arc);
         if (target >= 0) {
           pl.hook = target;
@@ -660,25 +769,22 @@ export class YeetSim {
   private holdHooked(dt: number, ev: YeetEvent[]): void {
     const h = this.t.reaper.hook;
     const pl = this.player;
-    const d = this.dummies[pl.hook];
+    const body = this.bodyOf(pl.hook);
     pl.hookT += dt;
-    if (!d || d.down > 0 || pl.hookT > h.maxTime) {
+    if (!body || !body.alive || pl.hookT > h.maxTime) {
       this.unhook(ev);
       return;
     }
     const f = aimDir(pl.yaw, 0);
-    d.pos = vec(pl.pos.x + f.x * h.distance, pl.pos.y, pl.pos.z + f.z * h.distance);
-    d.vel = copy(pl.vel);
-    d.stun = Math.max(d.stun, 0.2);
-    d.aiming = 0;
+    this.placeBody(pl.hook, vec(pl.pos.x + f.x * h.distance, pl.pos.y, pl.pos.z + f.z * h.distance), copy(pl.vel));
   }
 
   private unhook(ev: YeetEvent[]): void {
     const pl = this.player;
-    const d = this.dummies[pl.hook];
-    if (d && d.down === 0) {
+    const body = this.bodyOf(pl.hook);
+    if (body && body.alive) {
       const f = aimDir(pl.yaw, 0);
-      addScaled(d.vel, f, this.t.reaper.hook.release); // let go: a small shove away
+      addScaled(body.vel, f, this.t.reaper.hook.release); // let go: a small shove away
     }
     ev.push({ type: "unhook", dummy: pl.hook });
     pl.hook = -1;
@@ -688,14 +794,14 @@ export class YeetSim {
   private yeetreap(ev: YeetEvent[]): void {
     const y = this.t.reaper.yeetreap;
     const pl = this.player;
-    const i = pl.hook;
-    const d = this.dummies[i];
+    const code = pl.hook;
+    const body = this.bodyOf(code);
     pl.hook = -1;
-    if (!d || d.down > 0) return;
+    if (!body || !body.alive) return;
     const f = aimDir(pl.yaw, 0);
-    this.hitDummy(i, vec(f.x, 0.25, f.z), y.damage, y.knockback, vec(d.pos.x, d.pos.y + 1, d.pos.z), ev);
-    d.vel.y += y.lift;
-    ev.push({ type: "yeetreap", dummy: i });
+    const at = vec(body.pos.x, body.pos.y + 1, body.pos.z);
+    this.hitTarget(code, vec(f.x, 0.25, f.z), y.damage, y.knockback, at, ev, y.lift);
+    ev.push({ type: "yeetreap", dummy: code });
   }
 
   /** F let go: drop a hooked enemy; leave the dash stance with an ULTRASLASH if a round is left. */
@@ -753,45 +859,49 @@ export class YeetSim {
     pl.holdUsed = true; // the key is probably still held: wait for a fresh press
   }
 
-  /** The nearest standing dummy in front within range and the arc, or -1. */
+  /** The nearest standing target in front within range and the arc (a target code), or -1. */
   private nearestInFront(range: number, arc: number): number {
     const pl = this.player;
     const face = aimDir(pl.yaw, 0);
     let best = -1;
     let bestD = range + this.t.player.halfWidth;
-    this.dummies.forEach((d, i) => {
-      if (d.down > 0) return;
-      const dx = d.pos.x - pl.pos.x;
-      const dz = d.pos.z - pl.pos.z;
+    this.eachTarget((code, pos) => {
+      const dx = pos.x - pl.pos.x;
+      const dz = pos.z - pl.pos.z;
       const dist = Math.hypot(dx, dz);
-      if (dist > bestD || Math.abs(d.pos.y - pl.pos.y) > 1.9) return;
+      if (dist > bestD || Math.abs(pos.y - pl.pos.y) > 1.9) return;
       const cos = dist < 0.01 ? 1 : (dx * face.x + dz * face.z) / dist;
       if (Math.acos(Math.max(-1, Math.min(1, cos))) > arc / 2) return;
-      best = i;
+      best = code;
       bestD = dist;
     });
     return best;
   }
 
-  /** Hits every standing dummy in front of you within range and the arc (radians, centred on where you face). */
+  /** The first target the last meleeHits call hit (-1 = none): the scythe hook yanks it back. */
+  private lastMeleeHit = -1;
+
+  /** Hits every standing target in front of you within range and the arc (radians, centred on where you face). */
   private meleeHits(range: number, arc: number, damage: number, knockback: number, lift: number, ev: YeetEvent[]): number {
     const pl = this.player;
     const face = aimDir(pl.yaw, 0);
-    let hits = 0;
-    this.dummies.forEach((d, i) => {
-      if (d.down > 0) return;
-      const dx = d.pos.x - pl.pos.x;
-      const dz = d.pos.z - pl.pos.z;
+    const hit: Array<[number, Vec3, Vec3]> = [];
+    this.lastMeleeHit = -1;
+    this.eachTarget((code, pos) => {
+      const dx = pos.x - pl.pos.x;
+      const dz = pos.z - pl.pos.z;
       const dist = Math.hypot(dx, dz);
-      if (dist > range + this.t.player.halfWidth || Math.abs(d.pos.y - pl.pos.y) > 1.9) return;
+      if (dist > range + this.t.player.halfWidth || Math.abs(pos.y - pl.pos.y) > 1.9) return;
       const cos = dist < 0.01 ? 1 : (dx * face.x + dz * face.z) / dist;
       if (Math.acos(Math.max(-1, Math.min(1, cos))) > arc / 2) return;
       const dir = dist < 0.01 ? vec(face.x, 0, face.z) : vec(dx / dist, 0, dz / dist);
-      this.hitDummy(i, dir, damage, knockback, vec(d.pos.x, d.pos.y + 1, d.pos.z), ev);
-      d.vel.y += lift;
-      hits++;
+      hit.push([code, dir, vec(pos.x, pos.y + 1, pos.z)]);
     });
-    return hits;
+    for (const [code, dir, at] of hit) {
+      if (this.lastMeleeHit < 0) this.lastMeleeHit = code;
+      this.hitTarget(code, dir, damage, knockback, at, ev, lift);
+    }
+    return hit.length;
   }
 
   /** The Sakura's sixth round fired point-blank: the nearest dummy in front within reach is knocked flying. */
@@ -800,22 +910,22 @@ export class YeetSim {
     const pl = this.player;
     const face = aimDir(pl.yaw, 0);
     let best = -1;
+    let bestPos: Vec3 | null = null;
     let bestD = t.finisherRange + this.t.player.halfWidth;
-    this.dummies.forEach((d, i) => {
-      if (d.down > 0) return;
-      const dx = d.pos.x - pl.pos.x;
-      const dz = d.pos.z - pl.pos.z;
+    this.eachTarget((code, pos) => {
+      const dx = pos.x - pl.pos.x;
+      const dz = pos.z - pl.pos.z;
       const dist = Math.hypot(dx, dz);
-      if (dist > bestD || Math.abs(d.pos.y - pl.pos.y) > 1.9) return;
+      if (dist > bestD || Math.abs(pos.y - pl.pos.y) > 1.9) return;
       if (dist > 0.01 && (dx * face.x + dz * face.z) / dist < 0.5) return; // roughly in front
-      best = i;
+      best = code;
+      bestPos = pos;
       bestD = dist;
     });
-    if (best < 0) return;
-    const d = this.dummies[best];
-    const dir = normalize(vec(d.pos.x - pl.pos.x || face.x, 0, d.pos.z - pl.pos.z || face.z));
-    this.hitDummy(best, dir, 0, t.finisherKnockback, vec(d.pos.x, d.pos.y + 1, d.pos.z), ev);
-    d.vel.y += t.finisherLift;
+    if (best < 0 || !bestPos) return;
+    const bp: Vec3 = bestPos;
+    const dir = normalize(vec(bp.x - pl.pos.x || face.x, 0, bp.z - pl.pos.z || face.z));
+    this.hitTarget(best, dir, 0, t.finisherKnockback, vec(bp.x, bp.y + 1, bp.z), ev, t.finisherLift);
     ev.push({ type: "finisher", dummy: best });
   }
 
@@ -867,8 +977,18 @@ export class YeetSim {
         target = i;
       }
     });
+    // other players in a duel
+    this.players.forEach((p, j) => {
+      if (j === this.cur || p.dead > 0) return;
+      const hw = t.player.halfWidth;
+      const hitT = rayBox(from, dir, vec(p.pos.x - hw, p.pos.y, p.pos.z - hw), vec(p.pos.x + hw, p.pos.y + t.player.height, p.pos.z + hw));
+      if (hitT < dist) {
+        dist = hitT;
+        target = PLAYER_CODE + j;
+      }
+    });
     const to = addScaled(copy(from), dir, dist);
-    if (target >= 0) this.hitDummy(target, dir, w.damage, w.knockback, to, ev);
+    if (target >= 0) this.hitTarget(target, dir, w.damage, w.knockback, to, ev);
     return { from, to, hit: target >= 0 };
   }
 
@@ -894,17 +1014,16 @@ export class YeetSim {
     const pl = this.player;
     pl.crashing = false;
     pl.spin = -c.crashSpin * 0.5;
-    let hits = 0;
-    this.dummies.forEach((d, i) => {
-      if (d.down > 0) return;
-      const dx = d.pos.x - pl.pos.x;
-      const dz = d.pos.z - pl.pos.z;
+    const under: Array<[number, Vec3, Vec3]> = [];
+    this.eachTarget((code, pos) => {
+      const dx = pos.x - pl.pos.x;
+      const dz = pos.z - pl.pos.z;
       const dist = Math.hypot(dx, dz);
-      if (dist > c.crashRadius || Math.abs(d.pos.y - pl.pos.y) > 2.5) return;
-      const dir = dist > 0.01 ? vec(dx / dist, 0.6, dz / dist) : vec(0, 1, 0);
-      this.hitDummy(i, dir, c.crashDamage, c.crashKnockback, copy(d.pos), ev);
-      hits++;
+      if (dist > c.crashRadius || Math.abs(pos.y - pl.pos.y) > 2.5) return;
+      under.push([code, dist > 0.01 ? vec(dx / dist, 0.6, dz / dist) : vec(0, 1, 0), copy(pos)]);
     });
+    for (const [code, dir, at] of under) this.hitTarget(code, dir, c.crashDamage, c.crashKnockback, at, ev);
+    const hits = under.length;
     ev.push({ type: "crash", at: copy(pl.pos), hits });
   }
 
@@ -930,9 +1049,10 @@ export class YeetSim {
   respawnPlayer(fullReset: boolean): void {
     const pl = this.player;
     const lv = this.level;
-    pl.pos = copy(lv.spawn);
+    const sp = this.spawnOf(this.cur);
+    pl.pos = sp.pos;
     pl.vel = vec();
-    pl.yaw = lv.spawnYaw;
+    pl.yaw = sp.yaw;
     pl.pitch = 0;
     pl.spin = 0;
     pl.stun = 0;
@@ -958,8 +1078,11 @@ export class YeetSim {
       if (!pl.owned.includes(pl.weapon)) pl.weapon = pl.owned[0];
       pl.heat = 0;
       pl.overheated = false;
-      for (const p of this.pickups) p.taken = false;
-      this.balls.length = 0;
+      if (this.players.length === 1) {
+        // single player: the level resets with you (in a duel the pickups belong to everyone)
+        for (const p of this.pickups) p.taken = false;
+        this.balls.length = 0;
+      }
     }
   }
 
@@ -1013,7 +1136,7 @@ export class YeetSim {
   /** Fight Back: face the player, telegraph, throw a ball. Knocked about while glowing cancels the shot. */
   private think(d: DummyState, i: number, dt: number, ev: YeetEvent[]): void {
     const ai = this.t.ai;
-    const pl = this.player;
+    const pl = this.players[this.nearestPlayer(d)];
     const tx = pl.pos.x - d.pos.x;
     const tz = pl.pos.z - d.pos.z;
     const want = Math.atan2(-tx, -tz);
@@ -1034,7 +1157,7 @@ export class YeetSim {
       }
       return;
     }
-    if (d.aiCooldown <= 0 && this.sees(d)) {
+    if (d.aiCooldown <= 0 && this.sees(d, this.nearestPlayer(d))) {
       d.aiming = ai.telegraph;
       ev.push({ type: "dummyAim", dummy: i });
     }
@@ -1044,15 +1167,29 @@ export class YeetSim {
     return vec(d.pos.x, d.pos.y + 1.4, d.pos.z);
   }
 
-  private playerChest(): Vec3 {
-    const p = this.player.pos;
+  /** The live player nearest a dummy (its target). */
+  private nearestPlayer(d: DummyState): number {
+    let best = 0;
+    let bestD = Infinity;
+    this.players.forEach((p, j) => {
+      const dist = p.dead > 0 ? Infinity : Math.hypot(p.pos.x - d.pos.x, p.pos.z - d.pos.z);
+      if (dist < bestD) {
+        bestD = dist;
+        best = j;
+      }
+    });
+    return best;
+  }
+
+  private playerChest(j = 0): Vec3 {
+    const p = this.players[j].pos;
     return vec(p.x, p.y + 1.0, p.z);
   }
 
-  /** In range and nothing solid in between. */
-  sees(d: DummyState): boolean {
+  /** In range of player j (default player 1) and nothing solid in between. */
+  sees(d: DummyState, j = 0): boolean {
     const from = this.dummyEye(d);
-    const to = this.playerChest();
+    const to = this.playerChest(j);
     const delta = vec(to.x - from.x, to.y - from.y, to.z - from.z);
     const dist = len(delta);
     if (dist > this.t.ai.range || dist < 0.01) return false;
@@ -1062,7 +1199,7 @@ export class YeetSim {
   private throwBall(d: DummyState, i: number, ev: YeetEvent[]): void {
     const ai = this.t.ai;
     const from = this.dummyEye(d);
-    const to = this.playerChest();
+    const to = this.playerChest(this.nearestPlayer(d));
     const dir = normalize(vec(to.x - from.x, to.y - from.y, to.z - from.z));
     this.balls.push({ pos: addScaled(copy(from), dir, 0.6), vel: addScaled(vec(), dir, ai.ballSpeed), life: ai.ballLife, owner: i });
     d.aiCooldown = ai.cooldown + ((i * 0.37) % 0.8);
@@ -1071,7 +1208,6 @@ export class YeetSim {
 
   private stepBalls(dt: number, ev: YeetEvent[]): void {
     const t = this.t;
-    const pl = this.player;
     const r = t.ai.ballRadius;
     const hw = t.player.halfWidth + r;
     for (let k = this.balls.length - 1; k >= 0; k--) {
@@ -1079,9 +1215,10 @@ export class YeetSim {
       addScaled(b.pos, b.vel, dt);
       b.life -= dt;
       const p = b.pos;
-      // the player (a box grown by the ball's radius)
-      if (pl.dead === 0 && Math.abs(p.x - pl.pos.x) < hw && Math.abs(p.z - pl.pos.z) < hw && p.y > pl.pos.y - r && p.y < pl.pos.y + t.player.height + r) {
-        this.hitPlayer(b, ev);
+      // any player (a box grown by the ball's radius)
+      const j = this.players.findIndex((pl) => pl.dead === 0 && Math.abs(p.x - pl.pos.x) < hw && Math.abs(p.z - pl.pos.z) < hw && p.y > pl.pos.y - r && p.y < pl.pos.y + t.player.height + r);
+      if (j >= 0) {
+        this.hitPlayer(b, j, ev);
         this.balls.splice(k, 1);
         continue;
       }
@@ -1091,26 +1228,19 @@ export class YeetSim {
     }
   }
 
-  private hitPlayer(b: Ball, ev: YeetEvent[]): void {
+  private hitPlayer(b: Ball, j: number, ev: TaggedEvent[]): void {
     const ai = this.t.ai;
-    const pl = this.player;
+    const pl = this.players[j];
     const dir = normalize(b.vel);
     addScaled(pl.vel, dir, ai.knockback);
     pl.vel.y += 1.5;
     pl.onGround = false;
     pl.hp -= ai.damage;
-    ev.push({ type: "playerHit", dummy: b.owner, damage: ai.damage, at: copy(b.pos) });
+    ev.push({ type: "playerHit", dummy: b.owner, damage: ai.damage, at: copy(b.pos), p: j });
     if (pl.hp <= 0) {
-      pl.hp = 0;
-      pl.dead = this.t.player.respawnDelay;
-      pl.crashing = false;
-      // knocked out: fly off in a tumble the third-person camera can watch
-      pl.tumbling = this.t.player.respawnDelay;
-      pl.tumbleAge = 1e-6;
-      pl.tumbleRoll = this.t.tumble.roll;
+      this.knockOut(pl);
       addScaled(pl.vel, dir, ai.knockback);
-      pl.vel.y += 5;
-      ev.push({ type: "playerDown", dummy: b.owner });
+      ev.push({ type: "playerDown", dummy: b.owner, p: j });
     }
   }
 }

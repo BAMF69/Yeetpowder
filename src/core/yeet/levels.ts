@@ -15,7 +15,7 @@ import { box, room, testRoom, type Arena } from "./arena";
 import type { WeaponId } from "./tuning";
 import type { Vec3 } from "./vec";
 
-export type LevelId = "sandbox" | "fight";
+export type LevelId = "sandbox" | "fight" | "duel";
 
 export interface Pickup {
   weapon: WeaponId;
@@ -28,6 +28,9 @@ export interface Level {
   arena: Arena;
   spawn: Vec3;
   spawnYaw: number;
+  /** Multiplayer: one spawn (and facing) per player slot; player 1 falls back to spawn/spawnYaw. */
+  spawns?: Vec3[];
+  spawnYaws?: number[];
   startWeapons: WeaponId[];
   pickups: Pickup[];
   dummiesFight: boolean;
@@ -90,6 +93,40 @@ export function fightLevel(): Level {
   };
 }
 
+/**
+ * The vertical slice's duel room (2 players, no dummies): 30 x 30 m, a low wall across the middle for cover, a 4 m
+ * ledge in two corners to flip onto, crates to bonk. Start with the three standard guns; both gunblades lie on the
+ * flanks and the Gatling Copter on a pedestal in the middle (slice decisions 4 and 7).
+ */
+export function duelLevel(): Level {
+  return {
+    id: "duel", name: "Duel",
+    arena: {
+      boxes: [
+        ...room(15),
+        box(-6, 0, -0.5, -1.5, 1.4, 0.5), // the low wall across the middle, with a gap at the centre
+        box(1.5, 0, -0.5, 6, 1.4, 0.5),
+        box(-0.8, 0, -0.8, 0.8, 1.2, 0.8), // the Gatling pedestal in the gap
+        box(-15, 0, -15, -10, 4, -10), // corner ledges (4 m)
+        box(10, 0, 10, 15, 4, 15),
+        box(8, 0, -9, 10, 1.6, -7), // crates
+        box(-10, 0, 7, -8, 1.6, 9),
+      ],
+      dummySpawns: [],
+    },
+    spawn: { x: 0, y: 0, z: 12 }, spawnYaw: 0,
+    spawns: [{ x: 0, y: 0, z: 12 }, { x: 0, y: 0, z: -12 }],
+    spawnYaws: [0, Math.PI],
+    startWeapons: ["pistol", "shotgun", "sniper"],
+    pickups: [
+      { weapon: "copter", pos: { x: 0, y: 1.2, z: 0 } },
+      { weapon: "reaper", pos: { x: -13, y: 0, z: 2 } },
+      { weapon: "sakura", pos: { x: 13, y: 0, z: -2 } },
+    ],
+    dummiesFight: false, dummyRespawn: 6, seed: 3,
+  };
+}
+
 export function levelById(id: string | null | undefined): Level {
-  return id === "sandbox" ? sandboxLevel() : fightLevel();
+  return id === "sandbox" ? sandboxLevel() : id === "duel" ? duelLevel() : fightLevel();
 }

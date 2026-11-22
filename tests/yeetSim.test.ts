@@ -12,8 +12,8 @@
 import { describe, expect, it } from "vitest";
 import { moveBody, rayBox, testRoom } from "../src/core/yeet/arena";
 import { AUTOPLAY_SECONDS, autoplayStep } from "../src/core/yeet/autoplay";
-import { fightLevel, sandboxLevel, TOWER_TOP, type Level } from "../src/core/yeet/levels";
-import { NO_INPUT, YeetSim, type YeetEvent, type YeetInput } from "../src/core/yeet/sim";
+import { duelLevel, fightLevel, sandboxLevel, TOWER_TOP, type Level } from "../src/core/yeet/levels";
+import { NO_INPUT, PLAYER_CODE, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../src/core/yeet/sim";
 import { TUNING } from "../src/core/yeet/tuning";
 import { aimDir, vec } from "../src/core/yeet/vec";
 
@@ -856,6 +856,109 @@ describe("Fight Back: the dummies shoot back", () => {
     run(sim, TUNING.player.respawnDelay + 0.1);
     expect(sim.player.pos).toEqual(fightLevel().spawn);
     expect(sim.player.dead).toBe(0);
+  });
+});
+
+describe("duels: two players (vertical slice netcode groundwork)", () => {
+  const duel = () => new YeetSim(structuredClone(TUNING), duelLevel(), 2);
+  /** Steps both players: p1 gets a, p2 gets b. */
+  const both = (sim: YeetSim, seconds: number, a: Partial<YeetInput> = {}, b: Partial<YeetInput> = {}): TaggedEvent[] => {
+    const all: TaggedEvent[] = [];
+    for (let i = 0; i < Math.round(seconds / sim.t.step); i++) all.push(...sim.step([{ ...NO_INPUT, ...a }, { ...NO_INPUT, ...b }]));
+    return all;
+  };
+  /** Puts the two players face to face, `gap` metres apart on the open south side. */
+  const faceOff = (sim: YeetSim, gap: number) => {
+    sim.players[0].pos = vec(-8, 0, 10);
+    sim.players[0].yaw = -Math.PI / 2; // facing +X
+    sim.players[1].pos = vec(-8 + gap, 0, 10);
+    sim.players[1].yaw = Math.PI / 2; // facing -X
+  };
+
+  it("both players spawn on their own spot, standing, facing each other", () => {
+    const sim = duel();
+    const ev = both(sim, 0.5);
+    expect(ev.some((e) => e.type === "bonk")).toBe(false);
+    expect(sim.players.map((p) => p.onGround)).toEqual([true, true]);
+    expect(sim.players[0].pos).toEqual(duelLevel().spawns![0]);
+    expect(sim.players[1].pos).toEqual(duelLevel().spawns![1]);
+  });
+
+  it("a shot hits the other player: damage, knockback, an event tagged with the shooter", () => {
+    const sim = duel();
+    faceOff(sim, 10);
+    const ev = both(sim, 1 / 120, { firePressed: true });
+    const hit = ev.find((e) => e.type === "pvpHit");
+    expect(hit).toMatchObject({ by: 0, target: 1, damage: TUNING.weapons.pistol.damage, p: 0 });
+    expect(sim.players[1].hp).toBe(TUNING.player.hp - TUNING.weapons.pistol.damage);
+    expect(sim.players[1].vel.x).toBeGreaterThan(1); // pushed away along the shot
+  });
+
+  it("enough hits knock the other player out: a KO for the shooter, then they respawn on their spot", () => {
+    const sim = duel();
+    faceOff(sim, 8);
+    both(sim, 0.1, { select: 2 }); // Spin Doctor
+    sim.players[1].hp = 50;
+    sim.players[0].pitch = 0;
+    const ev = both(sim, 1 / 120, { firePressed: true });
+    expect(ev.some((e) => e.type === "pvpDown" && e.by === 0 && e.target === 1)).toBe(true);
+    expect(sim.kos).toEqual([1, 0]);
+    expect(sim.players[1].dead).toBeGreaterThan(0);
+    both(sim, TUNING.player.respawnDelay + 0.2);
+    expect(sim.players[1].dead).toBe(0);
+    expect(sim.players[1].hp).toBe(TUNING.player.hp);
+    expect(sim.players[1].pos.z).toBeCloseTo(-12, 1);
+  });
+
+  it("gunblade melee hits players: a slash, the hook and a YEETREAP", () => {
+    const sim = duel();
+    faceOff(sim, 2);
+    sim.players[0].owned.push("reaper");
+    both(sim, 0.2, { select: 4 });
+    faceOff(sim, 2);
+    const slashEv = both(sim, 1 / 120, { slash: true, slashHeld: true });
+    expect(slashEv.some((e) => e.type === "pvpHit" && e.target === 1)).toBe(true);
+    const hookEv = both(sim, 0.3, { slashHeld: true });
+    expect(hookEv.some((e) => e.type === "hook" && e.dummy === PLAYER_CODE + 1)).toBe(true);
+    const yr = both(sim, 1 / 120, { slashHeld: true, firePressed: true });
+    expect(yr.some((e) => e.type === "yeetreap" && e.dummy === PLAYER_CODE + 1)).toBe(true);
+    expect(sim.players[1].dead).toBeGreaterThan(0); // 120 damage on top of the slash: knocked out
+  });
+
+  it("a pickup taken in a duel stays taken when the other player is knocked out", () => {
+    const sim = duel();
+    sim.pickups[1].taken = true;
+    sim.players[1].hp = 1;
+    faceOff(sim, 8);
+    both(sim, 1 / 120, { firePressed: true });
+    both(sim, TUNING.player.respawnDelay + 0.2);
+    expect(sim.pickups[1].taken).toBe(true);
+  });
+
+  it("the same inputs give the same duel, step for step (what client prediction relies on)", () => {
+    const script = (sim: YeetSim) => {
+      for (let i = 0; i < 600; i++) {
+        const k = Math.floor(i / 40);
+        sim.step([
+          { ...NO_INPUT, moveZ: k % 2 ? 1 : 0, moveX: k % 3 === 0 ? 1 : 0, firePressed: i % 50 === 0, jump: i % 90 === 5 },
+          { ...NO_INPUT, moveZ: 1, firePressed: i % 70 === 3, sprint: true },
+        ]);
+        if (i % 30 === 0) sim.look(0.1, 0, 1);
+      }
+      return JSON.stringify(sim.players.map((p) => [p.pos, p.vel, p.hp, p.yaw]));
+    };
+    expect(script(duel())).toBe(script(duel()));
+  });
+
+  it("in Fight Back with two players, dummies aim at whoever is nearest", () => {
+    const sim = new YeetSim(structuredClone(TUNING), fightLevel(), 2);
+    parkDummies(sim);
+    sim.dummies[1].pos = vec(0, 0, 8);
+    sim.dummies[1].aiCooldown = 0;
+    sim.players[0].pos = vec(0, 0, 21);
+    sim.players[1].pos = vec(0, 0, 14); // closer
+    const ev = both(sim, TUNING.ai.telegraph + 1.2);
+    expect(ev.some((e) => e.type === "playerHit" && e.p === 1)).toBe(true);
   });
 });
 

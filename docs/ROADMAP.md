@@ -4,10 +4,9 @@
 > Claude reads the **Now** section at session start.
 
 ## Now (max 3 items)
-- [ ] **Gunblades, single-player first** (Reaper's Kick and Six-Shot Sakura movesets, melee on F; rare pickups in Fight Back, always available in the Sandbox) | Done when: you can land a Reap and a full six-hit Sakura combo on purpose against the dummies, and it feels like the skill showcase | Timebox: 3 sessions
+- [ ] **Duel netcode** (2 players on the home network, server on this PC with `ws` (ADR 0002), room code + link, client prediction and interpolation; ADR 0001 toy physics) | Done when: two browser windows (then laptop + phone) join one room by link and play each other with every slice weapon, smooth on both | Timebox: 4 sessions
 
 ## Next
-- [ ] Duel netcode: 2 players on the home network (server on this PC), room link + code, prediction (ADR 0001: toy physics)
 - [ ] Duel modes: first to 5 knockouts, timed round, Ring Out; the duel room with a Gatling pickup
 - [ ] Minimal touch controls for the phone
 - [ ] Camera kick-out to third person on big launches, with an off switch (GDD art direction; the tumble camera is the starting point)
@@ -37,6 +36,7 @@ detail.
 | M4 Release candidate (v1.0.0-rc.N, then v1.0.0) | `/release-check` green | |
 
 ## Done (recent, newest first)
+- 2026-11-21: Gunblades single-player done (Elaina: Reap and full Sakura combo landed on purpose; "both are fun", "yeetreap is awesome")
 - 2026-11-21: Sakura stance blade fixed (it spun every frame); ULTRASLASH needs a dash-fire and speed, rapid-fires all rounds left
 - 2026-11-21: Gunblade hold moves: Reaper's Kick hook + YEETREAP (the hook yanks back the enemy its opening slash shoved), Sakura dash stance + ULTRASLASH; 6 tests
 - 2026-11-21: Gunblades first build (single-player): Reaper's Kick (flip by shot direction, 180 degree slash, Reap x2 within 0.3 s) and Six-Shot Sakura (6-hit combo, revolver cancel + lunge, sixth-round finisher, spin-reload); scythe and katana models, swings, camera flips, 3 sounds; 10 tests. Awaiting Elaina's play
