@@ -9,6 +9,9 @@
 //           on a snapshot: const err = pr.onSnapshot(snap)    // metres your player was moved by the correction
 // Notes   : Other players are not predicted here: the world draws them from the snapshot buffer, ~100 ms behind and
 //           smoothed (src/game/net/remote.ts). Events from a replay are thrown away (they already played once).
+//           The local copy still steps them, with what the server says they hold (snapshot `held`), not with nothing:
+//           with nothing, their hook let go in your copy every step and you were never dragged (tablet duel, 2026-11-22).
+//           Their events from this copy are not yours to play: DuelLink.stepLocal keeps only your own.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import { duelLevel } from "../core/yeet/levels";
@@ -25,12 +28,19 @@ export class Predictor {
   /** The last correction's size (m) and the tick of the last snapshot applied. */
   lastError = 0;
   lastTick = -1;
+  /** What the other players hold, from the last snapshot (NO_INPUT until one arrives). */
+  private others: YeetInput[] = Array(SLOTS).fill(NO_INPUT);
 
   slot: number;
 
   constructor(slot: number) {
     this.slot = slot;
     this.sim.localIndex = slot;
+  }
+
+  /** What player j holds down, as the last snapshot said (their aim, F held ...), or null before one arrived. */
+  heldBy(j: number): YeetInput | null {
+    return this.lastTick < 0 ? null : (this.others[j] ?? null);
   }
 
   /** The server told us our slot (after joining): from now on we predict that player. */
@@ -40,7 +50,7 @@ export class Predictor {
   }
 
   private stepWith(input: YeetInput): TaggedEvent[] {
-    const inputs: YeetInput[] = Array(SLOTS).fill(NO_INPUT);
+    const inputs: YeetInput[] = [...this.others];
     inputs[this.slot] = input;
     return this.sim.step(inputs);
   }
@@ -57,6 +67,7 @@ export class Predictor {
   onSnapshot(snap: Snapshot): number {
     if (snap.tick <= this.lastTick) return 0; // an old or repeated snapshot
     this.lastTick = snap.tick;
+    if (snap.held) this.others = snap.held.map((h, j) => (snap.present[j] ? h : NO_INPUT));
     const before = { ...this.sim.players[this.slot].pos };
     this.sim.importState(snap.state);
     const ack = snap.acks[this.slot] ?? 0;

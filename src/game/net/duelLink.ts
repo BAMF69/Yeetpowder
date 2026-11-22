@@ -18,7 +18,7 @@ import { NetClient } from "./netClient";
 import { RemoteBuffer } from "./remote";
 
 const CSS = `
-.yd { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center;
+.yd { position: fixed; inset: 0; z-index: 8; /* over the touch controls (6) and HUD (7): the lobby needs taps */ display: flex; align-items: center; justify-content: center;
   pointer-events: none; font-family: system-ui, "Segoe UI", sans-serif; color: #fff; }
 .yd-panel { pointer-events: auto; background: rgba(20, 24, 34, 0.92); border: 3px solid #ffd84a; border-radius: 18px;
   padding: 22px 26px; min-width: 300px; max-width: 90vw; text-align: center; }
@@ -30,9 +30,29 @@ const CSS = `
 .yd-code { font-size: 44px; font-weight: 900; letter-spacing: 8px; color: #ffd84a; margin: 6px 0; }
 .yd-link { font-size: 14px; word-break: break-all; opacity: 0.9; user-select: all; }
 .yd-err { color: #ff8a80; min-height: 1.3em; margin-top: 8px; }
+/* waiting for player 2: tucked in the top right (under the kill feed's row) so you can warm up with a clear view */
+.yd.corner { align-items: flex-start; justify-content: flex-end; padding: 56px 14px 0 0; box-sizing: border-box; }
+/* with touch controls the weapon slots fill the top middle: sit below them */
+body.yt-touch .yd.corner { padding-top: 120px; }
+.yd.corner .yd-panel { padding: 10px 14px; min-width: 0; max-width: min(320px, 46vw); text-align: left; }
+.yd.corner h2 { font-size: 16px; margin: 0 0 2px; }
+.yd.corner .yd-code { font-size: 28px; letter-spacing: 5px; margin: 0 0 4px; }
+.yd.corner .yd-link { font-size: 12px; }
+.yd.corner .yd-wait { font-size: 13px; margin-top: 6px; opacity: 0.85; }
+.yd.corner .yd-err { min-height: 0; }
 .yd-net { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 6; font: 12px monospace;
   background: rgba(0, 0, 0, 0.55); color: #cfd8dc; padding: 3px 8px; border-radius: 6px; pointer-events: none; }
 `;
+
+/**
+ * The origin to put in the room link. Opened on the PC as localhost, the link would point a phone at itself, so it
+ * swaps in the PC's home-network address that `npm run duel` hands Vite (VITE_LAN_HOST), keeping the port.
+ */
+function shareOrigin(): string {
+  const lan = import.meta.env.VITE_LAN_HOST as string | undefined;
+  const local = ["localhost", "127.0.0.1", "[::1]", ""].includes(location.hostname);
+  return local && lan ? `${location.protocol}//${lan}${location.port ? ":" + location.port : ""}` : location.origin;
+}
 
 export class DuelLink {
   readonly predictor = new Predictor(0);
@@ -86,7 +106,8 @@ export class DuelLink {
     if (!this.ready) return [];
     const { msg, events } = this.predictor.local(input, dYaw, dPitch);
     this.net.queue(msg);
-    return events.filter((e) => e.type !== "pvpHit" && e.type !== "pvpDown");
+    // only your own moves: the other player's (their landing, pickups, bonks) come from the server, and hits are its call
+    return events.filter((e) => e.p === this.slot && e.type !== "pvpHit" && e.type !== "pvpDown");
   }
 
   /** Sends this frame's inputs and refreshes the debug line. */
@@ -160,6 +181,7 @@ export class DuelLink {
 
   private showLobby(error = ""): void {
     this.root.style.display = "flex";
+    this.root.classList.remove("corner");
     this.panel.innerHTML = `<h2>Duel</h2>
       <div><button data-act="create">Make a room</button></div>
       <div style="margin-top:10px">or join: <input maxlength="4" placeholder="CODE" data-act="code"> <button data-act="join">Join</button></div>
@@ -185,6 +207,7 @@ export class DuelLink {
 
   private showMessage(text: string): void {
     this.root.style.display = "flex";
+    this.root.classList.remove("corner");
     this.panel.innerHTML = "";
     const h = document.createElement("h2");
     h.textContent = text;
@@ -193,10 +216,11 @@ export class DuelLink {
 
   private showWaiting(note = ""): void {
     this.root.style.display = "flex";
-    const link = `${location.origin}${location.pathname}?play&level=duel&room=${this.code}`;
+    this.root.classList.add("corner");
+    const link = `${shareOrigin()}${location.pathname}?play&level=duel&room=${this.code}`;
     this.panel.innerHTML = `<h2>Room</h2><div class="yd-code"></div>
       <div class="yd-link"></div>
-      <div style="margin-top:12px">Waiting for player 2... (click the game to warm up meanwhile)</div><div class="yd-err"></div>`;
+      <div class="yd-wait">Waiting for player 2... warm up meanwhile</div><div class="yd-err"></div>`;
     (this.panel.querySelector(".yd-code") as HTMLDivElement).textContent = this.code;
     (this.panel.querySelector(".yd-link") as HTMLDivElement).textContent = link;
     (this.panel.querySelector(".yd-err") as HTMLDivElement).textContent = note;

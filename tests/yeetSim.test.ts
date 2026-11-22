@@ -398,20 +398,53 @@ describe("gunblades (vertical slice)", () => {
     expect(sim.player.vel.y).toBeGreaterThan(TUNING.weapons.reaper.recoil * 1.2);
   });
 
-  it("Reaper's Kick: a shot that pushes you along your run is a front-flip; across it, a cartwheel", () => {
-    const flip = (yawOffset: number) => {
+  it("Reaper's Kick flips the way you mainly travel, as you see it: sideways = cartwheel, back = backflip, forward = front-flip", () => {
+    /** Moving at vel (m/s, world) while looking toward -Z, fire flat: which flip, and is it the big one? */
+    const flip = (vx: number, vz: number) => {
       const sim = newSim();
       parkDummies(sim);
       sim.player.pos = vec(15, 0, 15);
       select(sim, REAPER);
-      run(sim, 0.6, { moveZ: 1 }); // running toward -Z
-      sim.player.yaw = yawOffset; // look this way and fire: the push is the opposite way
+      run(sim, 0.1);
+      sim.player.yaw = 0;
+      sim.player.pitch = 0;
+      sim.player.vel = vec(vx, 0, vz);
       const f = fire(sim).find((e) => e.type === "flip");
-      return f && f.type === "flip" ? f.kind : "none";
+      return f && f.type === "flip" ? `${f.kind}${f.big ? " big" : ""}` : "none";
     };
-    expect(flip(Math.PI)).toBe("frontflip"); // look back along the run: pushed forward
-    expect(flip(Math.PI / 2)).toBe("cartwheel"); // look sideways
-    expect(flip(0)).toBe("backflip"); // look ahead: pushed back against the run
+    expect(flip(7, 0)).toBe("cartwheel"); // strafing right
+    expect(flip(6, 4)).toBe("cartwheel"); // back and right, faster sideways (was a front-flip: playtest 2026-11-22)
+    expect(flip(4, 6)).toBe("backflip"); // back and right, faster backwards
+    expect(flip(0, 7)).toBe("backflip"); // backing away
+    expect(flip(0, 0)).toBe("backflip"); // standing: a small backflip
+    expect(flip(0, -7)).toBe("backflip"); // running forward: the kick stops you and throws you back
+    expect(flip(0, -25)).toBe("frontflip"); // so fast forward you are still going forward after the kick
+  });
+
+  it("Reaper's Kick: the big backflip needs the shot aimed 30 degrees or more below level", () => {
+    const big = (deg: number) => {
+      const sim = newSim();
+      parkDummies(sim);
+      select(sim, REAPER);
+      run(sim, 0.1);
+      sim.player.pitch = (-deg * Math.PI) / 180;
+      const f = fire(sim).find((e) => e.type === "flip");
+      return f && f.type === "flip" && f.big && sim.player.backflipAir;
+    };
+    expect(big(0)).toBe(false);
+    expect(big(25)).toBe(false);
+    expect(big(31)).toBe(true);
+    expect(big(80)).toBe(true);
+  });
+
+  it("a small backflip (flat shot from standing) does not end in a hero landing", () => {
+    const sim = newSim();
+    parkDummies(sim);
+    select(sim, REAPER);
+    run(sim, 0.2);
+    sim.player.pitch = 0;
+    fire(sim);
+    expect(has(run(sim, 3), "heroLanding")).toBe(false);
   });
 
   it("Reaper's Kick: a cartwheel knows which way you strafed (D right +1, A left -1) so the camera spins that way", () => {

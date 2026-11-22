@@ -21,11 +21,18 @@ if (build.status !== 0) {
   console.error("[duel] the server did not build");
   process.exit(1);
 }
+const lan = Object.values(networkInterfaces()).flat().filter((n) => n && n.family === "IPv4" && !n.internal).map((n) => n.address);
+// the home-network address the room link should show (a page opened as localhost cannot know it): 192.168.x first,
+// then the other private ranges, skipping link-local; the game reads it as import.meta.env.VITE_LAN_HOST
+const rank = (a) => (a.startsWith("192.168.") ? 0 : a.startsWith("10.") ? 1 : /^172\.(1[6-9]|2\d|3[01])\./.test(a) ? 2 : 9);
+const home = lan.filter((a) => rank(a) < 9).sort((a, b) => rank(a) - rank(b))[0] ?? "";
 const kids = [
   spawn(process.execPath, ["build/server/main.js"], { stdio: "inherit" }),
-  spawn(process.execPath, [VITE, "--host", "--port", "5180", "--strictPort"], { stdio: "inherit" }),
+  spawn(process.execPath, [VITE, "--host", "--port", "5180", "--strictPort"], {
+    stdio: "inherit",
+    env: { ...process.env, VITE_LAN_HOST: home },
+  }),
 ];
-const lan = Object.values(networkInterfaces()).flat().filter((n) => n && n.family === "IPv4" && !n.internal).map((n) => n.address);
 setTimeout(() => {
   console.log("\n  Duel ready. Open on this PC:  http://localhost:5180/?play&level=duel");
   for (const a of lan) console.log(`  On the phone (same Wi-Fi):   http://${a}:5180/?play&level=duel`);

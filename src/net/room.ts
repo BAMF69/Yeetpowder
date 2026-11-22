@@ -21,6 +21,12 @@ const quiet = (i: NetInput): NetInput => ({
   ...i, jump: false, firePressed: false, select: -1, reset: false, reload: false, slash: false, dYaw: 0, dPitch: 0,
 });
 
+/** The held part of an input as a plain YeetInput (no seq or look), for the snapshot's `held`. */
+function heldOf(i: NetInput): YeetInput {
+  const { seq: _s, dYaw: _y, dPitch: _p, ...rest } = quiet(i);
+  return rest;
+}
+
 export class Room {
   readonly sim = new YeetSim(TUNING, duelLevel(), SLOTS);
   readonly present: boolean[] = Array(SLOTS).fill(false);
@@ -91,7 +97,7 @@ export class Room {
   snapshot(): Snapshot {
     const snap: Snapshot = {
       t: "snap", tick: this.tick, acks: [...this.acks], state: this.sim.exportState(), events: this.events,
-      present: [...this.present],
+      present: [...this.present], held: this.last.map((l, s) => (this.present[s] ? heldOf(l) : NO_INPUT)),
     };
     this.events = [];
     return snap;

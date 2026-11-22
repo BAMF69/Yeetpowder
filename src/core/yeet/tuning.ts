@@ -211,13 +211,16 @@ export const TUNING = {
   } satisfies Record<WeaponId, WeaponTuning>,
 
   /**
-   * Reaper's Kick (scythe + sniper rifle): the shot's kick decides your flip (shoot down = high backflip, push forward
-   * along your run = front-flip, sideways = cartwheel); F is a wide 180 degree sweep; a slash within reapWindow of a
+   * Reaper's Kick (scythe + sniper rifle): the shot decides your flip. Aimed 30+ degrees down = the big backflip;
+   * otherwise your main direction of travel, seen from where you look: faster sideways than forward or back =
+   * cartwheel, still moving forward after the kick = front-flip, else a (small) backflip; F is a wide 180 degree sweep; a slash within reapWindow of a
    * shot does reapMult damage ("REAP!").
    */
   reaper: {
-    backflipLift: 1.35, // a shot aimed this far down (aim.y < -downAim) gets its upward kick multiplied: "backflip high"
-    downAim: 0.55,
+    // the big backflip (extra lift, then a hero landing) needs the shot aimed at least bigBackflipDeg below level
+    // (playtest 2026-11-22: was ~33 degrees, and any backward flip, even a flat one from standing, counted as big)
+    backflipLift: 1.35,
+    bigBackflipDeg: 30,
     flipTime: 0.5, // s of the visual flip
     slash: { damage: 32, range: 2.8, arc: Math.PI, cooldown: 0.45, knockback: 9, lift: 3 },
     reapWindow: 0.3,
@@ -273,6 +276,14 @@ export const TUNING = {
 
   /** Mouse look (rad per pixel of mouse movement). Scaled down while aiming, with the zoom. */
   mouseSensitivity: 0.0022,
+
+  /**
+   * Touch controls (src/game/touchControls.ts, maths in src/core/yeet/touch.ts), phones and tablets.
+   *   stickRadius  px a thumb travels from where it landed to full speed; deadzone the share of it that does nothing
+   *   sprintAt     the stick past this share of full travel also sprints (no Shift on a tablet)
+   *   lookScale    x mouseSensitivity per px of finger drag (a thumb covers fewer px than a mouse sweep)
+   */
+  touch: { stickRadius: 64, deadzone: 0.15, sprintAt: 0.92, lookScale: 1.6 },
 
   /**
    * Bots (src/core/yeet/bot.ts): full players driven by a brain that only presses what a player can press. Each

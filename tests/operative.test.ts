@@ -86,3 +86,29 @@ describe("operative budget", () => {
     op.dispose();
   });
 });
+
+describe("reading other players (third-person moves)", () => {
+  it("the head and body follow the look: up tilts the head up and leans back, down the other way", () => {
+    const up = targetPose({ ...base, pitch: 0.6 }, 0, 0);
+    const down = targetPose({ ...base, pitch: -0.6 }, 0, 0);
+    expect(up.head).toBeGreaterThan(0.3);
+    expect(down.head).toBeLessThan(-0.3);
+    expect(up.lean).toBeLessThan(down.lean);
+  });
+
+  it("a flip tucks the knees most at its middle and lets them out at the end", () => {
+    const mid = targetPose({ ...base, flip: 0.5 }, 0, 0);
+    const end = targetPose({ ...base, flip: 0.99 }, 0, 0);
+    expect(mid.legs[0].knee).toBeGreaterThan(1.8);
+    expect(mid.legs[0].hip[0]).toBeLessThan(-1.2); // thighs up to the chest
+    expect(end.legs[0].knee).toBeLessThan(0.5);
+  });
+
+  it("a gunblade slash sweeps the blade from the right across to the left", () => {
+    const at = (k: number) => targetPose({ ...base, weapon: "reaper", slash: k }, 0, 0);
+    expect(at(0.05).gun!.rot[1]).toBeLessThan(-1);
+    expect(at(0.95).gun!.rot[1]).toBeGreaterThan(1);
+    expect(at(0.95).gun!.pos[0]).toBeGreaterThan(at(0.05).gun!.pos[0]); // right hand side (-X) to left (+X)
+    expect(targetPose({ ...base, weapon: "shotgun", slash: 0.5 }, 0, 0).gun!.rot[1]).toBe(0); // guns do not slash
+  });
+});

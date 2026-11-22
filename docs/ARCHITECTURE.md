@@ -85,7 +85,8 @@ draws nothing (a logic budget), and a browser run cannot go below its 60 Hz fram
   second, pending inputs and the worst prediction correction.
 - YEETREAP on a player (regression check for the 2026-11-22 crash): `python tools/dev.py smoke --query "play&level=duel&bot=easy&botseed=1&yeetreap" --until YEET_MARK_yeetreap --timeout 60` hooks the bot with Reaper's Kick and YEETREAPs it; any error fails the run.
 - Bots: `?level=duel&bot=easy|medium|hard` (the menu's Duel vs bot), `&botseed=N` replays a match, `&debug` draws the bot's aim line (pink, grey when it cannot see you), its goal line (cyan) and a label with its difficulty, state and aim error.
-- Art review: `?showcase` holds the camera in front of your operative (`&pose=kneel|fling|tumble|run|aim|ko`, `&side=<rad>`, 3.14 is in front); `?flash` holds the pink muzzle flash on; `?hero` fires Reaper's Kick straight down 1 s in and logs `YEET_MARK_hero` mid hero landing (`?hold=hero` freezes there).
+- Touch: `?touch` shows the phone/tablet controls on the PC (mouse acts as a finger; they show by themselves on a coarse pointer); `src/game/touchControls.ts`, maths in `src/core/yeet/touch.ts`. H opens the controls list on PC.
+- Art review: `?showcase` holds the camera in front of your operative (`&pose=kneel|fling|tumble|run|aim|ko|look|flip|slash`, `&side=<rad>`, 3.14 is in front); `?flash` holds the pink muzzle flash on; `?hero` fires Reaper's Kick straight down 1 s in and logs `YEET_MARK_hero` mid hero landing (`?hold=hero` freezes there).
 - `?level=sandbox|fight|duel` picks the level (the menu: Play = fight, Sandbox = sandbox via `shell.worldOption`).
 - `?weapon=0..5` starts with that weapon in hand; the tour logs `YEET_MARK_kick` mid kick-out (`hold=kick`); `?tumble` trips a tumble 1 s in (`YEET_MARK_tumble`, `hold=tumble`).
 - `?aim` holds right-click aim during autoplay (stills of aimed fire, e.g. `play&autoplay&aim&hold=spin` for the scope).

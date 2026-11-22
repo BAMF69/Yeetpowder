@@ -9,7 +9,7 @@
 
 ## Next
 - [ ] Duel modes: first to 5 knockouts, timed round, Ring Out; the duel room with a Gatling pickup
-- [ ] Minimal touch controls for the phone
+- [ ] Touch controls (first build in, 2026-11-22): floating move stick (full push sprints), drag right half to look, Fire (drag it to look too), Aim toggle, Jump, Slash (hold), Reload, Pause, Respawn, tap weapon slots; tunables `TUNING.touch`. Slash latches once the stance or hook is on (lift, tap Fire to dash or YEETREAP, tap LET GO). Done when: Elaina plays a duel on the tablet and the phone and it feels playable
 - [ ] Announcer voices: Elaina records the 8 lines (`python tools/audio/announcer.py --list`) as WAV into `assets_src/voice/announcer/`, then `python tools/audio/announcer.py` (add `--pa --echo` for the stadium sound) imports, levels and wires them. The local voice tool does not fit this laptop (no NVIDIA GPU, 7.7 GB RAM)
 - [ ] Menu music and stingers
 - [ ] Art approval sample (GDD): one operative model and one separate shotgun in the painted room, compared with the shotgun keyframe; then figures and guns

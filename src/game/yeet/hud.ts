@@ -79,6 +79,20 @@ const CSS = `
   background: rgba(20, 24, 34, 0.65); padding: 6px 12px; border-radius: 14px; }
 .yh-hint { position: absolute; left: 18px; top: calc(54px * var(--s)); font-size: calc(13px * var(--s)); opacity: 0.85;
   background: rgba(20, 24, 34, 0.55); padding: 6px 10px; border-radius: 10px; max-width: 46vw; line-height: 1.5; }
+.yh-hint .full { display: none; }
+.yh-hint.open .full { display: inline; }
+.yh-hint.open .chip { display: none; }
+/* the list is keys and mouse buttons: no use on a phone or tablet */
+@media (pointer: coarse) { .yh-hint { display: none; } }
+/* touch controls (src/game/touchControls.ts) own the bottom right: the slots go to the top as tap targets, the ammo
+   count to the bottom middle, and "Click to play" never shows (no mouse to lock) */
+.yh.touch .yh-hint, .yh.touch .yh-click { display: none !important; }
+.yh.touch .yh-slots { right: auto; bottom: auto; left: 50%; top: calc(12px + 34px * var(--s)); transform: translateX(-50%);
+  flex-wrap: wrap; justify-content: center; max-width: 70vw; gap: 6px; z-index: 7; }
+.yh.touch .yh-slot { pointer-events: auto; touch-action: none; font-size: calc(13px * var(--s)); padding: 5px 9px; }
+.yh.touch .yh-slot.on { transform: translateY(2px); }
+.yh.touch .yh-ammo { right: auto; left: 50%; bottom: 14px; transform: translateX(-50%); text-align: center; }
+.yh.touch .yh-ammo .rl { margin: 4px auto 0; }
 .yh-feed { position: absolute; right: 18px; top: 14px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .yh-feed div { background: rgba(20, 24, 34, 0.7); padding: 4px 10px; border-radius: 8px; font-weight: 700;
   font-size: calc(14px * var(--s)); animation: yh-fade 4s forwards; }
@@ -162,6 +176,7 @@ export class YeetHud {
   private readonly pops: HTMLDivElement;
   private readonly rush: HTMLDivElement;
   private readonly click: HTMLDivElement;
+  private readonly hint: HTMLDivElement;
   private readonly scope: HTMLDivElement;
   private readonly cross: HTMLDivElement;
   private readonly hp: HTMLDivElement;
@@ -220,11 +235,34 @@ export class YeetHud {
     this.tip.innerHTML = "Plant your feet to avoid getting blown off balance by <em>YEETPOWDER</em>";
     this.hp = el("yh-hp", this.root);
     this.hpFill = el("fill", el("bar", this.hp));
-    el("yh-hint", this.root,
-      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · F slash, hold F: hook (scythe) / dash stance (katana) · 1-6 or wheel switch weapons · C launch camera on/off · Backspace respawn · Esc pause");
+    // playtest (tablet duel): the full list took too much screen, so it starts as a chip and H opens it
+    this.hint = el("yh-hint", this.root);
+    el("chip", this.hint, "H · controls");
+    el("full", this.hint,
+      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · F slash, hold F: hook (scythe) / dash stance (katana) · 1-6 or wheel switch weapons · C launch camera on/off · Backspace respawn · Esc pause · H hide");
     this.feed = el("yh-feed", this.root);
     this.pops = el("yh-pops", this.root);
     this.click = el("yh-click", this.root, "Click to play");
+  }
+
+  /**
+   * Touch controls are on: lay the HUD out around them and make the weapon slots tap targets. The HUD sits under the
+   * touch layer (z 5 < 6), so the slots are lifted above it while this is on.
+   */
+  setTouch(onSlot: (i: number) => void): void {
+    this.root.classList.add("touch");
+    this.root.style.zIndex = "7";
+    this.slots.forEach((s, i) =>
+      s.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        onSlot(i);
+      }),
+    );
+  }
+
+  /** H: open or close the controls list. */
+  toggleHint(): void {
+    this.hint.classList.toggle("open");
   }
 
   /** A comic text pop in the middle of the screen. */
