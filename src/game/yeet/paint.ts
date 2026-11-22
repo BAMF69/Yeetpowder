@@ -14,7 +14,9 @@
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
 
-export type PaintKind = "concrete" | "floor" | "ceiling" | "crate" | "steel" | "hazard" | "band" | "light";
+export type PaintKind =
+  | "concrete" | "floor" | "ceiling" | "crate" | "steel" | "hazard" | "band" | "light"
+  | "navy" | "leather" | "gunmetal" | "wood" | "blade" | "wrap" | "bone";
 
 const SIZE = 128;
 const cache = new Map<PaintKind, THREE.CanvasTexture>();
@@ -171,6 +173,74 @@ const painters: Record<PaintKind, (g: CanvasRenderingContext2D, r: () => number)
     g.fillRect(0, 0, SIZE, SIZE);
     mottle(g, r, 10, 0.4, "#7e3a1c", "#cf6e3c");
     speckle(g, r, 500, "#3a1a0a", 0.5);
+  },
+  // ---- first-person character and weapons (art pass 2) ----
+  navy(g, r) {
+    g.fillStyle = "#2b3550"; // the keyframe operative's jacket
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 8, 0.45, "#1e2539", "#3c4868");
+    for (let i = 0; i < 6; i++) { // fabric folds
+      g.fillStyle = `rgba(10,14,28,${0.15 + r() * 0.15})`;
+      g.fillRect(0, Math.floor(r() * SIZE), SIZE, 2 + Math.floor(r() * 4));
+    }
+    speckle(g, r, 400, "#59658a", 0.3);
+  },
+  leather(g, r) {
+    g.fillStyle = "#2c2a2b";
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 10, 0.5, "#1a191a", "#4a4744");
+    speckle(g, r, 300, "#6a6662", 0.35); // worn spots
+  },
+  gunmetal(g, r) {
+    g.fillStyle = "#4a5059";
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 12, 0.45, "#353a41", "#666d77");
+    for (let i = 0; i < 18; i++) { // edge wear: short bright scratches
+      g.fillStyle = `rgba(170,178,190,${0.15 + r() * 0.25})`;
+      g.fillRect(Math.floor(r() * SIZE), Math.floor(r() * SIZE), 4 + Math.floor(r() * 14), 1);
+    }
+  },
+  wood(g, r) {
+    g.fillStyle = "#6b4226";
+    g.fillRect(0, 0, SIZE, SIZE);
+    for (let y = 0; y < SIZE; y++) {
+      const w = Math.sin(y * 0.35 + Math.sin(y * 0.07) * 3) * 0.5 + 0.5;
+      g.fillStyle = `rgba(${40 + w * 40},${22 + w * 20},${10 + w * 8},${0.25 + r() * 0.2})`;
+      g.fillRect(0, y, SIZE, 1);
+    }
+    mottle(g, r, 10, 0.2, "#3a2210", "#8a5a34");
+    speckle(g, r, 200, "#2a160a", 0.4);
+  },
+  blade(g, r) {
+    g.fillStyle = "#b9c0c7";
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 16, 0.25, "#8f979f", "#e2e7ec");
+    for (let i = 0; i < 10; i++) {
+      g.fillStyle = `rgba(255,255,255,${0.2 + r() * 0.3})`;
+      g.fillRect(0, Math.floor(r() * SIZE), SIZE, 1);
+    }
+    speckle(g, r, 160, "#6b4a2a", 0.35); // a little rust
+  },
+  wrap(g, r) {
+    g.fillStyle = "#b8963e"; // the katana's handle: dark cord in diamonds over gold
+    g.fillRect(0, 0, SIZE, SIZE);
+    g.strokeStyle = "#151417";
+    g.lineWidth = 10;
+    for (let k = -SIZE; k < SIZE * 2; k += 32) {
+      g.beginPath();
+      g.moveTo(k, 0);
+      g.lineTo(k + SIZE, SIZE);
+      g.moveTo(k + SIZE, 0);
+      g.lineTo(k, SIZE);
+      g.stroke();
+    }
+    mottle(g, r, 10, 0.2, "#000", "#444");
+  },
+  bone(g, r) {
+    g.fillStyle = "#e3d6b8";
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 10, 0.35, "#b8a888", "#f4ecd8");
+    speckle(g, r, 300, "#7a6a50", 0.4);
   },
   light(g, r) {
     g.fillStyle = "#3a3c40";

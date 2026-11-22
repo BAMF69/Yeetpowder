@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // viewmodel.ts
-// Purpose : What you see of yourself in first person: two arms in the jumpsuit with white cartoon gloves holding
-//           the current gun (placeholder models built from shapes), legs that only show when you are thrown, and the
+// Purpose : What you see of yourself in first person: the operative's navy sleeves and black tactical gloves holding
+//           the current gun (low-poly models from gunModels.ts), legs that only show when you are thrown, and the
 //           recoil poses that sell each gun's kick:
 //             Pea Pistol  -> the wrist snaps, then the gun hand whips up and back over your head, swings back
 //             Boomstick   -> both arms and both legs fling forward into view as you are thrown backward
@@ -17,16 +17,33 @@
 //           Presentation numbers only: gameplay recoil lives in src/core/yeet/tuning.ts.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // Updated : 2026-11-21 with Claude (Opus 5.5, claude-opus-5-5): arms, legs and per-gun recoil poses (playtest)
+//           2026-11-22 with Claude (Opus 5.5, claude-opus-5-5): art pass 2 (navy sleeves, gloves, gun models)
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
 import type { WeaponId } from "../../core/yeet/tuning";
+import { buildWeapon, type MatKey, type ModelKit } from "./gunModels";
+import { paintedTexture, type PaintKind } from "./paint";
 
 // ---- Tunables (presentation) --------------------------------------------------
-const SUIT = "#26a69a"; // the player's jumpsuit (teal: no dummy wears it)
-const GLOVE = "#f5f5f5";
-const BOOT = "#3a3a44";
 const GUN_SCALE = 0.62;
-const SLEEVE = 0.036; // sleeve radius: thin enough not to hide the room
+/** Sleeve radius at the wrist and at the shoulder (a tapered six-sided tube: the GDD's faceted N64 look). */
+const SLEEVE = { wrist: 0.032, shoulder: 0.046, sides: 6 };
+/** Flat colours for the parts with no painted texture; each gun's accent colour. */
+const PLAIN: Record<string, string> = { polymer: "#2b2d32", brass: "#b08a3e", lens: "#24476b" };
+const ACCENT: Partial<Record<WeaponId, string>> = { sniper: "#5b3f8f", sakura: "#f48fb1" };
+/** Where each gun is held, in its model's space (unscaled): grip (right hand), foregrip (left hand), barrel end. */
+const ANCHORS: Record<WeaponId, { grip: THREE.Vector3; fore: THREE.Vector3 | null; muzzle: THREE.Vector3 }> = {
+  pistol: { grip: new THREE.Vector3(0, -0.08, 0.06), fore: null, muzzle: new THREE.Vector3(0, 0.015, -0.25) },
+  shotgun: { grip: new THREE.Vector3(0, -0.05, 0.1), fore: new THREE.Vector3(0, -0.01, -0.32), muzzle: new THREE.Vector3(0, 0.02, -0.62) },
+  sniper: { grip: new THREE.Vector3(0, -0.06, 0.12), fore: new THREE.Vector3(0, -0.03, -0.22), muzzle: new THREE.Vector3(0, 0.01, -0.84) },
+  copter: { grip: new THREE.Vector3(0, -0.12, 0.12), fore: new THREE.Vector3(0, 0.1, -0.02), muzzle: new THREE.Vector3(0, 0, -0.5) },
+  reaper: { grip: new THREE.Vector3(0, -0.02, 0.2), fore: new THREE.Vector3(0, 0, -0.42), muzzle: new THREE.Vector3(0, 0.045, -0.98) },
+  sakura: { grip: new THREE.Vector3(0, 0, 0.06), fore: null, muzzle: new THREE.Vector3(0, 0, -0.23) },
+};
+/** The right glove's turn in the hand (rad): fingers forward, the cuff angled back toward the sleeve. */
+/** Glove size: chunky, but small enough that the Pea Pistol still shows in the fist. */
+const GLOVE_SCALE = 0.85;
+const GLOVE_R_TILT = new THREE.Euler(0.45, Math.PI - 0.25, 0);
 const SHOULDER_R = new THREE.Vector3(0.32, -0.42, 0.12);
 const SHOULDER_L = new THREE.Vector3(-0.26, -0.48, 0.02);
 const HAND_R = new THREE.Vector3(0.2, -0.21, -0.38); // rest position of the gun hand
@@ -60,11 +77,6 @@ interface GunModel {
   spinner?: THREE.Object3D;
 }
 
-type Part =
-  | ["box", number, number, number, string, number, number, number]
-  | ["cyl", number, number, string, number, number, number]
-  | ["sph", number, string, number, number, number];
-
 /** 0 -> 1 (ease-out, or smoothstep when smooth), hold, then ease back to 0: a recoil pose over time t (s). */
 function envelope(t: number, rise: number, hold: number, back: number, smooth = false): number {
   if (t < 0) return 0;
@@ -83,12 +95,14 @@ export class Viewmodel {
   private readonly armR = new THREE.Group(); // pivot at the right shoulder
   private readonly mount = new THREE.Group(); // at the right hand: the gun hangs here
   private readonly sleeveR: THREE.Mesh;
-  private readonly gloveR: THREE.Mesh;
+  private readonly gloveR: THREE.Group;
   private readonly hand = new THREE.Vector3(); // the right hand, relative to the shoulder pivot
   private readonly dir = new THREE.Vector3();
   private readonly armL = new THREE.Group(); // at the left shoulder, aimed at the foregrip
   private readonly sleeveL: THREE.Mesh;
-  private readonly gloveL: THREE.Mesh;
+  private readonly gloveL: THREE.Group;
+  /** Shared materials by key ("navy", "gunmetal", "accent:#5b3f8f" ...). */
+  private readonly matCache = new Map<string, THREE.Material>();
   private readonly hips = new THREE.Group();
   private readonly legs: THREE.Group[] = [];
   private readonly flash: THREE.Mesh;
@@ -117,26 +131,27 @@ export class Viewmodel {
   private readonly tmp = new THREE.Vector3();
 
   constructor() {
-    const suit = this.mat(SUIT);
-    const glove = this.mat(GLOVE);
+    const suit = this.paintMat("navy");
 
     // right arm: a pivot at the shoulder (it swings the whole arm); inside it the hand moves (aim, the pistol's
-    // jerk) and the sleeve is re-stretched from the shoulder to the hand every frame, so the shoulder never moves
+    // jerk) and the sleeve is re-stretched from the shoulder to the hand every frame, so the shoulder never moves.
+    // The glove rides in the mount with the gun, so wrist flicks and slashes turn the fist with the grip.
     this.armR.position.copy(SHOULDER_R);
     this.root.add(this.armR);
-    this.sleeveR = this.limb(1, SLEEVE, suit);
+    this.sleeveR = this.limb(suit);
     this.armR.add(this.sleeveR);
-    this.gloveR = new THREE.Mesh(this.geo(new THREE.SphereGeometry(0.045, 10, 8)), glove);
-    this.armR.add(this.gloveR);
     this.armR.add(this.mount);
+    this.gloveR = this.glove(1);
+    this.gloveR.rotation.copy(GLOVE_R_TILT);
+    this.mount.add(this.gloveR);
     this.placeHand(HAND_R.clone().sub(SHOULDER_R));
 
-    // left arm: a unit sleeve stretched to reach the foregrip
+    // left arm: a unit sleeve stretched to reach the foregrip; the glove turns with the forearm each frame
     this.armL.position.copy(SHOULDER_L);
     this.root.add(this.armL);
-    this.sleeveL = this.limb(1, SLEEVE, suit);
+    this.sleeveL = this.limb(suit);
     this.armL.add(this.sleeveL);
-    this.gloveL = new THREE.Mesh(this.geo(new THREE.SphereGeometry(0.045, 10, 8)), glove);
+    this.gloveL = this.glove(-1);
     this.root.add(this.gloveL);
 
     // legs: hidden below the view until a Boomstick shot throws them forward
@@ -145,67 +160,22 @@ export class Viewmodel {
     for (const x of [-0.14, 0.14]) {
       const leg = new THREE.Group();
       leg.position.x = x;
-      const thigh = new THREE.Mesh(this.geo(new THREE.CapsuleGeometry(0.075, 0.62, 3, 8)), suit);
+      const thigh = new THREE.Mesh(this.geo(new THREE.CylinderGeometry(0.068, 0.085, 0.76, 6)), suit);
       thigh.position.y = -0.38;
-      const boot = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.15, 0.11, 0.26)), this.mat(BOOT));
+      const boot = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.15, 0.13, 0.27)), this.paintMat("leather"));
       boot.position.set(0, -0.8, -0.05);
-      leg.add(thigh, boot);
+      const sole = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.16, 0.035, 0.29)), this.plainMat(PLAIN.polymer));
+      sole.position.set(0, -0.875, -0.05);
+      leg.add(thigh, boot, sole);
       this.hips.add(leg);
       this.legs.push(leg);
     }
     this.hips.visible = false;
 
-    // the guns (unchanged shapes, now held by the hand at their grip)
-    this.addGun("pistol", [
-      ["box", 0.07, 0.09, 0.22, "#3fbf5a", 0, 0, 0],
-      ["cyl", 0.025, 0.12, "#2b8a3e", 0, 0.015, -0.16],
-      ["box", 0.05, 0.12, 0.06, "#6b4a2b", 0, -0.08, 0.06],
-      ["sph", 0.035, "#b6f5c1", 0, 0.015, -0.23],
-    ], new THREE.Vector3(0, -0.08, 0.06), null, new THREE.Vector3(0, 0.015, -0.25));
-    this.addGun("shotgun", [
-      ["cyl", 0.032, 0.62, "#3a3a44", -0.032, 0.02, -0.3],
-      ["cyl", 0.032, 0.62, "#3a3a44", 0.032, 0.02, -0.3],
-      ["box", 0.12, 0.1, 0.22, "#8b5a2b", 0, -0.02, 0.05],
-      ["box", 0.09, 0.14, 0.2, "#6b4a2b", 0, -0.07, 0.2],
-    ], new THREE.Vector3(0, -0.05, 0.1), new THREE.Vector3(0, -0.01, -0.32), new THREE.Vector3(0, 0.02, -0.62));
-    this.addGun("sniper", [
-      ["cyl", 0.022, 0.8, "#2a2f3a", 0, 0.01, -0.42],
-      ["box", 0.08, 0.1, 0.36, "#7a4fd1", 0, -0.02, 0.0],
-      ["cyl", 0.04, 0.24, "#1d1f26", 0, 0.1, -0.02],
-      ["box", 0.07, 0.12, 0.18, "#5a3a9e", 0, -0.06, 0.22],
-    ], new THREE.Vector3(0, -0.06, 0.12), new THREE.Vector3(0, -0.03, -0.22), new THREE.Vector3(0, 0.01, -0.84));
-    const copter = this.addGun("copter", [
-      ["box", 0.16, 0.14, 0.26, "#f28c28", 0, -0.02, 0.06],
-      ["box", 0.05, 0.12, 0.08, "#3a3a44", 0, -0.12, 0.12],
-      ["box", 0.04, 0.06, 0.12, "#3a3a44", 0, 0.08, -0.02],
-    ], new THREE.Vector3(0, -0.12, 0.12), new THREE.Vector3(0, 0.1, -0.02), new THREE.Vector3(0, 0, -0.5));
-    // Reaper's Kick: a weathered farm scythe (wood, rust, bone charm) with a sniper barrel along the shaft,
-    // held tilted up so the blade shows above your hand
-    const reaper = this.addGun("reaper", [
-      ["cyl", 0.026, 1.35, "#7a5a3a", 0, 0, -0.32],
-      ["cyl", 0.016, 0.95, "#2a2f3a", 0, 0.045, -0.5],
-      ["box", 0.62, 0.11, 0.02, "#8d8a84", -0.27, 0.06, -0.98],
-      ["box", 0.2, 0.05, 0.021, "#7a4a2a", -0.5, 0.02, -0.98],
-      ["sph", 0.03, "#e8dcc0", 0.03, -0.09, -0.86],
-      ["box", 0.06, 0.08, 0.1, "#5a3f2a", 0, -0.04, 0.15],
-    ], new THREE.Vector3(0, -0.02, 0.2), new THREE.Vector3(0, 0, -0.42), new THREE.Vector3(0, 0.045, -0.98));
-    reaper.group.rotation.set(0.4, -0.32, 0.05); // shaft up and to the right: the blade stays clear of the crosshair
-    // Six-Shot Sakura: a katana with a revolver cylinder at the blade's base
-    this.addGun("sakura", [
-      ["box", 0.016, 0.05, 0.95, "#dfe3e8", 0, 0.01, -0.6],
-      ["cyl", 0.026, 0.28, "#2a2a33", 0, 0, 0.02],
-      ["cyl", 0.062, 0.016, "#b08a3e", 0, 0, -0.12],
-      ["cyl", 0.045, 0.09, "#5a5a66", 0, 0.0, -0.18],
-      ["sph", 0.025, "#f48fb1", 0, -0.05, 0.17],
-    ], new THREE.Vector3(0, 0, 0.06), null, new THREE.Vector3(0, 0, -0.23));
-    const spinner = new THREE.Group();
-    spinner.position.set(0, 0, -0.25);
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      spinner.add(this.part(["cyl", 0.018, 0.4, "#3a3a44", Math.cos(a) * 0.045, Math.sin(a) * 0.045, 0]));
-    }
-    copter.group.add(spinner);
-    copter.spinner = spinner;
+    // the guns: low-poly models (gunModels.ts) held by the hand at their grip
+    for (const id of Object.keys(ANCHORS) as WeaponId[]) this.addGun(id);
+    // Reaper's Kick is held tilted up so the blade shows above your hand, clear of the crosshair
+    this.guns.get("reaper")!.group.rotation.set(0.4, -0.32, 0.05);
 
     // muzzle flash: a flat yellow star at the barrel's end
     const s = new THREE.Shape();
@@ -359,6 +329,7 @@ export class Viewmodel {
       this.sleeveL.scale.z = reach.length();
       this.armL.lookAt(this.root.localToWorld(target.clone()));
       this.gloveL.position.copy(target);
+      this.gloveL.quaternion.copy(this.armL.quaternion); // the fist points along the forearm
     }
 
     // legs: swing forward into view while flung, kicking a little out of step
@@ -388,7 +359,6 @@ export class Viewmodel {
     // (the "second arm sticking out of the gun", playtest 3)
     this.hand.copy(h);
     this.mount.position.copy(this.hand);
-    this.gloveR.position.copy(this.hand);
     this.sleeveR.scale.z = this.hand.length();
     this.sleeveR.quaternion.setFromUnitVectors(Z_AXIS, this.dir.copy(this.hand).normalize());
   }
@@ -399,54 +369,87 @@ export class Viewmodel {
     return g;
   }
 
-  private mat(color: string): THREE.MeshStandardMaterial {
-    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
-    this.mats.push(m);
+  /** A faceted material with a painted texture (paint.ts), shared by key. */
+  private paintMat(kind: PaintKind, metal = 0): THREE.Material {
+    return this.cached(kind, () =>
+      new THREE.MeshStandardMaterial({ map: paintedTexture(kind), roughness: 0.75, metalness: metal, flatShading: true }));
+  }
+
+  /** A faceted flat-colour material, shared by colour. */
+  private plainMat(color: string, glow = 0): THREE.Material {
+    return this.cached(`plain:${color}:${glow}`, () =>
+      new THREE.MeshStandardMaterial({ color, roughness: 0.6, flatShading: true, emissive: color, emissiveIntensity: glow }));
+  }
+
+  private cached(key: string, make: () => THREE.Material): THREE.Material {
+    let m = this.matCache.get(key);
+    if (!m) {
+      m = make();
+      this.matCache.set(key, m);
+      this.mats.push(m);
+    }
     return m;
   }
 
-  /** A sleeve from the group's origin along +Z, `length` long. */
-  private limb(length: number, radius: number, mat: THREE.Material): THREE.Mesh {
-    const g = this.geo(new THREE.CylinderGeometry(radius, radius * 1.15, 1, 10));
-    g.rotateX(Math.PI / 2);
+  /** The material kit a gun model is built with (gunModels.ts), with that gun's accent colour. */
+  private kitFor(id: WeaponId): ModelKit {
+    const accent = ACCENT[id] ?? "#c0392b";
+    return {
+      geo: (g) => this.geo(g),
+      mat: (key: MatKey) => {
+        switch (key) {
+          case "gunmetal": return this.paintMat("gunmetal", 0.1);
+          case "blade": return this.paintMat("blade", 0.35);
+          case "wood": case "wrap": case "bone": case "leather": case "hazard": return this.paintMat(key);
+          case "pea": return this.plainMat("#7ed957", 0.35);
+          case "lens": return this.plainMat(PLAIN.lens, 0.4);
+          case "accent": return this.plainMat(accent);
+          default: return this.plainMat(PLAIN[key]);
+        }
+      },
+    };
+  }
+
+  /** A sleeve from the group's origin along +Z, 1 m long (scale.z stretches it), tapering to the wrist. */
+  private limb(mat: THREE.Material): THREE.Mesh {
+    const g = this.geo(new THREE.CylinderGeometry(SLEEVE.wrist, SLEEVE.shoulder, 1, SLEEVE.sides));
+    g.rotateX(Math.PI / 2); // +Y (the wrist end) -> +Z
     g.translate(0, 0, 0.5);
-    const m = new THREE.Mesh(g, mat);
-    m.scale.z = length;
-    return m;
+    return new THREE.Mesh(g, mat);
   }
 
-  private addGun(id: WeaponId, parts: Part[], grip: THREE.Vector3, fore: THREE.Vector3 | null, muzzle: THREE.Vector3): GunModel {
-    const group = new THREE.Group();
-    for (const p of parts) group.add(this.part(p));
+  /**
+   * A chunky black tactical glove with the jumpsuit's folded cuff, centred on the grip. Local +Z runs along the
+   * forearm toward the knuckles; thumbSide (+1 / -1) puts the thumb on local +X or -X (mirrored hands).
+   */
+  private glove(thumbSide: number): THREE.Group {
+    const g = new THREE.Group();
+    const leather = this.paintMat("leather");
+    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, ry = 0) => {
+      const m = new THREE.Mesh(this.geo(geo), mat);
+      m.position.set(x, y, z);
+      m.rotation.y = ry;
+      g.add(m);
+    };
+    add(new THREE.BoxGeometry(0.074, 0.064, 0.07), leather, 0, 0, 0); // the fist
+    add(new THREE.BoxGeometry(0.078, 0.032, 0.03), leather, 0, 0.012, 0.038); // knuckle ridge
+    add(new THREE.BoxGeometry(0.024, 0.028, 0.05), leather, thumbSide * 0.042, 0.008, 0.012, thumbSide * 0.35); // thumb
+    add(new THREE.BoxGeometry(0.066, 0.058, 0.04), leather, 0, -0.002, -0.05); // the gauntlet
+    const cuff = new THREE.CylinderGeometry(0.044, 0.046, 0.028, SLEEVE.sides);
+    cuff.rotateX(Math.PI / 2);
+    add(cuff, this.paintMat("navy"), 0, 0, -0.082); // the rolled sleeve cuff
+    g.scale.setScalar(GLOVE_SCALE);
+    return g;
+  }
+
+  private addGun(id: WeaponId): void {
+    const { grip, fore, muzzle } = ANCHORS[id];
+    const model = buildWeapon(id, this.kitFor(id));
+    const group = model.group;
     group.scale.setScalar(GUN_SCALE);
     group.position.copy(grip).multiplyScalar(-GUN_SCALE); // the grip sits in the hand
     group.visible = false;
     this.mount.add(group);
-    const gun: GunModel = { group, grip, fore, muzzle };
-    this.guns.set(id, gun);
-    return gun;
-  }
-
-  private part(p: Part): THREE.Mesh {
-    let geo: THREE.BufferGeometry;
-    let color: string;
-    let pos: [number, number, number];
-    if (p[0] === "box") {
-      geo = new THREE.BoxGeometry(p[1], p[2], p[3]);
-      color = p[4];
-      pos = [p[5], p[6], p[7]];
-    } else if (p[0] === "cyl") {
-      geo = new THREE.CylinderGeometry(p[1], p[1], p[2], 10);
-      geo.rotateX(Math.PI / 2);
-      color = p[3];
-      pos = [p[4], p[5], p[6]];
-    } else {
-      geo = new THREE.SphereGeometry(p[1], 10, 8);
-      color = p[2];
-      pos = [p[3], p[4], p[5]];
-    }
-    const m = new THREE.Mesh(this.geo(geo), this.mat(color));
-    m.position.set(...pos);
-    return m;
+    this.guns.set(id, { group, grip, fore, muzzle, spinner: model.spinner });
   }
 }

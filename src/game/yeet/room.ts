@@ -17,7 +17,7 @@ import type { Arena, Box } from "../../core/yeet/arena";
 import { disposePaint, paintedTexture, type PaintKind } from "./paint";
 
 /** Metres per texture repeat, per surface. */
-const TILE: Record<PaintKind, number> = {
+const TILE: Partial<Record<PaintKind, number>> = {
   concrete: 3, floor: 2, ceiling: 3, crate: 1.6, steel: 2, hazard: 0.8, band: 2, light: 1,
 };
 const BAND = { bottom: 1.15, top: 1.6, inset: 0.02 }; // the orange wall stripe (m above the floor)
@@ -83,7 +83,7 @@ export function buildRoom(arena: Arena): { group: THREE.Group; dispose(): void }
     const size = new THREE.Vector3().subVectors(max, min);
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
     const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
-    worldUVs(geo, center, TILE[kind]);
+    worldUVs(geo, center, TILE[kind] ?? 1);
     geos.push(geo);
     const mesh = new THREE.Mesh(geo, mat(kind));
     mesh.position.copy(center);
