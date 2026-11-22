@@ -225,6 +225,8 @@ export const TUNING = {
     /** Hold F (past holdTime): wrap the scythe around the nearest enemy in front; Fire while hooked = YEETREAP. */
     hook: { holdTime: 0.2, range: 3, arc: (2 * Math.PI) / 3, distance: 1.4, maxTime: 2, release: 3, yankReach: 1.8 },
     yeetreap: { damage: 120, knockback: 26, lift: 10 },
+    /** Landing from a backflip: down on one knee (the eye drops `kneel` m), no moving or jumping for `time` s. */
+    heroLanding: { time: 0.6, kneel: 0.7 },
   },
 
   /**
@@ -241,7 +243,8 @@ export const TUNING = {
     finisherRange: 3,
     finisherKnockback: 22,
     finisherLift: 8,
-    /** Hold F (past holdTime): blade reversed; each Fire propels you dashSpeed forward instead of kicking you back. */
+    /** Hold F (past holdTime): blade reversed; each Fire propels you `speed` along your aim (level, or up when you
+     * look up: never down into the floor) instead of kicking you back. */
     dash: { holdTime: 0.2, speed: 22 },
     /**
      * ULTRASLASH (playtest): letting go of the stance after a dash-fire, while still faster than minSpeed (above a

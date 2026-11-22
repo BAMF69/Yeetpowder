@@ -24,6 +24,15 @@ Tasks created (ROADMAP):
 ```
 
 ## Entries
+### 2026-11-21  Build duel netcode first build (feat/reload bede7bb)  Tester: self (Elaina the Great)
+Question being tested: (requests; multiplayer not tested yet: "I can't test multiplayer right now")
+Quotes (exact words):
+- "when you land after a reaper's kick backflip your character does a hero landing on one knee that takes a moment to stand up from"
+- "make it so sakura dash firing allows you to travel upwards if you are looking up"
+Decisions / tuning changes:
+- Hero landing after a Reaper backflip: eye drops 0.7 m, no moving or jumping for 0.6 s; shooting and slashing still work
+- Sakura dash-fire follows your aim upward (level when looking down). Side effect: it climbs to ~19 m, so the Sakura can reach Fight Back's Gatling tower (asked Elaina whether to keep it Boomstick-only)
+
 ### 2026-11-21  Build gunblade hold moves (feat/reload, uncommitted)  Tester: self (Elaina the Great)
 Question being tested: Do the hold-F moves work?
 Quotes (exact words):

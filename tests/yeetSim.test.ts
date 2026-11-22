@@ -570,6 +570,61 @@ describe("gunblades (vertical slice)", () => {
     expect(has(run(slowed, 0.3), "ultraslash")).toBe(false);
   });
 
+  it("a Reaper backflip ends in a hero landing: on one knee (eye down), no moving for a moment, still able to fire", () => {
+    const sim = newSim();
+    parkDummies(sim);
+    select(sim, REAPER);
+    run(sim, 0.2);
+    sim.look(0, -10);
+    fire(sim); // backflip
+    let ev: YeetEvent[] = [];
+    for (let i = 0; i < 600 && !has(ev, "heroLanding"); i++) ev = sim.step(NO_INPUT);
+    expect(has(ev, "heroLanding")).toBe(true);
+    run(sim, 0.08);
+    expect(sim.eye().y).toBeLessThan(sim.player.pos.y + TUNING.player.eyeHeight - 0.4); // down on a knee
+    const x0 = sim.player.pos.x;
+    run(sim, 0.2, { moveX: 1, jump: true });
+    expect(sim.player.pos.x).toBeCloseTo(x0, 1); // cannot walk or jump off it yet
+    expect(sim.player.onGround).toBe(true);
+    sim.player.cooldown = 0;
+    sim.player.reloading = 0;
+    sim.player.mag.reaper = 4;
+    expect(has(fire(sim), "fire")).toBe(true); // shooting still works
+    run(sim, TUNING.reaper.heroLanding.time);
+    expect(sim.eye().y).toBeCloseTo(sim.player.pos.y + TUNING.player.eyeHeight, 3); // back up
+  });
+
+  it("only backflips end in a hero landing (not front-flips or cartwheels)", () => {
+    const sim = newSim();
+    parkDummies(sim);
+    sim.player.pos = vec(15, 0, 15);
+    select(sim, REAPER);
+    run(sim, 0.6, { moveZ: 1 });
+    sim.player.yaw = Math.PI; // front-flip
+    fire(sim);
+    expect(has(run(sim, 3), "heroLanding")).toBe(false);
+  });
+
+  it("Sakura dash-fire looking up carries you upward; looking down stays level", () => {
+    const up = duelDummy(SAKURA, 30);
+    hold(up, 0.3);
+    up.look(0, 0.9);
+    up.step({ ...NO_INPUT, slashHeld: true, firePressed: true });
+    let top = 0;
+    for (let i = 0; i < 120; i++) {
+      up.step({ ...NO_INPUT, slashHeld: true });
+      top = Math.max(top, up.player.pos.y);
+    }
+    expect(top).toBeGreaterThan(5);
+
+    const down = duelDummy(SAKURA, 30);
+    hold(down, 0.3);
+    down.look(0, -1);
+    down.step({ ...NO_INPUT, slashHeld: true, firePressed: true });
+    expect(down.player.vel.y).toBeGreaterThan(0); // never driven into the floor
+    expect(Math.hypot(down.player.vel.x, down.player.vel.z)).toBeCloseTo(TUNING.sakura.dash.speed, 0);
+  });
+
   it("gunblades never tumble you, even fired on the run", () => {
     const sim = newSim();
     parkDummies(sim);

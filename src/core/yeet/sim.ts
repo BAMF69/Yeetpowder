@@ -107,7 +107,8 @@ export type YeetEvent =
   | { type: "dash" }
   | { type: "ultraslash"; hits: number; round: number; last: boolean }
   | { type: "pvpHit"; by: number; target: number; damage: number; at: Vec3 }
-  | { type: "pvpDown"; by: number; target: number };
+  | { type: "pvpDown"; by: number; target: number }
+  | { type: "heroLanding" };
 
 /** An event with the index of the player it belongs to (step() tags every player-caused event). */
 export type TaggedEvent = YeetEvent & { p?: number };
@@ -170,6 +171,9 @@ export interface PlayerState {
   ultraRound: number;
   /** The dummy this hold's opening slash hit (-1 = none): the hook yanks it back even after the slash shoved it. */
   slashHit: number;
+  /** In the air from a Reaper's Kick backflip (the landing will be a hero landing), and the landing's time left. */
+  backflipAir: boolean;
+  heroLand: number;
 }
 
 export interface DummyState {
@@ -295,6 +299,7 @@ export class YeetSim {
       lastShotAt: -99, slashCd: 0, slashRecover: 0, combo: 0, lastSlashAt: -99,
       holdT: 0, holdUsed: false, hook: -1, hookT: 0, stance: false, slashHit: -1,
       stanceDashed: false, ultraLeft: 0, ultraT: 0, ultraRound: 0,
+      backflipAir: false, heroLand: 0,
     };
   }
 
@@ -333,7 +338,16 @@ export class YeetSim {
 
   eye(): Vec3 {
     const p = this.player.pos;
-    return vec(p.x, p.y + this.t.player.eyeHeight, p.z);
+    return vec(p.x, p.y + this.t.player.eyeHeight - this.kneelDepth(), p.z);
+  }
+
+  /** How far the eye is down during a hero landing (m): quick drop, then a slower stand-up. */
+  kneelDepth(pl: PlayerState = this.player): number {
+    const h = this.t.reaper.heroLanding;
+    if (pl.heroLand <= 0) return 0;
+    const k = 1 - pl.heroLand / h.time; // 0 at touchdown .. 1 standing
+    const down = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85;
+    return h.kneel * Math.max(0, Math.min(1, down));
   }
 
   /** One fixed step. One input (single player) or one per player (a duel). Events carry `p`, their player. */
@@ -460,8 +474,11 @@ export class YeetSim {
     }
 
     const speedBefore = lenXZ(pl.vel);
-    this.updateSprint(control ? input : NO_INPUT, dt);
-    this.runAndJump(control ? input : NO_INPUT, dt);
+    if (pl.heroLand > 0) pl.heroLand = Math.max(0, pl.heroLand - dt);
+    // a hero landing: no moving, sprinting or jumping until you are back up (shooting and slashing still work)
+    const legs = control && pl.heroLand === 0 ? input : NO_INPUT;
+    this.updateSprint(legs, dt);
+    this.runAndJump(legs, dt);
     this.fireWeapons(control ? input : NO_INPUT, speedBefore, dt, ev);
     this.melee(control ? input : NO_INPUT, dt, ev);
 
@@ -473,6 +490,13 @@ export class YeetSim {
     pl.vel.y -= t.gravity * dt;
     const res = moveBody(this.arena, pl.pos, pl.vel, dt, t.player.halfWidth, t.player.height);
     if (res.onGround && !pl.onGround && res.landSpeed > 4) ev.push({ type: "land", speed: res.landSpeed });
+    if (res.onGround && !pl.onGround && pl.backflipAir) {
+      pl.backflipAir = false;
+      pl.heroLand = t.reaper.heroLanding.time;
+      pl.vel.x *= 0.2; // the knee takes the landing
+      pl.vel.z *= 0.2;
+      ev.push({ type: "heroLanding" });
+    }
     pl.onGround = res.onGround;
 
     if (res.wallImpact >= t.bonk.speed && res.wallNormal) {
@@ -689,13 +713,18 @@ export class YeetSim {
     }
     ev.push({ type: "fire", weapon: pl.weapon, tracers, aimed });
     pl.lastShotAt = this.time;
-    if (pl.weapon === "reaper") ev.push({ type: "flip", kind: this.flipKind(aim, velBefore) });
+    if (pl.weapon === "reaper") {
+      const kind = this.flipKind(aim, velBefore);
+      if (kind === "backflip") pl.backflipAir = true;
+      ev.push({ type: "flip", kind });
+    }
     if (dash) {
       // the blade held backwards: the revolver fires behind you and throws you forward
-      const f = aimDir(pl.yaw, 0);
+      // along your aim when you look up (a dash up a wall of air); level when you look down
+      const f = aimDir(pl.yaw, Math.max(0, pl.pitch));
       pl.vel.x = f.x * t.sakura.dash.speed;
       pl.vel.z = f.z * t.sakura.dash.speed;
-      pl.vel.y = Math.max(pl.vel.y, 2);
+      pl.vel.y = Math.max(f.y * t.sakura.dash.speed, 2);
       pl.onGround = false;
       pl.stanceDashed = true;
       ev.push({ type: "dash" });
@@ -1107,6 +1136,8 @@ export class YeetSim {
     pl.stance = false;
     pl.ultraLeft = 0;
     pl.holdT = 0;
+    pl.backflipAir = false;
+    pl.heroLand = 0;
     if (fullReset) {
       pl.owned = [...lv.startWeapons];
       if (!pl.owned.includes(pl.weapon)) pl.weapon = pl.owned[0];

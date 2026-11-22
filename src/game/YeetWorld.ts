@@ -584,6 +584,11 @@ export class YeetWorld implements World {
         this.sound.play(e.hits > 0 ? "shing" : "swish");
         if (e.hits > 0) this.shake.addTrauma(e.last ? 0.45 : 0.2);
         break;
+      case "heroLanding":
+        this.sound.play("thud");
+        this.shake.addTrauma(0.4);
+        this.hud.pop("HERO LANDING!");
+        break;
       case "finisher":
         this.hud.pop("FINISHER!", true);
         this.sound.play("boom");
@@ -685,7 +690,7 @@ export class YeetWorld implements World {
       fig.root.visible = !!v && link.present[j];
       if (!v) return;
       const st = v.state;
-      fig.root.position.set(v.pos.x, v.pos.y + PIVOT, v.pos.z);
+      fig.root.position.set(v.pos.x, v.pos.y + PIVOT - this.sim.kneelDepth(st) * 0.6, v.pos.z);
       this.otherRoll[j] = st.tumbling > 0 || st.dead > 0 ? this.otherRoll[j] + (st.tumbleRoll || 8) * dt : 0;
       facing(v.yaw, fig.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.otherRoll[j]));
       fig.setHp(st.hp / TUNING.player.hp);

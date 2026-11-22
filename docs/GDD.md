@@ -77,7 +77,7 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Ragdoll-lite | Tumble/flail animation over a physics capsule; full ragdoll only on death (client-side) | yes |
 | Multiplayer | Server-authoritative rooms on this PC (`ws`, ADR 0002), client prediction, the other player ~100 ms behind; first build 2026-11-21 (`npm run duel`) | yes (2 players) |
 | Killstreaks | Temporary super weapons earned by kill chains | no (Gatling Copter prototype in the toy only) |
-| Gunblades | Reaper's Kick and Six-Shot Sakura: recoil-powered melee movesets (see the PDF), F to slash, keys 5 and 6; rare pickups in Fight Back, always available in the Sandbox; exempt from run-and-gun tumbles. Hold F: Reaper's Kick hooks an enemy (Fire = YEETREAP: heavy damage and a launch); the Sakura reverses its blade (each Fire dashes you forward; releasing after a dash-fire while still faster than a sprint = ULTRASLASH, rapid-firing every round left) *(Elaina, 2026-11-21)* | yes (both) |
+| Gunblades | Reaper's Kick and Six-Shot Sakura: recoil-powered melee movesets (see the PDF), F to slash, keys 5 and 6; rare pickups in Fight Back, always available in the Sandbox; exempt from run-and-gun tumbles. Backflips end in a hero landing (a moment on one knee). Hold F: Reaper's Kick hooks an enemy (Fire = YEETREAP: heavy damage and a launch); the Sakura reverses its blade (each Fire dashes you along your aim, upward too; releasing after a dash-fire while still faster than a sprint = ULTRASLASH, rapid-firing every round left) *(Elaina, 2026-11-21)* | yes (both) |
 | Modes, replay, bots, touch controls | See the PDF | no |
 
 ## Controls
