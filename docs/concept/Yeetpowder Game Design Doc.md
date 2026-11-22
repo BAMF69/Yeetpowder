@@ -185,7 +185,7 @@ The game is a web app built on WebGL with a server-authoritative multiplayer set
 
 ## Future systems
 
-The Stuffer and Smith lore opens up two systems for after launch: heavy Smith-built guns that trade mobility for control, and weapon durability for scavenging modes.
+The Stuffer and Smith lore opens up three systems for after launch: heavy Smith-built guns that trade mobility for control, weapon durability for scavenging modes, and armor with damage types.
 
 **Smith heavy guns**
 
@@ -216,6 +216,34 @@ Yeetpowder shakes Stuffer guns apart. In specific modes, guns wear out with use 
 - **Scrapyard:** a longer survival mode in which everyone starts with a worn pistol and must scavenge, repair and upgrade.
 - **Junk Wars:** a team mode where each team defends a workbench; destroying the other team's bench stops their repairs.
 - **Standard modes** (Free-for-all, Team Yeet) keep durability off so drop-in matches stay simple.
+
+**Armor and damage types**
+
+Every hit has a damage type, and armor reduces some types more than others. Heavier armor also makes you heavier, so your own recoil and enemy knockback move you less. Armor is a trade-off, not a straight upgrade.
+
+Damage types:
+
+- **Bullet:** all standard guns and gunblade shots.
+- **Slash:** gunblade melee (Reaper's Kick, Six-Shot Sakura) and other melee.
+- **Blast:** rockets, explosive barrels, Cannonball Mode, overheat crashes.
+- **Bonk:** wall and floor impacts (only in the "Hard Walls" option).
+
+| Armor | Bullet | Slash | Blast | Weight | Effect on recoil and knockback |
+| --- | --- | --- | --- | --- | --- |
+| None | 0% | 0% | 0% | None | Full launches |
+| Modern (ballistic vest) | −50% | −10% | −20% | Light | About 10% less |
+| Medium (padded brigandine) | −25% | −25% | −25% | Medium | About 25% less; no sprint slide |
+| Chainmail | −15% | −60% | −10% | Heavy | About 40% less; slower run |
+| Plate | −30% | −80% | −15% | Very heavy | About 60% less; walk only, short hop |
+
+All numbers are starting points for tuning.
+
+- **Counterplay loop:** plate shrugs off gunblades but gets shot to pieces. A ballistic vest beats gunfights but loses to a scythe. Medium armor is the safe all-rounder.
+- **Heavy armor plus heavy guns:** stacking plate with a Smith heavy gun would make a player nearly immovable. Cap total recoil reduction at about 75%, so every shot still moves you a little and Pillar 1 holds.
+- **Weakness of the heavy:** plate and chainmail wearers can't escape by recoil, so blasts, ledges and Ring Out are their nightmare.
+- **Lore fit:** Smiths forge chainmail and plate; modern vests are mass-produced for the Stuffer market.
+- **Readability:** armor must be visible at a glance (metal clanks, sparks on deflected slashes, a dull thud on bullet hits to vests).
+- **Where it lives:** map pickups (put on in 2 seconds, dropped on death) in armor-enabled modes. Off by default in quick play.
 
 ## Prototype roadmap and open questions
 

@@ -20,6 +20,9 @@
 - Melee / gunblade slash on F (right click is aim now)
 - Fight Back win condition (knock them all out within a time? waves?) and dummies that move
 - Next tier: Fight Back's shooting dummies are MVP-style bots; consider /next-tier once the toy's fun is proven
+- Smith heavy guns: oversized versions of standard guns, ~25% recoil, walk only (design doc "Future systems")
+- Weapon durability, scavenging and Smith workbench repair, for Scrapyard / Junk Wars modes only (design doc "Future systems")
+- Armor and damage types (bullet, slash, blast, bonk): Modern vest, Medium brigandine, Chainmail, Plate; heavier armor cuts recoil and knockback, total recoil cut capped ~75% (design doc "Future systems")
 - 
 
 ## Milestones
