@@ -114,9 +114,10 @@ export function duelLevel(): Level {
       ],
       dummySpawns: [],
     },
-    spawn: { x: 0, y: 0, z: 12 }, spawnYaw: 0,
-    spawns: [{ x: 0, y: 0, z: 12 }, { x: 0, y: 0, z: -12 }],
-    spawnYaws: [0, Math.PI],
+    // both in the clear west lane (past the low wall's end): any line through the centre is blocked by the pedestal
+    spawn: { x: -7.5, y: 0, z: 12 }, spawnYaw: 0,
+    spawns: [{ x: -7.5, y: 0, z: 12 }, { x: -7.5, y: 0, z: -12 }],
+    spawnYaws: [0, Math.PI], // facing each other down the lane
     startWeapons: ["pistol", "shotgun", "sniper"],
     pickups: [
       { weapon: "copter", pos: { x: 0, y: 1.2, z: 0 } },

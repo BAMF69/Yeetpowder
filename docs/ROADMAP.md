@@ -36,6 +36,7 @@ detail.
 | M4 Release candidate (v1.0.0-rc.N, then v1.0.0) | `/release-check` green | |
 
 ## Done (recent, newest first)
+- 2026-11-21: Duel netcode first build: multiplayer sim (PvP), Duel room, ws server on this PC (rooms by code), client prediction (exact in tests), lobby + share link, other player interpolated; socket and two-browser smokes pass. Not yet played by two humans
 - 2026-11-21: Gunblades single-player done (Elaina: Reap and full Sakura combo landed on purpose; "both are fun", "yeetreap is awesome")
 - 2026-11-21: Sakura stance blade fixed (it spun every frame); ULTRASLASH needs a dash-fire and speed, rapid-fires all rounds left
 - 2026-11-21: Gunblade hold moves: Reaper's Kick hook + YEETREAP (the hook yanks back the enemy its opening slash shoved), Sakura dash stance + ULTRASLASH; 6 tests

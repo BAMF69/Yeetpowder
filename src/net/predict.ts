@@ -26,7 +26,16 @@ export class Predictor {
   lastError = 0;
   lastTick = -1;
 
-  constructor(readonly slot: number) {
+  slot: number;
+
+  constructor(slot: number) {
+    this.slot = slot;
+    this.sim.localIndex = slot;
+  }
+
+  /** The server told us our slot (after joining): from now on we predict that player. */
+  setSlot(slot: number): void {
+    this.slot = slot;
     this.sim.localIndex = slot;
   }
 

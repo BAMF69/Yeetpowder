@@ -45,7 +45,7 @@ server.stdout.on("data", (d) => {
         if (m.t === "error") fail(`p2: ${m.reason}`);
         if (m.t === "joined") {
           console.log(`player 2 joined slot ${m.slot}`);
-          // player 1: a few idle steps, then one shot straight ahead (toward player 2), then idle
+          // player 1 spawns facing player 2: a few idle steps, then one shot, then idle
           const batch = [];
           for (let i = 0; i < 12; i++) batch.push(input(++seq, { firePressed: i === 6 }));
           p1.send(JSON.stringify({ t: "in", inputs: batch }));

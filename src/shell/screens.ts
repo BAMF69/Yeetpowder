@@ -124,6 +124,10 @@ export function menu(shell: Shell): Screen {
       shell.worldOption = "sandbox"; // Yeetpowder: the open test room, every gun
       shell.startGame("main");
     });
+    add("menu.duel", () => {
+      shell.worldOption = "duel"; // Yeetpowder: online duel on the home network (npm run duel)
+      shell.startGame("main");
+    });
     add("menu.settings", () => shell.push(settingsScreen(shell)));
     add("menu.credits", () => shell.push(creditsScreen(shell)));
     if (shell.debugBuild) add("menu.juice", () => shell.startGame("juice"));

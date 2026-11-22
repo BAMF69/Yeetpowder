@@ -26,11 +26,13 @@ import { Shake } from "../core/shake";
 import { rayArena } from "../core/yeet/arena";
 import { AUTOPLAY_SECONDS, autoplayStep } from "../core/yeet/autoplay";
 import { levelById } from "../core/yeet/levels";
-import { NO_INPUT, YeetSim, type YeetEvent, type YeetInput } from "../core/yeet/sim";
+import { NO_INPUT, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
 import { len, normalize, vec } from "../core/yeet/vec";
 import { shell } from "../shell/app";
 import { FpsInput, type FpsFrame } from "./fpsInput";
+import { DuelLink } from "./net/duelLink";
+import { INTERP_MS } from "./net/remote";
 import type { World } from "./threeHost";
 import { makeDummy, makeStars, PIVOT, type DummyFigure, type Stars } from "./yeet/figures";
 import { Effects } from "./yeet/effects";
@@ -45,6 +47,8 @@ const SUITS: Array<[string, string]> = [
   ["#e53935", "Red"], ["#1e88e5", "Blue"], ["#fdd835", "Yellow"], ["#43a047", "Green"], ["#8e24aa", "Purple"], ["#fb8c00", "Orange"],
 ];
 const PLAYER_SUIT = "#26a69a"; // matches the first-person sleeves
+/** Duel: how each player looks to the other (blue and orange read apart for colour-blind players too). */
+const DUEL_SUITS = ["#1e88e5", "#fb8c00"];
 const DOWN_VERB: Record<WeaponId, string> = {
   pistol: "PEA'D", shotgun: "BLASTED", sniper: "YEETED", copter: "SHREDDED", reaper: "REAPED", sakura: "SLICED",
 };
@@ -77,7 +81,16 @@ export class YeetWorld implements World {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   private readonly autoplay = shell.params.has("autoplay");
-  private readonly sim = new YeetSim(TUNING, levelById(this.autoplay ? "sandbox" : shell.params.get("level") ?? shell.worldOption));
+  private readonly levelId = this.autoplay ? "sandbox" : shell.params.get("level") ?? shell.worldOption;
+  /** Online duel: the connection, prediction and lobby (null in single player). */
+  private readonly link = this.levelId === "duel" ? new DuelLink(shell.params) : null;
+  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, levelById(this.levelId));
+  /** Duel: every player's figure (yours is hidden), and their tumble angles. */
+  private readonly others: DummyFigure[] = [];
+  private readonly otherRoll: number[] = [];
+  /** Duel: look changes waiting for the next sim step (they travel with the input). */
+  private lookYaw = 0;
+  private lookPitch = 0;
   private readonly room = buildRoom(this.sim.arena);
   private readonly views: DummyView[] = [];
   private readonly body: DummyFigure; // you, seen from outside while tumbling
@@ -160,6 +173,15 @@ export class YeetWorld implements World {
       this.scene.add(fig.root);
       this.views.push({ fig, stars, quat: facing(0), name: `${name} Dummy`, lastWeapon: "pistol" });
     });
+    if (this.link) {
+      this.sim.players.forEach((_p, j) => {
+        const fig = makeDummy(DUEL_SUITS[j % DUEL_SUITS.length]);
+        fig.root.visible = false;
+        this.scene.add(fig.root);
+        this.others.push(fig);
+        this.otherRoll.push(0);
+      });
+    }
     this.body = makeDummy(PLAYER_SUIT);
     this.body.setHp(1);
     this.body.root.visible = false;
@@ -190,6 +212,8 @@ export class YeetWorld implements World {
   }
 
   dispose(): void {
+    this.link?.dispose();
+    for (const f of this.others) f.dispose();
     this.sound.dispose();
     document.removeEventListener("pointerlockchange", this.onLockChange);
     this.canvas.removeEventListener("mousedown", this.onCanvasDown);
@@ -240,7 +264,17 @@ export class YeetWorld implements World {
     let stepped = false;
     // mouse speed follows the zoom, so aimed look feels the same on screen; no look while tumbling or knocked out
     const sens = TUNING.mouseSensitivity * this.zoomFactor();
-    if (!this.autoplay && this.third < 0.5) this.sim.look(-f.dx * sens, -f.dy * sens * (shell.settings.input.invert_y ? -1 : 1));
+    const dYaw = -f.dx * sens;
+    const dPitch = -f.dy * sens * (shell.settings.input.invert_y ? -1 : 1);
+    if (this.link) {
+      // online, looking travels with the input so the server turns you exactly as your screen did
+      if (this.third < 0.5 && this.link.ready) {
+        this.lookYaw += dYaw;
+        this.lookPitch += dPitch;
+      }
+    } else if (!this.autoplay && this.third < 0.5) {
+      this.sim.look(dYaw, dPitch);
+    }
 
     this.acc = Math.min(this.acc + dt, 0.25);
     while (this.acc >= TUNING.step) {
@@ -254,7 +288,12 @@ export class YeetWorld implements World {
         }
         input = { ...s.input, aiming };
       }
-      for (const e of this.sim.step(input)) this.onEvent(e);
+      if (this.link) {
+        for (const e of this.link.stepLocal(input, this.lookYaw, this.lookPitch)) this.onEvent(e);
+        this.lookYaw = this.lookPitch = 0;
+      } else {
+        for (const e of this.sim.step(input)) this.onEvent(e);
+      }
       stepped = true;
       first = { ...input, jump: false, firePressed: false, select: -1, reset: false, reload: false, slash: false };
       this.stats.top = Math.max(this.stats.top, pl.pos.y);
@@ -280,8 +319,13 @@ export class YeetWorld implements World {
       Log.info("yeet", `YEET_AUTOPLAY_DONE hits=${this.stats.hits} top=${this.stats.top.toFixed(1)} bonks=${this.stats.bonks}`);
     }
 
+    if (this.link) {
+      this.link.flush();
+      for (const e of this.link.takeServerEvents()) this.onServerEvent(e);
+    }
     this.placeCamera(dt);
     this.drawDummies(dt);
+    this.drawOthers(dt);
     this.drawBalls();
     this.pickups.update(dt, this.sim.pickups);
     const copterFiring = pl.weapon === "copter" && f.fireHeld && !pl.overheated && !this.sim.helpless;
@@ -292,6 +336,8 @@ export class YeetWorld implements World {
     this.fx.update(dt);
     const speed = len(pl.vel);
     const fight = this.sim.level.dummiesFight;
+    const duel = this.link;
+    const other = duel ? (duel.slot === 0 ? 1 : 0) : 0;
     this.hud.update(dt, {
       weapon: TUNING.weaponOrder.indexOf(pl.weapon),
       heat: pl.heat / TUNING.copter.heatMax,
@@ -305,10 +351,12 @@ export class YeetWorld implements World {
       reduceMotion: shell.settings.access.reduce_motion,
       scoped: this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
-      hp: fight ? pl.hp / TUNING.player.hp : null,
+      hp: fight || duel ? pl.hp / TUNING.player.hp : null,
       banner: pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
       kos: fight ? this.kos : null,
-      level: this.sim.level.name,
+      level: duel && duel.ready
+        ? `Duel · room ${duel.code} · You ${this.sim.kos[duel.slot]} – ${this.sim.kos[other]} Player ${other + 1}`
+        : this.sim.level.name,
       stamina: pl.stamina / TUNING.sprint.stamina,
       winded: pl.winded,
       tumbling: pl.tumbling > 0 && pl.dead === 0,
@@ -625,6 +673,82 @@ export class YeetWorld implements World {
       v.stars.root.quaternion.copy(v.quat).invert(); // stars stay level over the head
       v.fig.root.visible = !(d.down > 0 && d.down < 0.4 && Math.floor(this.time * 20) % 2 === 0); // blink before respawn
     });
+  }
+
+  /** Duel: the other player, drawn from the server's snapshots ~100 ms behind, smoothed (src/game/net/remote.ts). */
+  private drawOthers(dt: number): void {
+    if (!this.link) return;
+    const link = this.link;
+    const now = performance.now();
+    this.others.forEach((fig, j) => {
+      const v = j === link.slot ? null : link.remote.sample(j, now - INTERP_MS);
+      fig.root.visible = !!v && link.present[j];
+      if (!v) return;
+      const st = v.state;
+      fig.root.position.set(v.pos.x, v.pos.y + PIVOT, v.pos.z);
+      this.otherRoll[j] = st.tumbling > 0 || st.dead > 0 ? this.otherRoll[j] + (st.tumbleRoll || 8) * dt : 0;
+      facing(v.yaw, fig.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.otherRoll[j]));
+      fig.setHp(st.hp / TUNING.player.hp);
+      fig.update(dt, this.camera);
+    });
+  }
+
+  /** Duel: the server's events. Your own moves already played from prediction; the hits and knockouts are the
+   * server's call, and the other player's moves are heard and seen from here. */
+  private onServerEvent(e: TaggedEvent): void {
+    const me = this.link?.slot ?? 0;
+    if (e.type === "pvpHit") {
+      if (e.target === me) {
+        this.hud.hurtFlash();
+        this.sound.play("ouch");
+        this.shake.addTrauma(0.35);
+      } else if (e.by === me) {
+        this.hud.hitMarker();
+        this.sound.play("thwack");
+      }
+      return;
+    }
+    if (e.type === "pvpDown") {
+      if (e.target === me) {
+        this.killer = `Player ${e.by + 1}`;
+        this.hud.feedLine("WAS KNOCKED OUT BY", this.killer);
+        this.sound.play("ko");
+      } else if (e.by === me) {
+        this.hud.feedLine("YEETED", `Player ${e.target + 1}`);
+        this.sound.play("boing");
+      }
+      return;
+    }
+    if (e.p === undefined || e.p === me) return; // your own moves were predicted (and already played)
+    switch (e.type) {
+      case "fire":
+        this.sound.play(FIRE_SOUND[e.weapon]);
+        for (const t of e.tracers) {
+          this.fx.tracer(this.tmpA.set(t.from.x, t.from.y - 0.2, t.from.z), this.tmpB.set(t.to.x, t.to.y, t.to.z), t.hit);
+          this.fx.puff(this.tmpB);
+        }
+        break;
+      case "slash":
+      case "ultraslash":
+        this.sound.play(e.hits > 0 ? "shing" : "swish");
+        break;
+      case "yeetreap":
+        this.sound.play("kaboom");
+        this.hud.pop("YEETREAP!", true);
+        break;
+      case "bonk":
+        this.sound.play("bonk");
+        break;
+      case "yeet":
+        this.sound.play("whistle");
+        break;
+      case "crash":
+        this.sound.play("kaboom");
+        this.fx.puff(this.tmpA.set(e.at.x, e.at.y + 0.3, e.at.z), true);
+        break;
+      default:
+        break;
+    }
   }
 
   /** The dummies' balls: a pool of meshes, one per live ball. */

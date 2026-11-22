@@ -12,9 +12,10 @@
 import { spawn, spawnSync } from "node:child_process";
 import { networkInterfaces } from "node:os";
 
-const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-const build = spawnSync(npx, ["vite", "build", "--ssr", "server/main.ts", "--outDir", "build/server", "--emptyOutDir"], {
-  stdio: "inherit", shell: process.platform === "win32",
+// Node runs Vite directly (no shell): Ctrl+C then really stops it (a shell leaves Vite orphaned on Windows)
+const VITE = "node_modules/vite/bin/vite.js";
+const build = spawnSync(process.execPath, [VITE, "build", "--ssr", "server/main.ts", "--outDir", "build/server", "--emptyOutDir"], {
+  stdio: "inherit",
 });
 if (build.status !== 0) {
   console.error("[duel] the server did not build");
@@ -22,7 +23,7 @@ if (build.status !== 0) {
 }
 const kids = [
   spawn(process.execPath, ["build/server/main.js"], { stdio: "inherit" }),
-  spawn(npx, ["vite", "--host", "--port", "5180", "--strictPort"], { stdio: "inherit", shell: process.platform === "win32" }),
+  spawn(process.execPath, [VITE, "--host", "--port", "5180", "--strictPort"], { stdio: "inherit" }),
 ];
 const lan = Object.values(networkInterfaces()).flat().filter((n) => n && n.family === "IPv4" && !n.internal).map((n) => n.address);
 setTimeout(() => {
