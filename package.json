@@ -12,7 +12,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "duel": "node tools/duel.mjs",
+    "duel:server": "vite build --ssr server/main.ts --outDir build/server --emptyOutDir && node build/server/main.js"
   },
   "dependencies": {
     "three": "0.186.1",

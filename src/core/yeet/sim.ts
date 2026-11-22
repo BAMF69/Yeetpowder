@@ -197,6 +197,17 @@ export interface Ball {
   owner: number;
 }
 
+/** The whole changing state of a run (see YeetSim.exportState). */
+export interface SimState {
+  time: number;
+  seed: number;
+  players: PlayerState[];
+  dummies: DummyState[];
+  balls: Ball[];
+  pickups: PickupState[];
+  kos: number[];
+}
+
 export interface PickupState {
   weapon: WeaponId;
   pos: Vec3;
@@ -212,8 +223,10 @@ export class YeetSim {
   readonly players: PlayerState[];
   /** Knockouts scored by each player on other players (duels). */
   readonly kos: number[];
-  /** The player being stepped right now; between steps, player 1. Most rules read `this.player`. */
+  /** The player being stepped right now; between steps, the local player. Most rules read `this.player`. */
   private cur = 0;
+  /** Which player is "you" on this screen (online: your slot). `sim.player` and `look()` mean them between steps. */
+  localIndex = 0;
   readonly dummies: DummyState[];
   readonly balls: Ball[] = [];
   readonly pickups: PickupState[];
@@ -238,9 +251,30 @@ export class YeetSim {
     this.pickups = level.pickups.map((p) => ({ weapon: p.weapon, pos: copy(p.pos), taken: false }));
   }
 
-  /** The player being stepped (between steps: player 1). */
+  /** The player being stepped (between steps: the local player). */
   get player(): PlayerState {
     return this.players[this.cur];
+  }
+
+  /** Everything that changes during play, as plain data (a server snapshot; the base of client prediction). */
+  exportState(): SimState {
+    return structuredClone({
+      time: this.time, seed: this.seed, players: this.players, dummies: this.dummies, balls: this.balls,
+      pickups: this.pickups, kos: this.kos,
+    });
+  }
+
+  /** Loads a state from exportState (same level and player count). Arrays keep their identity (views hold them). */
+  importState(s: SimState): void {
+    const c = structuredClone(s);
+    this.time = c.time;
+    this.seed = c.seed;
+    this.players.splice(0, this.players.length, ...c.players);
+    this.dummies.splice(0, this.dummies.length, ...c.dummies);
+    this.balls.splice(0, this.balls.length, ...c.balls);
+    this.pickups.splice(0, this.pickups.length, ...c.pickups);
+    this.kos.splice(0, this.kos.length, ...c.kos);
+    this.cur = this.localIndex;
   }
 
   private spawnOf(i: number): { pos: Vec3; yaw: number } {
@@ -281,7 +315,7 @@ export class YeetSim {
   }
 
   /** Mouse/stick look, applied between steps (rad). `who` = which player (default player 1). */
-  look(dYaw: number, dPitch: number, who = 0): void {
+  look(dYaw: number, dPitch: number, who = this.localIndex): void {
     const pl = this.players[who] ?? this.player;
     pl.yaw += dYaw;
     pl.pitch = Math.max(-this.t.player.maxPitch, Math.min(this.t.player.maxPitch, pl.pitch + dPitch));
@@ -314,7 +348,7 @@ export class YeetSim {
       this.stepPlayer(inputs[i] ?? NO_INPUT, dt, ev);
       for (let k = start; k < ev.length; k++) if (ev[k].p === undefined) ev[k].p = i;
     }
-    this.cur = 0;
+    this.cur = this.localIndex;
     this.dummies.forEach((d, i) => this.stepDummy(d, i, dt, ev));
     this.stepBalls(dt, ev);
     return ev;
