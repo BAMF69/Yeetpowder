@@ -1,0 +1,17 @@
+{
+ "version": 1,
+ "speakers": {
+  "announcer": {"name": "Announcer", "color": "#FF3FA4", "cps": 16}
+ },
+ "lines": [
+  {"id": "announcer.big_air", "speaker": "announcer", "text": "Look at that air!", "kind": "line", "priority": 40, "interrupt": "lower", "cooldown_s": 6},
+  {"id": "announcer.bonked", "speaker": "announcer", "text": "BONKED!", "kind": "line", "priority": 45, "interrupt": "lower", "cooldown_s": 4},
+  {"id": "announcer.hero_landing", "speaker": "announcer", "text": "Hero landing!", "kind": "line", "priority": 60, "interrupt": "lower", "cooldown_s": 3},
+  {"id": "announcer.yeetreap", "speaker": "announcer", "text": "YEETREAP!", "kind": "line", "priority": 70, "interrupt": "lower", "cooldown_s": 2},
+  {"id": "announcer.finisher", "speaker": "announcer", "text": "Finisher!", "kind": "line", "priority": 70, "interrupt": "lower", "cooldown_s": 2},
+  {"id": "announcer.knockout", "speaker": "announcer", "text": "Knockout!", "kind": "line", "priority": 50, "interrupt": "lower", "cooldown_s": 4},
+  {"id": "announcer.wipeout", "speaker": "announcer", "text": "Wipeout!", "kind": "line", "priority": 55, "interrupt": "lower", "cooldown_s": 4},
+  {"id": "announcer.copter_yeat", "speaker": "announcer", "text": "Copter YEAT!", "kind": "line", "priority": 50, "interrupt": "lower", "cooldown_s": 8}
+ ],
+ "sequences": {}
+}

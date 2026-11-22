@@ -14,6 +14,8 @@ The toy is playable (Toy tier, nothing committed yet for it). One gray-box room:
 - Built the toy: engine-free sim in `src/core/yeet/` (tuning, arena, sim, autoplay) with 16 tests; the play world `src/game/YeetWorld.ts` plus `src/game/yeet/` visuals and `src/game/fpsInput.ts`; `?play` in `src/shell/app.ts`; removed the kit's `src/game/Game.ts` prototype.
 
 ## Current task
+- Duel netcode first build is in (ROADMAP Now): `npm run duel`, then two windows on `?play&level=duel`. Next: Elaina plays it laptop-vs-laptop, then with the phone (touch controls are still a Next item); then the three duel modes.
+- 2026-11-21: moved to the Vertical slice tier ("Move on anyway", no recorded 2-minute playtest). Slice brief agreed (docs/VERTICAL_SLICE.md Decisions). Gunblades first build is in (keys 5/6, F slash; Sandbox has both, Fight Back has them as pickups on the flanks). Hold-F moves added (TUNING.reaper.hook/yeetreap, TUNING.sakura.dash/ultra). Next: Elaina plays them; poses (reversed blade, hook) are not yet checked in a still.
 - ROADMAP Now: playtest and tune the toy.
 
 ## Next step (specific, first action)

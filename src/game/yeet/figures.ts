@@ -20,8 +20,8 @@ const LENS = "#7fd6ff";
 const BOOT = "#3a3a44";
 
 export interface DummyFigure {
-  /** Optional art experiment; retains the existing pivot, health bar and hit feedback. */
-  loadOperative(): Promise<void>;
+  /** Optional art experiment (?operative, the toy dummies only); keeps the pivot, health bar and hit feedback. */
+  loadOperative?(): Promise<void>;
   root: THREE.Group;
   /** 0..1: the health bar above the head. */
   setHp(frac: number): void;

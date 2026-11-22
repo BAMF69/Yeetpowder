@@ -62,6 +62,8 @@ const CSS = `
 .yh-stars span { position: absolute; font-size: calc(26px * var(--s)); color: #ffd84a; text-shadow: 0 0 3px #000;
   transform: translate(-50%, -50%); }
 .yh-slots { position: absolute; right: 18px; bottom: 18px; display: flex; gap: 8px; }
+/* the shell's subtitle bar (announcer, sound captions) sits above the weapon slots while playing */
+#subtitles { bottom: calc(6vh + 64px); }
 .yh-slot { background: rgba(20, 24, 34, 0.65); border: 3px solid rgba(255, 255, 255, 0.25); border-radius: 14px;
   padding: 6px 12px; font-weight: 800; font-size: calc(15px * var(--s)); }
 .yh-slot b { color: #ffd84a; margin-right: 6px; }
@@ -215,7 +217,7 @@ export class YeetHud {
     this.hp = el("yh-hp", this.root);
     this.hpFill = el("fill", el("bar", this.hp));
     el("yh-hint", this.root,
-      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · 1-4 or wheel switch guns · Backspace respawn · Esc pause");
+      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · F slash, hold F: hook (scythe) / dash stance (katana) · 1-6 or wheel switch weapons · C launch camera on/off · Backspace respawn · Esc pause");
     this.feed = el("yh-feed", this.root);
     this.pops = el("yh-pops", this.root);
     this.click = el("yh-click", this.root, "Click to play");

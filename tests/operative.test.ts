@@ -1,0 +1,88 @@
+// ---------------------------------------------------------------------------
+// operative.test.ts
+// Purpose : The third-person operative: its poses (operativePose.ts) do what each moment needs, the two-bone arm
+//           solve puts the wrist on its target, and the body stays inside the GDD budget (under 6,000 triangles).
+// Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
+// ---------------------------------------------------------------------------
+import * as THREE from "three";
+import { describe, expect, it } from "vitest";
+import { MaterialBank } from "../src/game/yeet/materials";
+import { bodyTriangles, FOREARM, makeOperative, solveArm, UPPER_ARM, type Arm } from "../src/game/yeet/operative";
+import { targetPose, type PoseInput } from "../src/game/yeet/operativePose";
+
+/** Materials without painted textures (Node has no canvas). */
+class PlainBank extends MaterialBank {
+  override paint(): THREE.MeshStandardMaterial {
+    return new THREE.MeshStandardMaterial();
+  }
+}
+
+const base: PoseInput = { weapon: "shotgun", speed: 0, onGround: true, aim: 0, pitch: 0, fling: 0, tumbling: false, dead: false, kneel: 0 };
+
+describe("operative poses", () => {
+  it("knocked out drops the gun and frees both arms", () => {
+    const t = targetPose({ ...base, dead: true }, 0, 0);
+    expect(t.gun).toBeNull();
+    expect(t.leftArm).not.toBe("fore");
+    expect(t.rightArm).not.toBe("grip");
+  });
+
+  it("two-handed guns put the left hand on the foregrip; the pistol and the Sakura leave it free", () => {
+    expect(targetPose(base, 0, 0).leftArm).toBe("fore");
+    expect(targetPose({ ...base, weapon: "copter" }, 0, 0).leftArm).toBe("fore");
+    expect(targetPose({ ...base, weapon: "pistol" }, 0, 0).leftArm).not.toBe("fore");
+    expect(targetPose({ ...base, weapon: "sakura" }, 0, 0).leftArm).not.toBe("fore");
+  });
+
+  it("the Boomstick fling swings both legs up in front", () => {
+    const t = targetPose({ ...base, fling: 1, onGround: false }, 0, 0);
+    for (const l of t.legs) expect(l.hip[0]).toBeLessThan(-1);
+  });
+
+  it("the hero landing kneels: back knee bent flat, front thigh level", () => {
+    const t = targetPose({ ...base, kneel: 1 }, 0, 0);
+    expect(t.legs[1].knee).toBeGreaterThan(1.5);
+    expect(t.legs[0].hip[0]).toBeLessThan(-1.3);
+  });
+
+  it("aiming raises the gun toward the shoulder", () => {
+    const hip = targetPose(base, 0, 0).gun!;
+    const aimed = targetPose({ ...base, aim: 1 }, 0, 0).gun!;
+    expect(aimed.pos[1]).toBeGreaterThan(hip.pos[1]);
+  });
+});
+
+describe("two-bone arm solve", () => {
+  it("puts the wrist on a reachable target", () => {
+    const torso = new THREE.Group();
+    const shoulder = new THREE.Group();
+    shoulder.position.set(0.235, 0.47, 0);
+    torso.add(shoulder);
+    const elbow = new THREE.Group();
+    elbow.position.y = -UPPER_ARM;
+    shoulder.add(elbow);
+    const wrist = new THREE.Group();
+    wrist.position.y = -FOREARM - 0.03;
+    elbow.add(wrist);
+    const arm: Arm = { shoulder, elbow, side: 1 };
+    for (const target of [new THREE.Vector3(0.15, 0.25, 0.35), new THREE.Vector3(0.05, 0.4, 0.4), new THREE.Vector3(0.3, 0.1, 0.2)]) {
+      torso.updateMatrixWorld(true);
+      solveArm(arm, target, torso);
+      torso.updateMatrixWorld(true);
+      const got = wrist.getWorldPosition(new THREE.Vector3());
+      expect(got.distanceTo(target)).toBeLessThan(0.005);
+    }
+  });
+});
+
+describe("operative budget", () => {
+  it("the body is under 6,000 triangles (the held gun has its own budget)", () => {
+    const op = makeOperative("#3b4a78", new PlainBank());
+    op.setPose({ ...base, weapon: null });
+    op.update(1 / 60, new THREE.PerspectiveCamera());
+    const n = bodyTriangles(op);
+    expect(n).toBeGreaterThan(300);
+    expect(n).toBeLessThan(6000);
+    op.dispose();
+  });
+});

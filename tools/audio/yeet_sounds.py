@@ -96,9 +96,21 @@ SOUNDS = {
     # pulling the trigger on an empty gun: a dry click
     "dry": ({"wave": "noise", "freq": 1800, "sustain": 0.008, "decay": 0.03, "punch": 0.6, "highpass": 800,
              "volume": 0.3}, [1.0]),
+    # gunblade slash: a whoosh through the air
+    "swish": ({"wave": "noise", "freq": 1400, "slide": -1.2, "attack": 0.02, "sustain": 0.06, "decay": 0.1,
+               "lowpass": 6000, "highpass": 700, "volume": 0.34}, [1.0, 1.1, 0.9]),
+    # a blade connecting: a bright metal "shing"
+    "shing": ({"wave": "saw", "freq": 1900, "slide": -0.6, "vibrato_depth": 0.3, "vibrato_rate": 30, "sustain": 0.05,
+               "decay": 0.22, "punch": 0.6, "highpass": 900, "volume": 0.32}, [1.0, 1.06, 0.94]),
+    # the Six-Shot Sakura's revolver: a short sharp bang
+    "revolver": ({"wave": "noise", "freq": 420, "slide": -1.8, "sustain": 0.02, "decay": 0.18, "punch": 0.8,
+                  "lowpass": 5000, "volume": 0.42}, [1.0, 1.08]),
     # dummy respawn: a soft pop-in
     "popin": ({"wave": "square", "freq": 420, "slide": 1.6, "duty": 0.35, "sustain": 0.05, "decay": 0.12,
                "lowpass": 6000, "volume": 0.3}, [1.0]),
+    # yeetpowder burning: a bright crackling fizz layered on every shot (the pink propellant, design doc Lore)
+    "fizz": ({"wave": "noise", "freq": 2600, "slide": -0.5, "vibrato_depth": 4, "vibrato_rate": 38, "attack": 0.004,
+              "sustain": 0.05, "decay": 0.28, "highpass": 2200, "lowpass": 9000, "volume": 0.32}, [1.0, 1.1, 0.92]),
 }
 
 
