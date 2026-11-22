@@ -16,6 +16,8 @@
 //           (reduce motion keeps first person). Sound: src/game/yeet/sound.ts; audio starts on the first click.
 //           DEBUG: ?debug logs sim events on the "yeet" channel; ?weapon=0..3 starts with that gun in hand;
 //           ?tumble trips a tumble 1 s in (logs YEET_MARK_tumble 0.4 s later, ?hold=tumble freezes there).
+//           ?showcase holds the camera in front of your third-person operative (art review); &pose=kneel|fling|
+//           tumble|run|aim|ko forces that pose; &side=<rad> turns the camera round you (0 behind, 3.14 in front).
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // Updated : 2026-11-21 with Claude (Opus 5.5, claude-opus-5-5): playtest 3: levels, pickups, AI, tumbles, zoom
 // ---------------------------------------------------------------------------
@@ -35,6 +37,8 @@ import { DuelLink } from "./net/duelLink";
 import { INTERP_MS } from "./net/remote";
 import type { World } from "./threeHost";
 import { makeDummy, makeStars, PIVOT, type DummyFigure, type Stars } from "./yeet/figures";
+import { makeOperative, type Operative } from "./yeet/operative";
+import { inputFromPlayer, type PoseInput } from "./yeet/operativePose";
 import { Effects } from "./yeet/effects";
 import { YeetHud } from "./yeet/hud";
 import { PickupViews } from "./yeet/pickups";
@@ -46,7 +50,7 @@ import { Viewmodel } from "./yeet/viewmodel";
 const SUITS: Array<[string, string]> = [
   ["#e53935", "Red"], ["#1e88e5", "Blue"], ["#fdd835", "Yellow"], ["#43a047", "Green"], ["#8e24aa", "Purple"], ["#fb8c00", "Orange"],
 ];
-const PLAYER_SUIT = "#26a69a"; // matches the first-person sleeves
+const PLAYER_SUIT = "#3d4b75"; // the keyframes' navy (tints the operative's fabric texture; the sleeves match)
 /** Duel: how each player looks to the other (blue and orange read apart for colour-blind players too). */
 const DUEL_SUITS = ["#1e88e5", "#fb8c00"];
 const DOWN_VERB: Record<WeaponId, string> = {
@@ -63,11 +67,14 @@ const HARD_LANDING = 14; // m/s
 const CHASE = { back: 5, up: 2.2, blend: 0.18 }; // third-person camera: metres behind and above, seconds to swing out
 /**
  * Launch camera kick-out (GDD art direction): a "YEET!" launch swings the camera out to your right side, low and a
- * little behind, for `out + hold + back` s, then snaps back. At most once per `cooldown` s, never while zoomed.
+ * little behind, for `out + hold + back` s, then snaps back. Only launches of `minSpeed` m/s or more, at most once per `cooldown` s, never while zoomed.
+ * Boomstick launches never pop out (the first-person legs show those); a hero landing always does, for the kneel.
  * C toggles it (remembered on this device); reduce motion turns it off.
  */
-const KICK = { out: 0.15, hold: 0.3, back: 0.25, cooldown: 2, side: 1.15, distance: 4, up: 0.8, maxAim: 0.3 };
+const KICK = { out: 0.15, hold: 0.3, back: 0.25, cooldown: 6, minSpeed: 18, side: 1.15, distance: 4, up: 0.8, maxAim: 0.3 };
 const KICK_KEY = "yeetpowder.launchCamera";
+/** ?showcase camera: in front of you, a little to your right, close and at chest height. */
+const SHOWCASE = { side: Math.PI - 0.6, distance: 1.9, up: 0.1 };
 const AIM_KNOCK = 0.45; // s out of zoom after a shot (the recoil animation), then back in if right click is held // third-person camera: metres behind and above, seconds to swing out
 
 interface DummyView {
@@ -93,14 +100,14 @@ export class YeetWorld implements World {
   private readonly link = this.levelId === "duel" ? new DuelLink(shell.params) : null;
   private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, levelById(this.levelId));
   /** Duel: every player's figure (yours is hidden), and their tumble angles. */
-  private readonly others: DummyFigure[] = [];
+  private readonly others: Operative[] = [];
   private readonly otherRoll: number[] = [];
   /** Duel: look changes waiting for the next sim step (they travel with the input). */
   private lookYaw = 0;
   private lookPitch = 0;
   private readonly room = buildRoom(this.sim.arena);
   private readonly views: DummyView[] = [];
-  private readonly body: DummyFigure; // you, seen from outside while tumbling
+  private readonly body: Operative; // you, seen from outside (tumbles, the launch camera, hero landings)
   private readonly pickups: PickupViews;
   private readonly balls: THREE.Mesh[] = [];
   private readonly ballGeo = new THREE.SphereGeometry(TUNING.ai.ballRadius, 12, 8);
@@ -122,6 +129,11 @@ export class YeetWorld implements World {
   private carry: YeetInput | null = null;
   private readonly forceAim = shell.params.has("aim");
   private readonly debugTumble = shell.params.has("tumble");
+  /** ?showcase: the camera stays in front of your operative; ?pose=...: force a pose (art review stills). */
+  private readonly showcase = shell.params.has("showcase");
+  private readonly forcePose = shell.params.get("pose");
+  /** ?side=<rad>: the showcase camera's angle round you (0 behind, pi in front). */
+  private readonly showcaseSide = Number(shell.params.get("side") ?? SHOWCASE.side);
   private tumbled = false;
   /** 0 = first person .. 1 = the chase camera (tumbling or knocked out). */
   private third = 0;
@@ -132,6 +144,7 @@ export class YeetWorld implements World {
   /** Launch kick-out: seconds since it started (99 = idle), when it may next play, and whether it is on. */
   private kickT = 99;
   private kickReady = 0;
+  private kickHold: number = KICK.hold;
   private kickOn = YeetWorld.loadKickSetting();
   private flipKind: keyof typeof FLIP_AXIS = "backflip";
   private killer = "";
@@ -188,14 +201,14 @@ export class YeetWorld implements World {
     });
     if (this.link) {
       this.sim.players.forEach((_p, j) => {
-        const fig = makeDummy(DUEL_SUITS[j % DUEL_SUITS.length]);
+        const fig = makeOperative(DUEL_SUITS[j % DUEL_SUITS.length]);
         fig.root.visible = false;
         this.scene.add(fig.root);
         this.others.push(fig);
         this.otherRoll.push(0);
       });
     }
-    this.body = makeDummy(PLAYER_SUIT);
+    this.body = makeOperative(PLAYER_SUIT);
     this.body.setHp(1);
     this.body.root.visible = false;
     this.scene.add(this.body.root);
@@ -478,7 +491,8 @@ export class YeetWorld implements World {
       case "yeet":
         if (this.third < 0.5) this.hud.pop("YEET!");
         this.sound.play("whistle");
-        this.startKick();
+        // Boomstick launches stay in first person: the legs swinging into view sell those (playtest)
+        if (this.sim.player.weapon !== "shotgun") this.startKick(e.speed);
         break;
       case "bonk":
         this.stats.bonks++;
@@ -603,6 +617,7 @@ export class YeetWorld implements World {
         this.sound.play("thud");
         this.shake.addTrauma(0.4);
         this.hud.pop("HERO LANDING!");
+        this.startKick(0, TUNING.reaper.heroLanding.time); // watch yourself land: out for the whole kneel
         break;
       case "finisher":
         this.hud.pop("FINISHER!", true);
@@ -642,7 +657,7 @@ export class YeetWorld implements World {
     this.third = wantThird ? Math.min(1, this.third + step) : Math.max(0, this.third - step * 2);
     // the launch kick-out (when not already tumbling): out, hold, snap back
     this.kickT += dt;
-    const kick = this.third > 0 ? 0 : this.kickBlend();
+    const kick = this.third > 0 ? 0 : this.showcase ? 1 : this.kickBlend();
     this.vm.root.visible = Math.max(this.third, kick) < 0.5;
     this.body.root.visible = Math.max(this.third, kick) > 0.05;
     if (this.third === 0 && kick === 0) return;
@@ -650,16 +665,19 @@ export class YeetWorld implements World {
 
     // your body: facing where you face, flipping head over heels at the sim's tumble rate
     this.bodyRoll = kicking ? 0 : this.bodyRoll + pl.tumbleRoll * dt;
-    this.body.root.position.set(pl.pos.x, pl.pos.y + PIVOT, pl.pos.z);
+    this.body.root.position.set(pl.pos.x, pl.pos.y + PIVOT - this.sim.kneelDepth(pl) * 0.6, pl.pos.z); // sinks into the hero landing
     facing(pl.yaw, this.body.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.bodyRoll));
+    this.body.setPose(this.posed(inputFromPlayer(pl, this.sim.time, this.aim, this.sim.kneelDepth(pl) / TUNING.reaper.heroLanding.kneel)));
     this.body.update(dt, this.camera);
 
     // the chase point, pulled in if a wall is in the way
     const mid = vec(pl.pos.x, pl.pos.y + 1, pl.pos.z);
     // tumbling: behind you, high; kick-out: off your right side, low, for a dramatic angle on the launch
-    const cy = kicking ? pl.yaw + KICK.side : this.chaseYaw;
-    const back = kicking ? KICK.distance : CHASE.back;
-    const want = vec(mid.x + Math.sin(cy) * back, mid.y + (kicking ? KICK.up : CHASE.up), mid.z + Math.cos(cy) * back);
+    const show = kicking && this.showcase;
+    const cy = kicking ? pl.yaw + (show ? this.showcaseSide : KICK.side) : this.chaseYaw;
+    const back = show ? SHOWCASE.distance : kicking ? KICK.distance : CHASE.back;
+    const up = show ? SHOWCASE.up : kicking ? KICK.up : CHASE.up;
+    const want = vec(mid.x + Math.sin(cy) * back, mid.y + up, mid.z + Math.cos(cy) * back);
     const d = vec(want.x - mid.x, want.y - mid.y, want.z - mid.z);
     const full = len(d);
     const dist = Math.max(0.5, Math.min(full, rayArena(this.sim.arena, mid, normalize(d), full) - 0.3));
@@ -672,6 +690,19 @@ export class YeetWorld implements World {
     this.lookM.lookAt(this.camera.position, this.tmpB.set(mid.x, mid.y, mid.z), Y_AXIS);
     this.qA.setFromRotationMatrix(this.lookM);
     this.camera.quaternion.copy(this.qB).slerp(this.qA, blend);
+  }
+
+  /** ?pose=...: replaces the live pose with a fixed one (art review stills of moments that are hard to catch). */
+  private posed(p: PoseInput): PoseInput {
+    switch (this.forcePose) {
+      case "kneel": return { ...p, kneel: 1 };
+      case "fling": return { ...p, fling: 1, onGround: false };
+      case "tumble": return { ...p, tumbling: true };
+      case "run": return { ...p, speed: 6 };
+      case "aim": return { ...p, aim: 1 };
+      case "ko": return { ...p, dead: true };
+      default: return p;
+    }
   }
 
   // ---- launch camera kick-out ----------------------------------------------------
@@ -694,13 +725,17 @@ export class YeetWorld implements World {
     this.hud.pop(this.kickOn ? "LAUNCH CAMERA ON" : "LAUNCH CAMERA OFF");
   }
 
-  private startKick(): void {
-    if (!this.kickOn || shell.settings.access.reduce_motion || this.time < this.kickReady || this.aim > KICK.maxAim) return;
+  /** Only big launches (speed in m/s at the YEET) pop the camera out (playtest: every pistol hop was too often). */
+  /** hold (s): a forced kick-out held that long (the hero landing), skipping the speed and cooldown checks. */
+  private startKick(speed: number, hold?: number): void {
+    if (!this.kickOn || shell.settings.access.reduce_motion || this.aim > KICK.maxAim) return;
+    if (hold === undefined && (speed < KICK.minSpeed || this.time < this.kickReady)) return;
+    this.kickHold = hold ?? KICK.hold;
     this.kickT = 0;
     this.kickReady = this.time + KICK.cooldown;
     // the tour and ?tumble runs log YEET_MARK_kick mid-swing (stills of the kick-out: ?hold=kick)
     if (this.autoplay || this.debugTumble) {
-      this.marks.push([this.sim.time + KICK.out + KICK.hold * 0.5, "kick"]);
+      this.marks.push([this.sim.time + KICK.out + this.kickHold * 0.5, "kick"]);
       this.marks.sort((a, b) => a[0] - b[0]);
     }
   }
@@ -708,10 +743,11 @@ export class YeetWorld implements World {
   /** 0..1: how far the kick-out camera is swung out right now. */
   private kickBlend(): number {
     const t = this.kickT;
-    if (t >= KICK.out + KICK.hold + KICK.back) return 0;
+    const hold = this.kickHold;
+    if (t >= KICK.out + hold + KICK.back) return 0;
     if (t < KICK.out) return t / KICK.out;
-    if (t < KICK.out + KICK.hold) return 1;
-    return 1 - (t - KICK.out - KICK.hold) / KICK.back;
+    if (t < KICK.out + hold) return 1;
+    return 1 - (t - KICK.out - hold) / KICK.back;
   }
 
   private drawDummies(dt: number): void {
@@ -756,6 +792,7 @@ export class YeetWorld implements World {
       fig.root.position.set(v.pos.x, v.pos.y + PIVOT - this.sim.kneelDepth(st) * 0.6, v.pos.z);
       this.otherRoll[j] = st.tumbling > 0 || st.dead > 0 ? this.otherRoll[j] + (st.tumbleRoll || 8) * dt : 0;
       facing(v.yaw, fig.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.otherRoll[j]));
+      fig.setPose(inputFromPlayer(st, this.sim.time, 0, this.sim.kneelDepth(st) / TUNING.reaper.heroLanding.kneel));
       fig.setHp(st.hp / TUNING.player.hp);
       fig.update(dt, this.camera);
     });

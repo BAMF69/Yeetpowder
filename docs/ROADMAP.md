@@ -37,6 +37,8 @@ detail.
 ## Done (recent, newest first)
 - 2026-11-22: First art pass (/shader item): painted textures in code, ceilings with light panels, wall band, steel doors, crates, hazard trim, interior lighting; kit shader goldens unchanged (11/11)
 - 2026-11-22: Art pass 2: first-person navy sleeves with folded cuffs and black tactical gloves; the six weapons rebuilt as faceted painted low-poly models (gunModels.ts, 300-1,200 triangles each, tested); third-person body and opponents still placeholders
+- 2026-11-22: Art pass 2 rework after review: weapons from bevelled profiles to the keyframes, bigger Gatling (left hand on top) and crescent scythe, fingerless gloves; camera pop for big launches (not the Boomstick) and hero landings; budgets raised to 6,000 per character and 2,500 per weapon (Elaina)
+- 2026-11-22: Art pass 3: third-person operative built in code (segmented, painted face, vest, gloves, boots; 1,108 triangles) holding every gun with both hands, poses for ready, aim, run, air, Boomstick fling, tumble, hero landing and KO; used for your body and duel opponents; ?showcase&pose=... to review it
 - 2026-11-22: Launch camera kick-out (YEET launches swing the camera out to your right for ~0.7 s; C toggles, reduce motion off); Sakura upward dash smaller than forward (tower Boomstick-only again); hero landing after Reaper backflips
 - 2026-11-21: Duel netcode first build: multiplayer sim (PvP), Duel room, ws server on this PC (rooms by code), client prediction (exact in tests), lobby + share link, other player interpolated; socket and two-browser smokes pass. Not yet played by two humans
 - 2026-11-21: Gunblades single-player done (Elaina: Reap and full Sakura combo landed on purpose; "both are fun", "yeetreap is awesome")

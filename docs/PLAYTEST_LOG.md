@@ -24,6 +24,32 @@ Tasks created (ROADMAP):
 ```
 
 ## Entries
+### 2026-11-22  Build art pass 2 review (feat/reload f8f686a)  Tester: self (Elaina the Great)
+Question being tested: do the first-person arms and weapons match the concept art?
+Quotes (exact words):
+- "the gatling gun and reaper's scythe are too small"
+- "the gatling should be held underhand, not like a pistol"
+- "the camera pop to 3rd person is too frequent"
+- "the models are more crude than I expected. I was hoping for things to look more like the concept art"
+Decisions / tuning changes:
+- Weapons rebuilt from bevelled side profiles to the keyframes' silhouettes (gunModels.ts): Gatling = boxy body, rear D-handle, top carry handle, ammo box and belt, six barrels with two clamps; Reaper's Kick = scoped rifle with a slotted handguard and collar plus a giant crescent blade (was a wooden shaft)
+- Gatling held at the hip, 1.4x the other guns' scale, right hand on the D-handle and left hand cradling it from below (on the top handle, the left arm hid the barrels)
+- Fingerless gloves with skin showing (the keyframes' operative)
+- Launch camera kick-out only for launches of 18 m/s or more (YEET fires at 13), cooldown 2 -> 6 s (KICK in YeetWorld.ts)
+Tasks created (ROADMAP):
+- Elaina plays it and checks the new looks and the camera pop rate
+### 2026-11-22  Build art pass 2 rework (uncommitted, on f8f686a)  Tester: self (Elaina the Great)
+Quotes (exact words):
+- "when firing the pea shooter zoomed in the wrist should still kick back/up"
+- "on the boomstick knockback I want to see the players legs in first person"
+- "the right hand should be on the back (likely not visible in first person) and the left hand on top, like the attached image"
+- "the camera should pop out on hero landings"
+- "why is the triangle budget set so low?"
+Decisions / tuning changes:
+- Aimed Pea Pistol keeps 75% of the wrist snap (FLIP.aimed in viewmodel.ts; was cut with the arm blowback to about 18%)
+- Boomstick launches never pop the camera out, and the legs swing into view in full even on aimed shots
+- Gatling: right hand on the rear D-handle (out of view), left hand on the top carry handle, gun angled in so the barrels show past the arm
+- Hero landing pops the camera out for the whole kneel (startKick with a hold), and your body sinks into the kneel
 ### 2026-11-21  Build duel netcode first build (feat/reload bede7bb)  Tester: self (Elaina the Great)
 Question being tested: (requests; multiplayer not tested yet: "I can't test multiplayer right now")
 Quotes (exact words):

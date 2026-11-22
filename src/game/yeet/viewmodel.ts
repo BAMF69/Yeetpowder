@@ -21,28 +21,27 @@
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
 import type { WeaponId } from "../../core/yeet/tuning";
-import { buildWeapon, type MatKey, type ModelKit } from "./gunModels";
-import { paintedTexture, type PaintKind } from "./paint";
+import { buildGlove } from "./glove";
+import { buildWeapon } from "./gunModels";
+import { MaterialBank } from "./materials";
 
 // ---- Tunables (presentation) --------------------------------------------------
-const GUN_SCALE = 0.62;
 /** Sleeve radius at the wrist and at the shoulder (a tapered six-sided tube: the GDD's faceted N64 look). */
 const SLEEVE = { wrist: 0.032, shoulder: 0.046, sides: 6 };
-/** Flat colours for the parts with no painted texture; each gun's accent colour. */
-const PLAIN: Record<string, string> = { polymer: "#2b2d32", brass: "#b08a3e", lens: "#24476b" };
-const ACCENT: Partial<Record<WeaponId, string>> = { sniper: "#5b3f8f", sakura: "#f48fb1" };
-/** Where each gun is held, in its model's space (unscaled): grip (right hand), foregrip (left hand), barrel end. */
-const ANCHORS: Record<WeaponId, { grip: THREE.Vector3; fore: THREE.Vector3 | null; muzzle: THREE.Vector3 }> = {
-  pistol: { grip: new THREE.Vector3(0, -0.08, 0.06), fore: null, muzzle: new THREE.Vector3(0, 0.015, -0.25) },
-  shotgun: { grip: new THREE.Vector3(0, -0.05, 0.1), fore: new THREE.Vector3(0, -0.01, -0.32), muzzle: new THREE.Vector3(0, 0.02, -0.62) },
-  sniper: { grip: new THREE.Vector3(0, -0.06, 0.12), fore: new THREE.Vector3(0, -0.03, -0.22), muzzle: new THREE.Vector3(0, 0.01, -0.84) },
-  copter: { grip: new THREE.Vector3(0, -0.12, 0.12), fore: new THREE.Vector3(0, 0.1, -0.02), muzzle: new THREE.Vector3(0, 0, -0.5) },
-  reaper: { grip: new THREE.Vector3(0, -0.02, 0.2), fore: new THREE.Vector3(0, 0, -0.42), muzzle: new THREE.Vector3(0, 0.045, -0.98) },
-  sakura: { grip: new THREE.Vector3(0, 0, 0.06), fore: null, muzzle: new THREE.Vector3(0, 0, -0.23) },
+/**
+ * How each gun is held (the grip, foregrip and muzzle come from its model, gunModels.ts): the gun hand's offset
+ * from HAND_R and the gun's tilt about the grip (sizes come from the models). The Gatling is held low by its rear
+ * D-handle with the left hand on the carry handle (playtest); the scythe is tilted up and right so its crescent
+ * stays clear of the crosshair.
+ */
+const HOLD: Partial<Record<WeaponId, { hand: THREE.Vector3; tilt: THREE.Euler }>> = {
+  copter: { hand: new THREE.Vector3(0.1, -0.2, 0.12), tilt: new THREE.Euler(0.1, 0.18, 0) },
+  reaper: { hand: new THREE.Vector3(0.02, -0.05, 0.06), tilt: new THREE.Euler(0.12, -0.22, 0) },
 };
-/** The right glove's turn in the hand (rad): fingers forward, the cuff angled back toward the sleeve. */
 /** Glove size: chunky, but small enough that the Pea Pistol still shows in the fist. */
 const GLOVE_SCALE = 0.85;
+const SOLE = "#2b2d32";
+/** The right glove's turn in the hand (rad): fingers forward, the cuff angled back toward the sleeve. */
 const GLOVE_R_TILT = new THREE.Euler(0.45, Math.PI - 0.25, 0);
 const SHOULDER_R = new THREE.Vector3(0.32, -0.42, 0.12);
 const SHOULDER_L = new THREE.Vector3(-0.26, -0.48, 0.02);
@@ -57,7 +56,8 @@ const BLOW = { angle: 1.95, twist: -0.5, rise: 0.36, hold: 0.12, back: 4, aimedA
 /** First half of the blowback: the hand jerks this far up across the screen (m) before flipping over the head. */
 const BLOW_UP = 0.32;
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
-const FLIP = { angle: 1.0, rise: 0.05, hold: 0.06, back: 7 };
+/** The wrist snap that throws the barrel up. Aimed shots keep most of it (playtest: the aimed pistol felt dead). */
+const FLIP = { angle: 1.0, rise: 0.05, hold: 0.06, back: 7, aimed: 0.75 };
 /** Boomstick fling: arms up, legs swing forward into view. Aimed: half as much. */
 const FLING = { arm: 0.22, leg: 2.0, rise: 0.09, hold: 0.32, back: 3.2, wiggle: 0.22, aimed: 0.5 };
 /** Where the gun hand goes when aiming: centred, a little below the eye (the barrel lines up with the crosshair). */
@@ -74,6 +74,8 @@ interface GunModel {
   grip: THREE.Vector3;
   fore: THREE.Vector3 | null;
   muzzle: THREE.Vector3;
+  /** Model units to metres (from the model). */
+  scale: number;
   spinner?: THREE.Object3D;
 }
 
@@ -101,19 +103,19 @@ export class Viewmodel {
   private readonly armL = new THREE.Group(); // at the left shoulder, aimed at the foregrip
   private readonly sleeveL: THREE.Mesh;
   private readonly gloveL: THREE.Group;
-  /** Shared materials by key ("navy", "gunmetal", "accent:#5b3f8f" ...). */
-  private readonly matCache = new Map<string, THREE.Material>();
+  /** Shared materials and the geometry they are built on (materials.ts). */
+  private readonly bank = new MaterialBank();
   private readonly hips = new THREE.Group();
   private readonly legs: THREE.Group[] = [];
   private readonly flash: THREE.Mesh;
-  private readonly geos: THREE.BufferGeometry[] = [];
-  private readonly mats: THREE.Material[] = [];
+  private readonly flashMat: THREE.Material;
   private kickAmt = 0;
   private flashT = 0;
   private blowT = 99;
   private flingT = 99;
   private blowAmp = BLOW.angle;
   private flingAmp = 1;
+  private flipAmp = 1;
   private aim = 0;
   /** Reload progress 0..1 (0 = not reloading): the gun dips and tilts. */
   private reloadP = 0;
@@ -129,9 +131,10 @@ export class Viewmodel {
   private spin = 0;
   private time = 0;
   private readonly tmp = new THREE.Vector3();
+  private readonly tmp2 = new THREE.Vector3();
 
   constructor() {
-    const suit = this.paintMat("navy");
+    const suit = this.bank.paint("navy");
 
     // right arm: a pivot at the shoulder (it swings the whole arm); inside it the hand moves (aim, the pistol's
     // jerk) and the sleeve is re-stretched from the shoulder to the hand every frame, so the shoulder never moves.
@@ -162,9 +165,9 @@ export class Viewmodel {
       leg.position.x = x;
       const thigh = new THREE.Mesh(this.geo(new THREE.CylinderGeometry(0.068, 0.085, 0.76, 6)), suit);
       thigh.position.y = -0.38;
-      const boot = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.15, 0.13, 0.27)), this.paintMat("leather"));
+      const boot = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.15, 0.13, 0.27)), this.bank.paint("leather"));
       boot.position.set(0, -0.8, -0.05);
-      const sole = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.16, 0.035, 0.29)), this.plainMat(PLAIN.polymer));
+      const sole = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.16, 0.035, 0.29)), this.bank.plain(SOLE));
       sole.position.set(0, -0.875, -0.05);
       leg.add(thigh, boot, sole);
       this.hips.add(leg);
@@ -173,9 +176,7 @@ export class Viewmodel {
     this.hips.visible = false;
 
     // the guns: low-poly models (gunModels.ts) held by the hand at their grip
-    for (const id of Object.keys(ANCHORS) as WeaponId[]) this.addGun(id);
-    // Reaper's Kick is held tilted up so the blade shows above your hand, clear of the crosshair
-    this.guns.get("reaper")!.group.rotation.set(0.4, -0.32, 0.05);
+    for (const id of ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura"] as WeaponId[]) this.addGun(id);
 
     // muzzle flash: a flat yellow star at the barrel's end
     const s = new THREE.Shape();
@@ -186,7 +187,7 @@ export class Viewmodel {
       else s.lineTo(Math.cos(a) * r, Math.sin(a) * r);
     }
     const fm = new THREE.MeshBasicMaterial({ color: "#ffe066", depthTest: false, transparent: true, side: THREE.DoubleSide });
-    this.mats.push(fm);
+    this.flashMat = fm;
     this.flash = new THREE.Mesh(this.geo(new THREE.ShapeGeometry(s)), fm);
     this.flash.renderOrder = 1001;
     this.mount.add(this.flash);
@@ -198,7 +199,9 @@ export class Viewmodel {
     this.current = id;
     const g = this.guns.get(id)!;
     g.group.visible = true;
-    this.flash.position.copy(g.muzzle).sub(g.grip).multiplyScalar(GUN_SCALE);
+    this.flash.position.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale);
+    const tilt = HOLD[id]?.tilt;
+    if (tilt) this.flash.position.applyEuler(tilt); // the gun is tilted about the grip
     this.kickAmt = -0.4; // a little dip as the new gun comes up
     this.blowT = this.flingT = 99;
   }
@@ -211,6 +214,7 @@ export class Viewmodel {
     if (weapon === "pistol") {
       this.blowT = 0;
       this.blowAmp = aimed ? BLOW.aimedAngle : BLOW.angle;
+      this.flipAmp = aimed ? FLIP.aimed : 1;
     }
     if (weapon === "shotgun") {
       this.flingT = 0;
@@ -250,14 +254,17 @@ export class Viewmodel {
   /** The gun hand's aimed position for the current gun (centred so the barrel sits under the crosshair). */
   private aimHand(out: THREE.Vector3): THREE.Vector3 {
     const g = this.guns.get(this.current)!;
-    return out.set(0, -(g.muzzle.y - g.grip.y) * GUN_SCALE - AIM_BELOW, AIM_Z);
+    return out.set(0, -(g.muzzle.y - g.grip.y) * g.scale - AIM_BELOW, AIM_Z);
   }
 
   /** Where tracers start, in world space: the gun's muzzle at its rest (or aimed) pose, never the animated one. */
   muzzleWorld(out: THREE.Vector3): THREE.Vector3 {
     const g = this.guns.get(this.current)!;
-    const hand = this.aimHand(new THREE.Vector3()).lerp(HAND_R, 1 - this.aim);
-    out.copy(g.muzzle).sub(g.grip).multiplyScalar(GUN_SCALE).add(hand);
+    const hand = this.aimHand(new THREE.Vector3()).lerp(this.restHand(this.tmp2), 1 - this.aim);
+    out.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale);
+    const tilt = HOLD[this.current]?.tilt;
+    if (tilt) out.applyEuler(tilt);
+    out.add(hand);
     return this.root.localToWorld(out);
   }
 
@@ -269,7 +276,8 @@ export class Viewmodel {
     const k = this.kickAmt;
     const blow = envelope(this.blowT, BLOW.rise, BLOW.hold, BLOW.back, true) * (this.blowAmp / BLOW.angle);
     const flip = this.current === "pistol" ? envelope(this.blowT, FLIP.rise, FLIP.hold, FLIP.back) : 0;
-    const fling = envelope(this.flingT, FLING.rise, FLING.hold, FLING.back) * this.flingAmp;
+    const flung = envelope(this.flingT, FLING.rise, FLING.hold, FLING.back);
+    const fling = flung * this.flingAmp; // the arms: half as much when aimed (braced)
     const wig = Math.sin(this.time * 24) * FLING.wiggle * fling;
     const judder = copterFiring ? Math.sin(this.time * 70) * 0.025 : 0;
 
@@ -284,7 +292,7 @@ export class Viewmodel {
     this.armR.position.addScaledVector(ARM_FLUNG_SHIFT, fling);
     // the hand: rest -> aimed (centre) as the right mouse is held, plus the blowback's upward jerk
     const aimNow = this.aim * (1 - fling); // a Boomstick fling knocks you off your sights
-    const hand = this.aimHand(this.tmp).lerp(HAND_R, 1 - aimNow).sub(SHOULDER_R);
+    const hand = this.aimHand(this.tmp).lerp(this.restHand(this.tmp2), 1 - aimNow).sub(SHOULDER_R);
     hand.y += up * BLOW_UP;
     hand.z -= up * 0.05;
     this.placeHand(hand);
@@ -292,7 +300,7 @@ export class Viewmodel {
     const dip = this.reloadP > 0 ? Math.sin(Math.PI * this.reloadP) : 0;
     this.armR.rotation.x -= dip * 0.55;
     // the wrist snaps the barrel up before the arm follows (pistol)
-    this.mount.rotation.x = flip * FLIP.angle * (this.blowAmp / BLOW.angle);
+    this.mount.rotation.x = flip * FLIP.angle * this.flipAmp;
     this.mount.rotation.z = dip * 0.9;
     // hold moves: the Sakura's blade turns to point behind you; the scythe is pulled in tight around its catch
     const ease = 1 - Math.exp(-14 * dt);
@@ -332,12 +340,13 @@ export class Viewmodel {
       this.gloveL.quaternion.copy(this.armL.quaternion); // the fist points along the forearm
     }
 
-    // legs: swing forward into view while flung, kicking a little out of step
-    this.hips.visible = fling > 0.02;
+    // legs: swing forward into view while flung, kicking a little out of step (always in full, aimed or not:
+    // the legs are what sells a Boomstick launch)
+    this.hips.visible = flung > 0.02;
     if (this.hips.visible) {
-      this.hips.position.lerpVectors(HIPS_REST, HIPS_FLUNG, fling);
+      this.hips.position.lerpVectors(HIPS_REST, HIPS_FLUNG, flung);
       this.legs.forEach((leg, i) => {
-        leg.rotation.x = fling * FLING.leg + (i ? 1 : -1) * Math.sin(this.time * 18) * 0.25 * fling;
+        leg.rotation.x = flung * FLING.leg + (i ? 1 : -1) * Math.sin(this.time * 18) * 0.25 * flung;
       });
     }
 
@@ -349,8 +358,8 @@ export class Viewmodel {
   }
 
   dispose(): void {
-    for (const g of this.geos) g.dispose();
-    for (const m of this.mats) m.dispose();
+    this.bank.dispose();
+    this.flashMat.dispose();
   }
 
   /** Puts the gun hand at h (relative to the shoulder pivot) and stretches the sleeve to it. */
@@ -365,49 +374,7 @@ export class Viewmodel {
 
   // ---- building --------------------------------------------------------------
   private geo<T extends THREE.BufferGeometry>(g: T): T {
-    this.geos.push(g);
-    return g;
-  }
-
-  /** A faceted material with a painted texture (paint.ts), shared by key. */
-  private paintMat(kind: PaintKind, metal = 0): THREE.Material {
-    return this.cached(kind, () =>
-      new THREE.MeshStandardMaterial({ map: paintedTexture(kind), roughness: 0.75, metalness: metal, flatShading: true }));
-  }
-
-  /** A faceted flat-colour material, shared by colour. */
-  private plainMat(color: string, glow = 0): THREE.Material {
-    return this.cached(`plain:${color}:${glow}`, () =>
-      new THREE.MeshStandardMaterial({ color, roughness: 0.6, flatShading: true, emissive: color, emissiveIntensity: glow }));
-  }
-
-  private cached(key: string, make: () => THREE.Material): THREE.Material {
-    let m = this.matCache.get(key);
-    if (!m) {
-      m = make();
-      this.matCache.set(key, m);
-      this.mats.push(m);
-    }
-    return m;
-  }
-
-  /** The material kit a gun model is built with (gunModels.ts), with that gun's accent colour. */
-  private kitFor(id: WeaponId): ModelKit {
-    const accent = ACCENT[id] ?? "#c0392b";
-    return {
-      geo: (g) => this.geo(g),
-      mat: (key: MatKey) => {
-        switch (key) {
-          case "gunmetal": return this.paintMat("gunmetal", 0.1);
-          case "blade": return this.paintMat("blade", 0.35);
-          case "wood": case "wrap": case "bone": case "leather": case "hazard": return this.paintMat(key);
-          case "pea": return this.plainMat("#7ed957", 0.35);
-          case "lens": return this.plainMat(PLAIN.lens, 0.4);
-          case "accent": return this.plainMat(accent);
-          default: return this.plainMat(PLAIN[key]);
-        }
-      },
-    };
+    return this.bank.geo(g);
   }
 
   /** A sleeve from the group's origin along +Z, 1 m long (scale.z stretches it), tapering to the wrist. */
@@ -418,38 +385,33 @@ export class Viewmodel {
     return new THREE.Mesh(g, mat);
   }
 
-  /**
-   * A chunky black tactical glove with the jumpsuit's folded cuff, centred on the grip. Local +Z runs along the
-   * forearm toward the knuckles; thumbSide (+1 / -1) puts the thumb on local +X or -X (mirrored hands).
-   */
+  /** The operative's fingerless glove (glove.ts), a little smaller in first person so the Pea Pistol shows. */
   private glove(thumbSide: number): THREE.Group {
-    const g = new THREE.Group();
-    const leather = this.paintMat("leather");
-    const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, ry = 0) => {
-      const m = new THREE.Mesh(this.geo(geo), mat);
-      m.position.set(x, y, z);
-      m.rotation.y = ry;
-      g.add(m);
-    };
-    add(new THREE.BoxGeometry(0.074, 0.064, 0.07), leather, 0, 0, 0); // the fist
-    add(new THREE.BoxGeometry(0.078, 0.032, 0.03), leather, 0, 0.012, 0.038); // knuckle ridge
-    add(new THREE.BoxGeometry(0.024, 0.028, 0.05), leather, thumbSide * 0.042, 0.008, 0.012, thumbSide * 0.35); // thumb
-    add(new THREE.BoxGeometry(0.066, 0.058, 0.04), leather, 0, -0.002, -0.05); // the gauntlet
-    const cuff = new THREE.CylinderGeometry(0.044, 0.046, 0.028, SLEEVE.sides);
-    cuff.rotateX(Math.PI / 2);
-    add(cuff, this.paintMat("navy"), 0, 0, -0.082); // the rolled sleeve cuff
+    const g = buildGlove(this.bank, thumbSide, this.bank.paint("navy"));
     g.scale.setScalar(GLOVE_SCALE);
     return g;
   }
 
+  /** The gun hand's rest position for the current gun (HAND_R plus its HOLD offset). */
+  private restHand(out: THREE.Vector3): THREE.Vector3 {
+    out.copy(HAND_R);
+    const h = HOLD[this.current];
+    return h ? out.add(h.hand) : out;
+  }
+
   private addGun(id: WeaponId): void {
-    const { grip, fore, muzzle } = ANCHORS[id];
-    const model = buildWeapon(id, this.kitFor(id));
-    const group = model.group;
-    group.scale.setScalar(GUN_SCALE);
-    group.position.copy(grip).multiplyScalar(-GUN_SCALE); // the grip sits in the hand
+    const model = buildWeapon(id, this.bank.gunKit(id));
+    const { group, grip, fore, muzzle } = model;
+    // a pivot at the hand carries the gun's tilt, so a tilted gun still sits in the hand by its grip
+    const pivot = new THREE.Group();
+    const tilt = HOLD[id]?.tilt;
+    if (tilt) pivot.rotation.copy(tilt);
+    const scale = model.scale;
+    group.scale.setScalar(scale);
+    group.position.copy(grip).multiplyScalar(-scale); // the grip sits in the hand
     group.visible = false;
-    this.mount.add(group);
-    this.guns.set(id, { group, grip, fore, muzzle, spinner: model.spinner });
+    pivot.add(group);
+    this.mount.add(pivot);
+    this.guns.set(id, { group, grip, fore, muzzle, scale, spinner: model.spinner });
   }
 }

@@ -16,7 +16,8 @@ import * as THREE from "three";
 
 export type PaintKind =
   | "concrete" | "floor" | "ceiling" | "crate" | "steel" | "hazard" | "band" | "light"
-  | "navy" | "leather" | "gunmetal" | "wood" | "blade" | "wrap" | "bone";
+  | "navy" | "leather" | "gunmetal" | "wood" | "blade" | "wrap" | "bone"
+  | "fabric" | "vest" | "skin" | "hair" | "face";
 
 const SIZE = 128;
 const cache = new Map<PaintKind, THREE.CanvasTexture>();
@@ -241,6 +242,82 @@ const painters: Record<PaintKind, (g: CanvasRenderingContext2D, r: () => number)
     g.fillRect(0, 0, SIZE, SIZE);
     mottle(g, r, 10, 0.35, "#b8a888", "#f4ecd8");
     speckle(g, r, 300, "#7a6a50", 0.4);
+  },
+  // ---- the third-person operative (art pass 3) ----
+  fabric(g, r) {
+    // light grey jumpsuit cloth: the material's colour tints it per suit (navy for you, other colours in a duel)
+    g.fillStyle = "#d4d6dc";
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 8, 0.4, "#a9adb8", "#eceef2");
+    for (let i = 0; i < 7; i++) { // folds and seams
+      g.fillStyle = `rgba(40,44,60,${0.12 + r() * 0.14})`;
+      g.fillRect(0, Math.floor(r() * SIZE), SIZE, 2 + Math.floor(r() * 4));
+    }
+    g.fillStyle = "rgba(40,44,60,0.25)";
+    g.fillRect(Math.floor(SIZE * 0.5), 0, 2, SIZE); // a seam down the middle
+    speckle(g, r, 300, "#ffffff", 0.18);
+  },
+  vest(g, r) {
+    // black tactical vest: webbing rows and stitching
+    g.fillStyle = "#232427";
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 10, 0.4, "#141517", "#3a3c40");
+    for (let y = 10; y < SIZE; y += 22) {
+      g.fillStyle = "rgba(0,0,0,0.55)";
+      g.fillRect(0, y, SIZE, 6);
+      g.fillStyle = "rgba(120,124,130,0.35)";
+      for (let x = 0; x < SIZE; x += 8) g.fillRect(x, y - 2, 4, 1); // stitches
+    }
+    speckle(g, r, 200, "#5a5c60", 0.3);
+  },
+  skin(g, r) {
+    g.fillStyle = "#c68a5c";
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 8, 0.25, "#a8704a", "#d9a074");
+  },
+  hair(g, r) {
+    g.fillStyle = "#2e1f16";
+    g.fillRect(0, 0, SIZE, SIZE);
+    for (let i = 0; i < 70; i++) { // strands
+      g.fillStyle = `rgba(${90 + r() * 40},${60 + r() * 30},${40 + r() * 20},${0.25 + r() * 0.3})`;
+      g.fillRect(Math.floor(r() * SIZE), Math.floor(r() * SIZE), 2, 10 + Math.floor(r() * 24));
+    }
+  },
+  face(g, r) {
+    // the operative's stern face, drawn for the front of a box head (keyframes: angular jaw, heavy brows)
+    const S = SIZE / 128;
+    g.fillStyle = "#c68a5c";
+    g.fillRect(0, 0, SIZE, SIZE);
+    mottle(g, r, 8, 0.2, "#a8704a", "#d9a074");
+    g.fillStyle = "#2e1f16"; // hairline
+    g.fillRect(0, 0, SIZE, 16 * S);
+    g.fillRect(0, 0, 14 * S, 34 * S);
+    g.fillRect(SIZE - 14 * S, 0, 14 * S, 34 * S);
+    g.fillStyle = "rgba(90,50,30,0.35)"; // cheek and temple shading
+    g.fillRect(0, 50 * S, 22 * S, 50 * S);
+    g.fillRect(SIZE - 22 * S, 50 * S, 22 * S, 50 * S);
+    g.fillStyle = "rgba(60,45,40,0.28)"; // stubble on the jaw
+    g.fillRect(14 * S, 92 * S, 100 * S, 36 * S);
+    for (const side of [-1, 1]) {
+      const cx = 64 * S + side * 24 * S;
+      g.fillStyle = "#2a1a12"; // brow: thick, the inner end lower (a scowl)
+      g.fillRect(cx - 17 * S, 37 * S, 34 * S, 6 * S);
+      const inner = side > 0 ? cx - 17 * S : cx + 7 * S;
+      g.fillRect(inner, 41 * S, 10 * S, 4 * S);
+      g.fillStyle = "#f1ece4"; // eye white
+      g.fillRect(cx - 11 * S, 49 * S, 22 * S, 8 * S);
+      g.fillStyle = "#3a2618"; // iris
+      g.fillRect(cx - 4 * S - side * 2 * S, 49 * S, 8 * S, 8 * S);
+      g.fillStyle = "rgba(60,30,20,0.55)"; // upper lid
+      g.fillRect(cx - 12 * S, 47 * S, 24 * S, 3 * S);
+    }
+    g.fillStyle = "rgba(90,50,30,0.45)"; // nose: a shadow down one side and under the tip
+    g.fillRect(66 * S, 52 * S, 5 * S, 26 * S);
+    g.fillRect(56 * S, 78 * S, 18 * S, 4 * S);
+    g.fillStyle = "#6e3b2a"; // mouth: a hard, flat line
+    g.fillRect(48 * S, 96 * S, 32 * S, 4 * S);
+    g.fillStyle = "rgba(60,30,20,0.35)";
+    g.fillRect(52 * S, 104 * S, 24 * S, 3 * S); // under the lip
   },
   light(g, r) {
     g.fillStyle = "#3a3c40";
