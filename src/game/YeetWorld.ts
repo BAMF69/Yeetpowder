@@ -696,6 +696,11 @@ export class YeetWorld implements World {
     if (!this.kickOn || shell.settings.access.reduce_motion || this.time < this.kickReady || this.aim > KICK.maxAim) return;
     this.kickT = 0;
     this.kickReady = this.time + KICK.cooldown;
+    // the tour and ?tumble runs log YEET_MARK_kick mid-swing (stills of the kick-out: ?hold=kick)
+    if (this.autoplay || this.debugTumble) {
+      this.marks.push([this.sim.time + KICK.out + KICK.hold * 0.5, "kick"]);
+      this.marks.sort((a, b) => a[0] - b[0]);
+    }
   }
 
   /** 0..1: how far the kick-out camera is swung out right now. */

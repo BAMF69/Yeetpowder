@@ -83,7 +83,7 @@ draws nothing (a logic budget), and a browser run cannot go below its 60 Hz fram
   (online)); `&room=ABCD` joins a room at once; `&lag=120` adds 120 ms each way; `&debug` shows ping, snapshots per
   second, pending inputs and the worst prediction correction.
 - `?level=sandbox|fight|duel` picks the level (the menu: Play = fight, Sandbox = sandbox via `shell.worldOption`).
-- `?weapon=0..3` starts with that gun in hand; `?tumble` trips a tumble 1 s in (`YEET_MARK_tumble`, `hold=tumble`).
+- `?weapon=0..5` starts with that weapon in hand; the tour logs `YEET_MARK_kick` mid kick-out (`hold=kick`); `?tumble` trips a tumble 1 s in (`YEET_MARK_tumble`, `hold=tumble`).
 - `?aim` holds right-click aim during autoplay (stills of aimed fire, e.g. `play&autoplay&aim&hold=spin` for the scope).
 - `?debug`: log channels `yeet` (sim events) and `fps` (pointer lock).
 - R respawns the player.

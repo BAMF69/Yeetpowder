@@ -9,7 +9,6 @@
 ## Next
 - [ ] Duel modes: first to 5 knockouts, timed round, Ring Out; the duel room with a Gatling pickup
 - [ ] Minimal touch controls for the phone
-- [ ] Camera kick-out to third person on big launches, with an off switch (GDD art direction; the tumble camera is the starting point)
 - [ ] Sound captions on screen (the events have captions; wire the kit's dialogue build: SOP-20)
 - [ ] Music: surf-rock / spy-jazz loop made in code (Wavesmith chiptune)
 - [ ] `/shader`: the keyframes' look (painted low-res textures, simple lighting, selective hard edges) on the slice room, figures and guns
@@ -36,6 +35,7 @@ detail.
 | M4 Release candidate (v1.0.0-rc.N, then v1.0.0) | `/release-check` green | |
 
 ## Done (recent, newest first)
+- 2026-11-22: Launch camera kick-out (YEET launches swing the camera out to your right for ~0.7 s; C toggles, reduce motion off); Sakura upward dash smaller than forward (tower Boomstick-only again); hero landing after Reaper backflips
 - 2026-11-21: Duel netcode first build: multiplayer sim (PvP), Duel room, ws server on this PC (rooms by code), client prediction (exact in tests), lobby + share link, other player interpolated; socket and two-browser smokes pass. Not yet played by two humans
 - 2026-11-21: Gunblades single-player done (Elaina: Reap and full Sakura combo landed on purpose; "both are fun", "yeetreap is awesome")
 - 2026-11-21: Sakura stance blade fixed (it spun every frame); ULTRASLASH needs a dash-fire and speed, rapid-fires all rounds left
