@@ -1,30 +1,37 @@
 // ---------------------------------------------------------------------------
 // sim.ts
 // Purpose : Yeetpowder's toy simulation, engine-free: the player's run/jump/recoil movement, the four guns (Pea
-//           Pistol, Boomstick, Spin Doctor, Gatling Copter prototype), wall bonks, and target dummies that get
-//           knocked flying. The renderer (src/game/YeetWorld.ts) only draws what this produces.
-// Usage   : const sim = new YeetSim(TUNING, testRoom());
+//           Pistol, Boomstick, Spin Doctor, Gatling Copter prototype), wall bonks, run-and-gun tumbles, gun pickups,
+//           and target dummies that get knocked flying and (in Fight Back) shoot back. The renderer
+//           (src/game/YeetWorld.ts) only draws what this produces.
+// Usage   : const sim = new YeetSim(TUNING, fightLevel());       // or sandboxLevel() (src/core/yeet/levels.ts)
 //           each fixed step: const events = sim.step(input)    // input: YeetInput, events: YeetEvent[]
 //           mouse look between steps: sim.look(dYaw, dPitch)
-// Notes   : No three import, fixed step (TUNING.step), no randomness: the same inputs give the same run, so a
-//           scripted run in the browser replays exactly in Vitest (tests/yeetSim.test.ts).
-//           Every body has mass 1, so recoil and knockback are direct velocity kicks.
+// Notes   : No three import, fixed step (TUNING.step). Chance rolls (tumbles) come from a seeded Park-Miller
+//           generator, so the same level + the same inputs give the same run, and a scripted browser run replays
+//           exactly in Vitest (tests/yeetSim.test.ts). Every body has mass 1: recoil and knockback are velocity kicks.
+//           Yaw going down turns you right; hip fire twists you right (the gun sits right of your centre).
 //
 // Pseudocode (player step):
-//   stunned? count down, ignore move and fire
-//   weapon keys -> switch (not while crashing)
+//   knocked out? count down, respawn (Fight Back resets your guns and the pickups) ; stunned or tumbling? no control
+//   weapon keys -> switch to a gun you own (not while crashing)
 //   ground: accelerate toward WASD * runSpeed; above run speed slide down with friction (recoil keeps its speed)
-//   air: small air control, light drag
-//   jump if grounded
-//   fire: vel -= aim * recoil ; spin += weapon spin ; hitscan pellets -> dummies take damage + knockback
-//         aimed (right mouse) = braced: less recoil, spin and hop, tighter spread (TUNING.aim.braced)
-//   copter: while held vel -= aim * thrust*dt, heat up; overheat -> crash (forced spin) -> landing hurts nearby
+//   air: small air control, light drag ; jump if grounded
+//   fire: vel -= aim * recoil (mid-air: * airRecoil) ; grounded: + hop ; spin -= twist (aimed: much less)
+//         hitscan pellets -> dummies take damage + knockback ; moving fast? roll for a tumble
+//   copter: while held vel -= aim * thrust*dt, heat up, turn right, aim wobbles; overheat -> crash -> landing hurts
 //   yaw += spin*dt, spin decays ; gravity ; move through the room ; fast wall hit -> bonk stun + bounce
+//   walk over a pickup -> own that gun
+// Pseudocode (Fight Back dummy):
+//   turn toward you ; can see you, standing still, cooled down -> glow (telegraph) -> throw a ball at your chest
+//   knocked about while glowing -> the shot is cancelled ; ball hits you -> damage + knockback ; 0 hp -> knocked out
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
+// Updated : 2026-11-21 with Claude (Opus 5.5, claude-opus-5-5): playtest 3: levels, pickups, twist, tumbles, AI
 // ---------------------------------------------------------------------------
-import { moveBody, rayArena, rayBox, type Arena } from "./arena";
+import { moveBody, rayArena, rayBox } from "./arena";
+import type { Level } from "./levels";
 import type { Tuning, WeaponId, WeaponTuning } from "./tuning";
-import { addScaled, aimDir, copy, len, lenXZ, spreadDir, vec, type Vec3 } from "./vec";
+import { addScaled, aimDir, copy, len, lenXZ, normalize, spreadDir, vec, type Vec3 } from "./vec";
 
 export interface YeetInput {
   /** -1..1: strafe right is +x, forward is +z (WASD / stick). */
@@ -39,12 +46,14 @@ export interface YeetInput {
   select: number;
   /** Respawn the player (R). */
   reset: boolean;
-  /** Right mouse held: aimed (braced) fire instead of hip fire. */
+  /** Right mouse held: aimed fire (the gun is centred: full push, little twist, tight spread). */
   aiming: boolean;
+  /** Shift held: sprint while stamina lasts. */
+  sprint: boolean;
 }
 
 export const NO_INPUT: YeetInput = {
-  moveX: 0, moveZ: 0, jump: false, firePressed: false, fireHeld: false, select: -1, reset: false, aiming: false,
+  moveX: 0, moveZ: 0, jump: false, firePressed: false, fireHeld: false, select: -1, reset: false, aiming: false, sprint: false,
 };
 
 export interface Tracer {
@@ -64,18 +73,28 @@ export type YeetEvent =
   | { type: "overheat" }
   | { type: "crash"; at: Vec3; hits: number }
   | { type: "switch"; weapon: WeaponId }
-  | { type: "playerRespawn" };
+  | { type: "playerRespawn" }
+  | { type: "tumble" }
+  | { type: "recover" }
+  | { type: "pickup"; weapon: WeaponId }
+  | { type: "dummyAim"; dummy: number }
+  | { type: "dummyFire"; dummy: number }
+  | { type: "ballPop"; at: Vec3 }
+  | { type: "playerHit"; dummy: number; damage: number; at: Vec3 }
+  | { type: "playerDown"; dummy: number };
 
 export interface PlayerState {
   pos: Vec3;
   vel: Vec3;
   yaw: number;
   pitch: number;
-  /** Yaw spin rate (rad/s) from recoil. */
+  /** Yaw spin rate (rad/s) from recoil twist; negative turns right. */
   spin: number;
   onGround: boolean;
   stun: number;
   weapon: WeaponId;
+  /** Guns you can switch to (Fight Back starts you with two). */
+  owned: WeaponId[];
   cooldown: number;
   heat: number;
   /** Overheated: crashing until landed, then locked out until fully cooled. */
@@ -83,8 +102,20 @@ export interface PlayerState {
   overheated: boolean;
   /** "YEET!" fired for this launch already (re-arms once speed drops). */
   yeeted: boolean;
-  /** Alternates spin direction shot to shot. */
-  spinSign: number;
+  hp: number;
+  /** > 0 while knocked out: seconds until you respawn. */
+  dead: number;
+  /** > 0 while tumbling (run-and-gun): seconds of no control left. */
+  tumbling: number;
+  tumbleAge: number;
+  /** Head-over-heels rate (rad/s) for the third-person body while tumbling. */
+  tumbleRoll: number;
+  /** Seconds of sprint left, and whether you are sprinting this step. */
+  stamina: number;
+  sprinting: boolean;
+  /** Emptied the stamina: no sprint until it refills past sprint.winded. */
+  winded: boolean;
+  sprintRest: number;
 }
 
 export interface DummyState {
@@ -98,27 +129,66 @@ export interface DummyState {
   down: number;
   /** Visual tumble rate (rad/s), set by hits, decays. */
   tumble: number;
+  /** Which way it faces (yaw, the player's convention). */
+  face: number;
+  /** > 0 while glowing before a shot (seconds left). */
+  aiming: number;
+  aiCooldown: number;
 }
+
+export interface Ball {
+  pos: Vec3;
+  vel: Vec3;
+  life: number;
+  owner: number;
+}
+
+export interface PickupState {
+  weapon: WeaponId;
+  pos: Vec3;
+  taken: boolean;
+}
+
+const PM_M = 2147483647; // Park-Miller modulus (2^31 - 1)
+const PM_A = 16807;
+const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 export class YeetSim {
   readonly player: PlayerState;
   readonly dummies: DummyState[];
+  readonly balls: Ball[] = [];
+  readonly pickups: PickupState[];
   /** Simulated seconds since start. */
   time = 0;
+  private seed: number;
 
   constructor(
     readonly t: Tuning,
-    readonly arena: Arena,
+    readonly level: Level,
   ) {
-    const p = t.player;
+    this.seed = Math.max(1, Math.floor(level.seed) % PM_M);
+    const s = level.spawn;
     this.player = {
-      pos: vec(p.respawn.x, p.respawn.y, p.respawn.z), vel: vec(), yaw: p.respawnYaw, pitch: 0, spin: 0,
-      onGround: true, stun: 0, weapon: "pistol", cooldown: 0, heat: 0, crashing: false, overheated: false,
-      yeeted: false, spinSign: 1,
+      pos: copy(s), vel: vec(), yaw: level.spawnYaw, pitch: 0, spin: 0, onGround: true, stun: 0,
+      weapon: level.startWeapons[0], owned: [...level.startWeapons], cooldown: 0, heat: 0, crashing: false,
+      overheated: false, yeeted: false, hp: t.player.hp, dead: 0, tumbling: 0, tumbleAge: 0, tumbleRoll: 0,
+      stamina: t.sprint.stamina, sprinting: false, winded: false, sprintRest: 0,
     };
-    this.dummies = arena.dummySpawns.map((s) => ({
-      pos: copy(s), vel: vec(), spawn: copy(s), hp: t.dummy.hp, onGround: true, stun: 0, down: 0, tumble: 0,
+    this.dummies = level.arena.dummySpawns.map((sp, i) => ({
+      pos: copy(sp), vel: vec(), spawn: copy(sp), hp: t.dummy.hp, onGround: true, stun: 0, down: 0, tumble: 0,
+      face: 0, aiming: 0, aiCooldown: 1.5 + i * 0.45,
     }));
+    this.pickups = level.pickups.map((p) => ({ weapon: p.weapon, pos: copy(p.pos), taken: false }));
+  }
+
+  get arena() {
+    return this.level.arena;
+  }
+
+  /** A number in [0, 1) from the run's seeded generator (deterministic). */
+  rand(): number {
+    this.seed = (this.seed * PM_A) % PM_M;
+    return (this.seed - 1) / (PM_M - 1);
   }
 
   /** Mouse/stick look, applied between steps (rad). */
@@ -132,6 +202,12 @@ export class YeetSim {
     return this.t.weapons[this.player.weapon];
   }
 
+  /** No control right now (stunned, tumbling or knocked out). */
+  get helpless(): boolean {
+    const pl = this.player;
+    return pl.stun > 0 || pl.tumbling > 0 || pl.dead > 0;
+  }
+
   eye(): Vec3 {
     const p = this.player.pos;
     return vec(p.x, p.y + this.t.player.eyeHeight, p.z);
@@ -143,6 +219,7 @@ export class YeetSim {
     this.time += dt;
     this.stepPlayer(input, dt, ev);
     this.dummies.forEach((d, i) => this.stepDummy(d, i, dt, ev));
+    this.stepBalls(dt, ev);
     return ev;
   }
 
@@ -150,27 +227,42 @@ export class YeetSim {
   private stepPlayer(input: YeetInput, dt: number, ev: YeetEvent[]): void {
     const t = this.t;
     const pl = this.player;
-    if (input.reset) {
-      this.respawnPlayer();
+    if (input.reset && pl.dead === 0) {
+      this.respawnPlayer(false);
       ev.push({ type: "playerRespawn" });
       return;
     }
-    const stunned = pl.stun > 0;
-    if (stunned) pl.stun = Math.max(0, pl.stun - dt);
+    if (pl.dead > 0) {
+      pl.dead -= dt;
+      if (pl.dead <= 0) {
+        this.respawnPlayer(true);
+        ev.push({ type: "playerRespawn" });
+        return;
+      }
+    }
+    if (pl.stun > 0) pl.stun = Math.max(0, pl.stun - dt);
+    if (pl.tumbling > 0) {
+      pl.tumbling = Math.max(0, pl.tumbling - dt);
+      pl.tumbleAge += dt;
+      pl.tumbleRoll *= Math.exp(-0.8 * dt);
+    }
+    const control = !this.helpless;
 
-    if (input.select >= 0 && input.select < t.weaponOrder.length && !pl.crashing) {
+    if (control && input.select >= 0 && input.select < t.weaponOrder.length && !pl.crashing) {
       const w = t.weaponOrder[input.select];
-      if (w !== pl.weapon) {
+      if (w !== pl.weapon && pl.owned.includes(w)) {
         pl.weapon = w;
         pl.cooldown = Math.max(pl.cooldown, 0.1);
         ev.push({ type: "switch", weapon: w });
       }
     }
 
-    this.runAndJump(stunned ? NO_INPUT : input, dt);
-    this.fireWeapons(stunned ? NO_INPUT : input, dt, ev);
+    const speedBefore = lenXZ(pl.vel);
+    this.updateSprint(control ? input : NO_INPUT, dt);
+    this.runAndJump(control ? input : NO_INPUT, dt);
+    this.fireWeapons(control ? input : NO_INPUT, speedBefore, dt, ev);
 
-    // recoil spin: the camera and body turn, then settle
+    // recoil twist: the camera and body turn, then settle
     pl.yaw += pl.spin * dt;
     pl.spin *= Math.exp(-t.player.spinDamping * dt);
     if (Math.abs(pl.spin) < 0.01) pl.spin = 0;
@@ -181,12 +273,20 @@ export class YeetSim {
     pl.onGround = res.onGround;
 
     if (res.wallImpact >= t.bonk.speed && res.wallNormal) {
-      pl.stun = t.bonk.stun;
+      pl.stun = Math.max(pl.stun, t.bonk.stun);
       addScaled(pl.vel, res.wallNormal, res.wallImpact * t.bonk.bounce);
       ev.push({ type: "bonk", who: "player", at: copy(pl.pos), speed: res.wallImpact });
     }
 
     if (pl.crashing && pl.onGround) this.crashLand(ev);
+
+    // a tumble ends once its time is up and you are back on your feet (or it has gone on too long)
+    if (pl.tumbleAge > 0 && pl.dead === 0 && ((pl.tumbling === 0 && pl.onGround) || pl.tumbleAge >= t.tumble.maxDuration)) {
+      pl.tumbling = 0;
+      pl.tumbleAge = 0;
+      pl.tumbleRoll = 0;
+      ev.push({ type: "recover" });
+    }
 
     const speed = len(pl.vel);
     if (!pl.yeeted && speed >= t.yeetSpeed) {
@@ -196,15 +296,34 @@ export class YeetSim {
       pl.yeeted = false;
     }
 
+    if (pl.dead === 0) this.checkPickups(ev);
+
     if (pl.pos.y < -30) {
-      this.respawnPlayer();
+      this.respawnPlayer(false);
       ev.push({ type: "playerRespawn" });
+    }
+  }
+
+  /** Shift + moving forward on the ground: sprint while stamina lasts; it refills after a short rest. */
+  private updateSprint(input: YeetInput, dt: number): void {
+    const s = this.t.sprint;
+    const pl = this.player;
+    pl.sprinting = input.sprint && input.moveZ > 0.1 && pl.onGround && !pl.winded && pl.stamina > 0;
+    if (pl.sprinting) {
+      pl.stamina = Math.max(0, pl.stamina - dt);
+      pl.sprintRest = 0;
+      if (pl.stamina === 0) pl.winded = true;
+    } else {
+      pl.sprintRest += dt;
+      if (pl.sprintRest >= s.regenDelay) pl.stamina = Math.min(s.stamina, pl.stamina + s.regen * dt);
+      if (pl.winded && pl.stamina >= s.stamina * s.winded) pl.winded = false;
     }
   }
 
   private runAndJump(input: YeetInput, dt: number): void {
     const t = this.t.player;
     const pl = this.player;
+    const runSpeed = pl.sprinting ? this.t.sprint.speed : t.runSpeed;
     // WASD relative to where the player faces (yaw only)
     const fx = -Math.sin(pl.yaw);
     const fz = -Math.cos(pl.yaw);
@@ -217,16 +336,16 @@ export class YeetSim {
     }
     const h = lenXZ(pl.vel);
     if (pl.onGround) {
-      if (h > t.runSpeed + 0.01) {
+      if (h > runSpeed + 0.01) {
         // sliding from a launch: bleed speed, steer a little
-        const drop = Math.min(h - t.runSpeed, t.groundFriction * dt);
+        const drop = Math.min(h - runSpeed, t.groundFriction * this.t.step);
         const k = (h - drop) / h;
         pl.vel.x *= k;
         pl.vel.z *= k;
         this.airSteer(wx, wz, t.airAccel * 2, dt);
       } else {
-        const tx = wx * t.runSpeed;
-        const tz = wz * t.runSpeed;
+        const tx = wx * runSpeed;
+        const tz = wz * runSpeed;
         const dx = tx - pl.vel.x;
         const dz = tz - pl.vel.z;
         const dl = Math.hypot(dx, dz);
@@ -263,7 +382,7 @@ export class YeetSim {
     pl.vel.z += wz * add;
   }
 
-  private fireWeapons(input: YeetInput, dt: number, ev: YeetEvent[]): void {
+  private fireWeapons(input: YeetInput, speedBefore: number, dt: number, ev: YeetEvent[]): void {
     const t = this.t;
     const pl = this.player;
     const w = this.weaponTuning;
@@ -294,32 +413,35 @@ export class YeetSim {
       pl.heat = Math.max(0, pl.heat - t.copter.coolPerSecond * dt);
       if (pl.overheated && pl.heat === 0) pl.overheated = false;
     }
-    if (pl.crashing) pl.spin = t.copter.crashSpin * pl.spinSign;
+    if (pl.crashing) pl.spin = -t.copter.crashSpin;
 
     const wants = w.auto ? input.fireHeld : input.firePressed;
     if (!wants || pl.cooldown > 0) return;
     if (pl.weapon === "copter" && !copterFiring) return;
     pl.cooldown = w.cooldown;
-    this.shoot(w, input.aiming, ev);
+    this.shoot(w, input, speedBefore, ev);
   }
 
-  /** One shot of the current gun: recoil on the shooter, hitscan pellets into the room and dummies. */
-  private shoot(w: WeaponTuning, aimed: boolean, ev: YeetEvent[]): void {
+  /** One shot of the current gun: recoil and twist on the shooter, hitscan pellets, maybe a run-and-gun tumble. */
+  private shoot(w: WeaponTuning, input: YeetInput, speedBefore: number, ev: YeetEvent[]): void {
+    const t = this.t;
     const pl = this.player;
-    const b = this.t.aim.braced;
+    const b = t.aim.braced;
+    const aimed = input.aiming;
     const aim = aimDir(pl.yaw, pl.pitch);
-    const recoil = w.recoil * (aimed ? b.recoil : 1);
-    addScaled(pl.vel, aim, -recoil);
-    const hop = w.hop * (aimed ? b.hop : 1);
-    if (hop > 0 && pl.onGround) {
+    const grounded = pl.onGround;
+    const kick = addScaled(vec(), aim, -w.recoil * (aimed ? b.recoil : 1) * (grounded ? 1 : w.airRecoil));
+    // mid-air, a small gun can slow your fall but not lift you past airLiftCap (no pistol jetpack)
+    if (!grounded && kick.y > 0) kick.y = Math.min(kick.y, Math.max(0, w.airLiftCap - pl.vel.y));
+    addScaled(pl.vel, kick, 1);
+    const hop = grounded ? w.hop * (aimed ? b.hop : 1) : 0;
+    if (hop > 0) {
       pl.vel.y = Math.max(pl.vel.y, 0) + hop;
       pl.onGround = false;
     }
     if (w.recoil > 0 && pl.onGround && aim.y < 0) pl.onGround = false; // a floor shot leaves the floor this step
-    if (w.spin) {
-      pl.spin += w.spin * (aimed ? b.spin : 1) * pl.spinSign;
-      pl.spinSign = -pl.spinSign;
-    }
+    pl.spin -= w.twist * (aimed ? w.aimedTwist : 1); // hip fire twists you right; aimed, the gun is centred
+
     const from = this.eye();
     const tracers: Tracer[] = [];
     const spread = w.spread * (aimed ? b.spread : 1);
@@ -327,7 +449,34 @@ export class YeetSim {
       const dir = this.pelletDir(w, i, spread);
       tracers.push(this.castPellet(from, dir, w, ev));
     }
-    ev.push({ type: "fire", weapon: this.player.weapon, tracers, aimed });
+    ev.push({ type: "fire", weapon: pl.weapon, tracers, aimed });
+
+    // run-and-gun: firing while moving may send you tumbling (not the copter: it kicks you out of zoom instead)
+    const moving = speedBefore >= t.tumble.minSpeed && Math.abs(input.moveX) + Math.abs(input.moveZ) > 0.1;
+    if (moving && pl.weapon !== "copter" && pl.tumbling === 0) {
+      const chance = this.tumbleChance(w, speedBefore, aimed, pl.sprinting);
+      if (this.rand() < chance) this.startTumble(ev);
+    }
+  }
+
+  /** The chance a shot fired at speed (m/s) knocks you into a tumble. */
+  tumbleChance(w: WeaponTuning, speed: number, aimed: boolean, sprinting = false): number {
+    const tt = this.t.tumble;
+    const c = Math.min(tt.max, tt.base * (w.recoil / 15) * (speed / this.t.player.runSpeed));
+    return Math.min(0.95, c * (aimed ? tt.aimed : 1) * (sprinting ? this.t.sprint.tumbleMult : 1));
+  }
+
+  /** Knocks the player into a tumble now (run-and-gun; also the ?tumble debug hook). */
+  startTumble(ev: YeetEvent[]): void {
+    const tt = this.t.tumble;
+    const pl = this.player;
+    pl.tumbling = tt.duration;
+    pl.tumbleAge = 1e-6;
+    pl.tumbleRoll = tt.roll;
+    pl.vel.y = Math.max(pl.vel.y, 0) + tt.pop;
+    pl.spin -= tt.spin;
+    pl.onGround = false;
+    ev.push({ type: "tumble" });
   }
 
   /** Deterministic pellet pattern: the centre, then two rings (no randomness, so runs replay). */
@@ -372,7 +521,8 @@ export class YeetSim {
     d.hp -= damage;
     ev.push({ type: "hit", dummy: i, damage, at });
     if (d.hp <= 0 && d.down === 0) {
-      d.down = this.t.dummy.respawnDelay;
+      d.down = this.level.dummyRespawn;
+      d.aiming = 0;
       d.vel.y += 4; // one last comedic hop
       d.tumble += 10;
       ev.push({ type: "down", dummy: i });
@@ -383,7 +533,7 @@ export class YeetSim {
     const c = this.t.copter;
     const pl = this.player;
     pl.crashing = false;
-    pl.spin = c.crashSpin * 0.5 * pl.spinSign;
+    pl.spin = -c.crashSpin * 0.5;
     let hits = 0;
     this.dummies.forEach((d, i) => {
       if (d.down > 0) return;
@@ -398,16 +548,50 @@ export class YeetSim {
     ev.push({ type: "crash", at: copy(pl.pos), hits });
   }
 
-  respawnPlayer(): void {
-    const p = this.t.player;
+  private checkPickups(ev: YeetEvent[]): void {
     const pl = this.player;
-    pl.pos = vec(p.respawn.x, p.respawn.y, p.respawn.z);
+    const mid = vec(pl.pos.x, pl.pos.y + 0.85, pl.pos.z);
+    for (const p of this.pickups) {
+      if (p.taken) continue;
+      const d = Math.hypot(mid.x - p.pos.x, mid.y - (p.pos.y + 0.5), mid.z - p.pos.z);
+      if (d > this.t.pickupRadius) continue;
+      p.taken = true;
+      if (!pl.owned.includes(p.weapon)) pl.owned.push(p.weapon);
+      if (!pl.crashing) {
+        pl.weapon = p.weapon;
+        pl.cooldown = Math.max(pl.cooldown, 0.15);
+      }
+      ev.push({ type: "pickup", weapon: p.weapon });
+    }
+  }
+
+  /** Back to the start. fullReset (after being knocked out): your guns and the level's pickups reset too. */
+  respawnPlayer(fullReset: boolean): void {
+    const pl = this.player;
+    const lv = this.level;
+    pl.pos = copy(lv.spawn);
     pl.vel = vec();
-    pl.yaw = p.respawnYaw;
+    pl.yaw = lv.spawnYaw;
     pl.pitch = 0;
     pl.spin = 0;
     pl.stun = 0;
     pl.crashing = false;
+    pl.tumbling = 0;
+    pl.tumbleAge = 0;
+    pl.tumbleRoll = 0;
+    pl.dead = 0;
+    pl.hp = this.t.player.hp;
+    pl.onGround = true;
+    pl.stamina = this.t.sprint.stamina;
+    pl.winded = false;
+    if (fullReset) {
+      pl.owned = [...lv.startWeapons];
+      if (!pl.owned.includes(pl.weapon)) pl.weapon = pl.owned[0];
+      pl.heat = 0;
+      pl.overheated = false;
+      for (const p of this.pickups) p.taken = false;
+      this.balls.length = 0;
+    }
   }
 
   // ---- dummies ---------------------------------------------------------------
@@ -422,6 +606,8 @@ export class YeetSim {
         d.hp = t.dummy.hp;
         d.tumble = 0;
         d.stun = 0;
+        d.aiming = 0;
+        d.aiCooldown = 1.5;
         ev.push({ type: "respawn", dummy: i });
         return;
       }
@@ -451,6 +637,111 @@ export class YeetSim {
     if (d.pos.y < -30) {
       d.pos = copy(d.spawn);
       d.vel = vec();
+    }
+    if (this.level.dummiesFight && d.down === 0) this.think(d, i, dt, ev);
+  }
+
+  /** Fight Back: face the player, telegraph, throw a ball. Knocked about while glowing cancels the shot. */
+  private think(d: DummyState, i: number, dt: number, ev: YeetEvent[]): void {
+    const ai = this.t.ai;
+    const pl = this.player;
+    const tx = pl.pos.x - d.pos.x;
+    const tz = pl.pos.z - d.pos.z;
+    const want = Math.atan2(-tx, -tz);
+    const diff = wrapAngle(want - d.face);
+    d.face = wrapAngle(d.face + Math.sign(diff) * Math.min(Math.abs(diff), ai.turnRate * dt));
+    d.aiCooldown -= dt;
+    const steady = d.onGround && d.stun === 0 && len(d.vel) < 2;
+    if (pl.dead > 0 || !steady) {
+      if (d.aiming > 0) d.aiCooldown = Math.max(d.aiCooldown, 1);
+      d.aiming = 0;
+      return;
+    }
+    if (d.aiming > 0) {
+      d.aiming -= dt;
+      if (d.aiming <= 0) {
+        d.aiming = 0;
+        this.throwBall(d, i, ev);
+      }
+      return;
+    }
+    if (d.aiCooldown <= 0 && this.sees(d)) {
+      d.aiming = ai.telegraph;
+      ev.push({ type: "dummyAim", dummy: i });
+    }
+  }
+
+  private dummyEye(d: DummyState): Vec3 {
+    return vec(d.pos.x, d.pos.y + 1.4, d.pos.z);
+  }
+
+  private playerChest(): Vec3 {
+    const p = this.player.pos;
+    return vec(p.x, p.y + 1.0, p.z);
+  }
+
+  /** In range and nothing solid in between. */
+  sees(d: DummyState): boolean {
+    const from = this.dummyEye(d);
+    const to = this.playerChest();
+    const delta = vec(to.x - from.x, to.y - from.y, to.z - from.z);
+    const dist = len(delta);
+    if (dist > this.t.ai.range || dist < 0.01) return false;
+    return rayArena(this.arena, from, normalize(delta), dist) >= dist - 0.01;
+  }
+
+  private throwBall(d: DummyState, i: number, ev: YeetEvent[]): void {
+    const ai = this.t.ai;
+    const from = this.dummyEye(d);
+    const to = this.playerChest();
+    const dir = normalize(vec(to.x - from.x, to.y - from.y, to.z - from.z));
+    this.balls.push({ pos: addScaled(copy(from), dir, 0.6), vel: addScaled(vec(), dir, ai.ballSpeed), life: ai.ballLife, owner: i });
+    d.aiCooldown = ai.cooldown + ((i * 0.37) % 0.8);
+    ev.push({ type: "dummyFire", dummy: i });
+  }
+
+  private stepBalls(dt: number, ev: YeetEvent[]): void {
+    const t = this.t;
+    const pl = this.player;
+    const r = t.ai.ballRadius;
+    const hw = t.player.halfWidth + r;
+    for (let k = this.balls.length - 1; k >= 0; k--) {
+      const b = this.balls[k];
+      addScaled(b.pos, b.vel, dt);
+      b.life -= dt;
+      const p = b.pos;
+      // the player (a box grown by the ball's radius)
+      if (pl.dead === 0 && Math.abs(p.x - pl.pos.x) < hw && Math.abs(p.z - pl.pos.z) < hw && p.y > pl.pos.y - r && p.y < pl.pos.y + t.player.height + r) {
+        this.hitPlayer(b, ev);
+        this.balls.splice(k, 1);
+        continue;
+      }
+      const solid = this.arena.boxes.some((bx) => p.x > bx.min.x && p.x < bx.max.x && p.y > bx.min.y && p.y < bx.max.y && p.z > bx.min.z && p.z < bx.max.z);
+      if (solid) ev.push({ type: "ballPop", at: copy(p) });
+      if (solid || b.life <= 0) this.balls.splice(k, 1);
+    }
+  }
+
+  private hitPlayer(b: Ball, ev: YeetEvent[]): void {
+    const ai = this.t.ai;
+    const pl = this.player;
+    const dir = normalize(b.vel);
+    addScaled(pl.vel, dir, ai.knockback);
+    pl.vel.y += 1.5;
+    pl.onGround = false;
+    pl.hp -= ai.damage;
+    ev.push({ type: "playerHit", dummy: b.owner, damage: ai.damage, at: copy(b.pos) });
+    if (pl.hp <= 0) {
+      pl.hp = 0;
+      pl.dead = this.t.player.respawnDelay;
+      pl.crashing = false;
+      // knocked out: fly off in a tumble the third-person camera can watch
+      pl.tumbling = this.t.player.respawnDelay;
+      pl.tumbleAge = 1e-6;
+      pl.tumbleRoll = this.t.tumble.roll;
+      addScaled(pl.vel, dir, ai.knockback);
+      pl.vel.y += 5;
+      ev.push({ type: "playerDown", dummy: b.owner });
     }
   }
 }

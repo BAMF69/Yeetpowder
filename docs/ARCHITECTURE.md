@@ -34,7 +34,8 @@ Engine-specific folder layout is documented in `docs/ENGINE.md`. Universal folde
 |---|---|---|---|
 | Tuning | Every feel number (movement, recoil per gun, bonk, dummies, copter) | `src/core/yeet/tuning.ts` | via sim tests |
 | Arena | Gray-box room as AABBs; body movement with sub-steps; ray casts | `src/core/yeet/arena.ts` | `tests/yeetSim.test.ts` |
-| Sim | Player run/jump/recoil/spin, guns and hitscan, wall bonk, dummies, Gatling Copter | `src/core/yeet/sim.ts` | `tests/yeetSim.test.ts` |
+| Levels | Sandbox and Fight Back as data: boxes, spawn, start guns, pickups, dummies fight or not, seed | `src/core/yeet/levels.ts` | `tests/yeetSim.test.ts` (spawns, tower reach) |
+| Sim | Player run/jump/recoil/twist, guns and hitscan, wall bonk, run-and-gun tumbles (seeded rolls), pickups, health, dummies and their AI (face, telegraph, throw balls), Gatling Copter | `src/core/yeet/sim.ts` | `tests/yeetSim.test.ts` |
 | Autoplay | Scripted tour of every mechanic (browser `?play&autoplay` and Vitest) | `src/core/yeet/autoplay.ts` | `tests/yeetSim.test.ts` |
 | Play world | Fixed-step loop, input to YeetInput, events to effects, camera | `src/game/YeetWorld.ts` | smoke `--query "play&autoplay"` |
 | FPS input | Pointer lock, mouse look and buttons, weapon keys, R | `src/game/fpsInput.ts` | manual (pointer lock needs a real click) |
@@ -50,8 +51,9 @@ effects and HUD (and, later, sound). The sim never calls the renderer.
 - Rule: save files carry a version number from day one.
 
 ## Determinism and randomness
-- The sim uses no randomness at all (shotgun pellets use a fixed ring pattern; the copter's wobble cycles with the
-  step count), so a scripted run replays exactly in Vitest. Cosmetic randomness (muzzle flash angle) lives only in
+- The sim's only randomness is the run-and-gun tumble roll, from a Park-Miller generator seeded by the level
+  (`Level.seed`); shotgun pellets use a fixed ring pattern and the copter's wobble cycles with the step count. Same
+  level + same inputs = same run, so a scripted run replays exactly in Vitest. Cosmetic randomness (muzzle flash angle) lives only in
   `src/game/`.
 
 ## Budgets
@@ -74,6 +76,8 @@ draws nothing (a logic budget), and a browser run cannot go below its 60 Hz fram
   (pistol, launch, spin, copter, crash) and `YEET_AUTOPLAY_DONE hits=.. top=.. bonks=..`. Screenshot a moment with
   `python tools/dev.py smoke --query "play&autoplay&hold=launch" --until YEET_MARK_launch --screenshot captures/progress/x.png`
   (`hold=<mark>` freezes the game at that moment, so the slow headless renderer cannot drift past it).
+- `?level=sandbox|fight` picks the level (the menu: Play = fight, Sandbox = sandbox via `shell.worldOption`).
+- `?weapon=0..3` starts with that gun in hand; `?tumble` trips a tumble 1 s in (`YEET_MARK_tumble`, `hold=tumble`).
 - `?aim` holds right-click aim during autoplay (stills of aimed fire, e.g. `play&autoplay&aim&hold=spin` for the scope).
 - `?debug`: log channels `yeet` (sim events) and `fps` (pointer lock).
 - R respawns the player.

@@ -24,6 +24,8 @@ export interface DummyFigure {
   setHp(frac: number): void;
   /** A short white hit flash. */
   flash(): void;
+  /** 0..1: the red glow of a dummy about to shoot (Fight Back's telegraph). */
+  setAlert(v: number): void;
   update(dt: number, camera: THREE.Camera): void;
   dispose(): void;
 }
@@ -91,6 +93,8 @@ export function makeDummy(suit: string): DummyFigure {
   barRoot.add(bg, fg);
 
   let flashT = 0;
+  let alert = 0;
+  let pulse = 0;
   return {
     root,
     setHp(frac) {
@@ -103,10 +107,15 @@ export function makeDummy(suit: string): DummyFigure {
     flash() {
       flashT = 0.08;
     },
+    setAlert(v) {
+      alert = Math.max(0, Math.min(1, v));
+    },
     update(dt, camera) {
       flashT = Math.max(0, flashT - dt);
+      pulse += dt * 14;
       const e = flashT > 0 ? 0.9 : 0;
-      suitMat.emissive.setRGB(e, e, e);
+      const red = alert > 0 ? (0.45 + 0.35 * Math.sin(pulse)) * alert : 0;
+      suitMat.emissive.setRGB(Math.max(e, red), e, e);
       // the bar faces the camera whatever the body's tumble
       barRoot.quaternion.copy(root.quaternion).invert().multiply(camera.quaternion);
     },

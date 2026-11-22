@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // fpsInput.ts
 // Purpose : The FPS controls the shell's action map does not cover: pointer-lock mouse look, mouse buttons
-//           (left fire, right aim), weapon keys 1-4, the wheel, and R to respawn. WASD, Space and Esc stay with the
+//           (left fire, right aim), weapon keys 1-4, the wheel, Shift to sprint, and R to respawn. WASD, Space and Esc stay with the
 //           shell (shell.input), so rebinding and pause keep working.
 // Usage   : const fps = new FpsInput(canvas); each frame: const f = fps.take(); ... ; fps.dispose() when leaving
 // Notes   : Pointer lock needs a click (browser rule). Esc unlocks it; the game then shows "Click to play".
@@ -19,6 +19,8 @@ export interface FpsFrame {
   fireHeld: boolean;
   /** Right mouse held: aim down the sights. */
   aimHeld: boolean;
+  /** Shift held: sprint. */
+  sprintHeld: boolean;
   /** 0..3, or -1. */
   select: number;
   /** -1 / +1 from the wheel, or 0. */
@@ -34,6 +36,7 @@ export class FpsInput {
   private firePressed = false;
   private fireHeld = false;
   private aimHeld = false;
+  private sprintHeld = false;
   private select = -1;
   private cycle = 0;
   private reset = false;
@@ -67,6 +70,11 @@ export class FpsInput {
     this.on(window, "contextmenu", (e) => {
       if (this.locked) e.preventDefault(); // right click aims; no browser menu mid-fight
     });
+    this.on(window, "keyup", (e) => {
+      const c = (e as KeyboardEvent).code;
+      if (c === "ShiftLeft" || c === "ShiftRight") this.sprintHeld = false;
+    });
+    this.on(window, "blur", () => (this.sprintHeld = false)); // keys let go while away never send keyup
     this.on(window, "wheel", (e) => {
       if (this.locked) this.cycle = Math.sign((e as WheelEvent).deltaY);
     });
@@ -75,6 +83,7 @@ export class FpsInput {
       if (k.repeat) return;
       if (k.code in WEAPON_KEYS) this.select = WEAPON_KEYS[k.code];
       if (k.code === "KeyR") this.reset = true;
+      if (k.code === "ShiftLeft" || k.code === "ShiftRight") this.sprintHeld = true;
     });
   }
 
@@ -102,6 +111,7 @@ export class FpsInput {
     const f: FpsFrame = {
       dx: this.dx, dy: this.dy, firePressed: this.firePressed, fireHeld: this.fireHeld && this.locked,
       aimHeld: this.aimHeld && this.locked,
+      sprintHeld: this.sprintHeld,
       select: this.select, cycle: this.cycle, reset: this.reset,
     };
     this.dx = this.dy = 0;

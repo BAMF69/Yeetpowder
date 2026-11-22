@@ -25,7 +25,8 @@ export class YeetSound {
   /** Fetches and decodes every sound file; progress(0..1) feeds the loading screen. */
   async load(progress: (v: number) => void = () => {}): Promise<void> {
     try {
-      this.ctx = new AudioContext();
+      // the lowest output delay the browser allows (gunshots must land with the muzzle flash, playtest 4)
+      this.ctx = new AudioContext({ latencyHint: 0 });
     } catch (err) {
       Log.warn("audio", `no Web Audio here, the game runs silent: ${String(err)}`);
       return;
@@ -46,7 +47,13 @@ export class YeetSound {
 
   /** Call from a click or key press: browsers only start audio after one. */
   resume(): void {
-    if (this.ctx && this.ctx.state !== "running") void this.ctx.resume();
+    if (this.ctx && this.ctx.state !== "running") {
+      const ctx = this.ctx;
+      void ctx.resume().then(() => {
+        const out = (ctx as AudioContext & { outputLatency?: number }).outputLatency ?? 0;
+        Log.info("audio", `latency: base ${(ctx.baseLatency * 1000).toFixed(1)} ms, output ${(out * 1000).toFixed(1)} ms`);
+      });
+    }
   }
 
   play(name: string): void {

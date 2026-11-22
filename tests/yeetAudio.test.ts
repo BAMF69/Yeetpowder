@@ -30,7 +30,7 @@ describe("Yeetpowder sounds", () => {
 
   it("the kit's audio director accepts the events and plays each one", () => {
     const withLengths = Object.fromEntries(
-      Object.entries<{ files: string[] }>(events.events).map(([k, e]) => [k, { ...e, lengths_ms: e.files.map(() => 300) }]),
+      Object.entries<{ bus: string; files: string[] }>(events.events).map(([k, e]) => [k, { ...e, lengths_ms: e.files.map(() => 300) }]),
     );
     const dir = new AudioDirector({ seed: events.seed, events: withLengths, ducking: events.ducking });
     let t = 0;

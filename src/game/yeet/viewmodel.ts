@@ -83,6 +83,7 @@ export class Viewmodel {
   private readonly sleeveR: THREE.Mesh;
   private readonly gloveR: THREE.Mesh;
   private readonly hand = new THREE.Vector3(); // the right hand, relative to the shoulder pivot
+  private readonly dir = new THREE.Vector3();
   private readonly armL = new THREE.Group(); // at the left shoulder, aimed at the foregrip
   private readonly sleeveL: THREE.Mesh;
   private readonly gloveL: THREE.Mesh;
@@ -309,11 +310,13 @@ export class Viewmodel {
 
   /** Puts the gun hand at h (relative to the shoulder pivot) and stretches the sleeve to it. */
   private placeHand(h: THREE.Vector3): void {
+    // copy first: callers pass this.tmp, and normalizing it in place once made every sleeve 1 m long
+    // (the "second arm sticking out of the gun", playtest 3)
     this.hand.copy(h);
-    this.mount.position.copy(h);
-    this.gloveR.position.copy(h);
-    this.sleeveR.quaternion.setFromUnitVectors(Z_AXIS, this.tmp.copy(h).normalize());
-    this.sleeveR.scale.z = h.length();
+    this.mount.position.copy(this.hand);
+    this.gloveR.position.copy(this.hand);
+    this.sleeveR.scale.z = this.hand.length();
+    this.sleeveR.quaternion.setFromUnitVectors(Z_AXIS, this.dir.copy(this.hand).normalize());
   }
 
   // ---- building --------------------------------------------------------------

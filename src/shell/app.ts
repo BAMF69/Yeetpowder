@@ -147,6 +147,8 @@ export class Shell {
   readonly subtitles: SubtitleBar;
   /** Cognitive access (#167): the goal "What now?" shows, and every subtitle line shown (newest last). */
   objective = "";
+  /** Which variant of the world the menu asked for ("" = the default; "sandbox" = the Yeetpowder Sandbox). */
+  worldOption = "";
   /** The line the narrator last worked out (#165), spoken or not. */
   lastNarration = "";
   narrator!: Narrator;

@@ -1,0 +1,13 @@
+{
+ "tool": "sfx_synth",
+ "name": "alert",
+ "params": {
+  "wave": "square",
+  "freq": 1100.0,
+  "duty": 0.3,
+  "repeat": 0.09,
+  "sustain": 0.17,
+  "decay": 0.03,
+  "volume": 0.26
+ }
+}

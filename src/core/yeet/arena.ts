@@ -29,7 +29,7 @@ export interface Arena {
   dummySpawns: Vec3[];
 }
 
-const box = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, kind: Box["kind"] = "block"): Box => ({
+export const box = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, kind: Box["kind"] = "block"): Box => ({
   min: { x: Math.min(x0, x1), y: Math.min(y0, y1), z: Math.min(z0, z1) },
   max: { x: Math.max(x0, x1), y: Math.max(y0, y1), z: Math.max(z0, z1) },
   kind,
@@ -39,17 +39,23 @@ const ROOM_HALF = 20; // the room is 40 x 40 m
 const WALL_DRAW = 24; // m: Boomstick floor launches clear ~18 m
 const WALL_SOLID = 400; // m: the solid part, so the copter cannot fly out
 
+/** A floor and four walls for a (2*h) x (2*h) m room. Walls are solid far above their drawn height. */
+export function room(h: number): Box[] {
+  const wall = (b: Box): Box => ({ ...b, kind: "wall", drawTop: WALL_DRAW });
+  return [
+    box(-h - 1, -1, -h - 1, h + 1, 0, h + 1, "floor"),
+    wall(box(-h - 1, 0, -h - 1, h + 1, WALL_SOLID, -h)), // north
+    wall(box(-h - 1, 0, h, h + 1, WALL_SOLID, h + 1)), // south
+    wall(box(-h - 1, 0, -h, -h, WALL_SOLID, h)), // west
+    wall(box(h, 0, -h, h + 1, WALL_SOLID, h)), // east
+  ];
+}
+
 /** One 40 x 40 m room: a high ledge to self-launch onto, a crate stack, a pillar, a low wall to bonk into. */
 export function testRoom(): Arena {
-  const h = ROOM_HALF;
-  const wall = (b: Box): Box => ({ ...b, kind: "wall", drawTop: WALL_DRAW });
   return {
     boxes: [
-      box(-h - 1, -1, -h - 1, h + 1, 0, h + 1, "floor"),
-      wall(box(-h - 1, 0, -h - 1, h + 1, WALL_SOLID, -h)), // north
-      wall(box(-h - 1, 0, h, h + 1, WALL_SOLID, h + 1)), // south
-      wall(box(-h - 1, 0, -h, -h, WALL_SOLID, h)), // west
-      wall(box(h, 0, -h, h + 1, WALL_SOLID, h)), // east
+      ...room(ROOM_HALF),
       box(-20, 0, -20, -8, 5, -12), // the high ledge (5 m): Boomstick at the floor gets you up
       box(8, 0, -6, 11, 2, -3), // crate stack, bottom
       box(9, 2, -5.5, 10.5, 3.5, -4), // crate stack, top

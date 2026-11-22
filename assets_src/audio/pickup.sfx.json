@@ -1,0 +1,16 @@
+{
+ "tool": "sfx_synth",
+ "name": "pickup",
+ "params": {
+  "wave": "square",
+  "freq": 660.0,
+  "arp_mult": 1.5,
+  "arp_time": 0.08,
+  "duty": 0.4,
+  "sustain": 0.12,
+  "decay": 0.22,
+  "punch": 0.3,
+  "lowpass": 8000,
+  "volume": 0.38
+ }
+}

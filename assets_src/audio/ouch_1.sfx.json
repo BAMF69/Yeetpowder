@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "ouch_1",
+ "params": {
+  "wave": "saw",
+  "freq": 300.0,
+  "slide": -2.2,
+  "sustain": 0.03,
+  "decay": 0.16,
+  "punch": 0.6,
+  "lowpass": 2500,
+  "volume": 0.45
+ }
+}

@@ -64,7 +64,10 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | System | One line | In the vertical slice? |
 |---|---|---|
 | Recoil movement | Each shot applies an impulse opposite the aim, plus camera/body spin; added on top of normal run/jump; limited air control | yes |
-| Hip vs aimed fire | Hip fire is the full yeet; right-click aim zooms in and braces the shot: about half the push, much less spin, a tight spread *(Claude's pick from playtest 2)* | yes |
+| Hip vs aimed fire | Same push either way. Hip fire twists you right (the gun sits right of your centre); aimed, the gun is centred: little twist, tight spread. Firing any gun but the Gatling Copter knocks you out of zoom for the recoil (0.45 s), then back in if you still hold right click; a scoped Spin Doctor shot still spins you *(playtests 3, 4)* | yes |
+| Sprint | Shift: 11 m/s for 3 s, refills after a rest; firing while sprinting doubles the tumble chance *(playtest 4)* | yes |
+| Run-and-gun tumble | A shot fired while moving may knock you into a tumble (no control; the camera pops out to third person to watch). Chance grows with speed and recoil, halves when aimed; the copter never tumbles you (Elaina's call) *(playtest 3)* | yes |
+| Levels | Sandbox (the open test room, every gun) and Fight Back (dummies shoot back; start with Pea Pistol + Boomstick; Spin Doctor on the ground; Gatling Copter on an 11 m tower only a Boomstick launch reaches) *(playtest 3)* | yes |
 | Wall bonk | Impact above a speed threshold stuns ~0.5 s with a splat; no damage unless "Hard Walls" | yes |
 | Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol | toy's 3 guns only |
 | Hit knockback | Being shot pushes you too | yes |
@@ -83,6 +86,8 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Aim (braced: less kick, tighter spread) | Right click (hold) | Left trigger |
 | Jump | Space | A |
 | Melee / gunblade slash | F (was right click: moved for aiming, playtest 2) | Right bumper |
+| Sprint (a few seconds) | Shift (hold) | |
+| Respawn (toy) | R | |
 | Switch weapon | 1–4 / wheel | Y |
 | Killstreak | Q | Left bumper |
 

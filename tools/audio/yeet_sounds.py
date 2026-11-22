@@ -66,6 +66,27 @@ SOUNDS = {
     # weapon switch: a small click
     "click": ({"wave": "square", "freq": 1400, "duty": 0.2, "sustain": 0.012, "decay": 0.03, "volume": 0.28},
               [1.0]),
+    # Fight Back: a dummy throws its ball (a rising "fwip")
+    "lob": ({"wave": "square", "freq": 300, "slide": 1.8, "duty": 0.4, "sustain": 0.04, "decay": 0.1,
+             "lowpass": 4000, "volume": 0.35}, [1.0, 1.08]),
+    # a ball splats on a wall
+    "splat": ({"wave": "noise", "freq": 240, "slide": -1.6, "sustain": 0.01, "decay": 0.12, "punch": 0.5,
+               "lowpass": 2200, "volume": 0.4}, [1.0, 0.9]),
+    # you get hit
+    "ouch": ({"wave": "saw", "freq": 300, "slide": -2.2, "sustain": 0.03, "decay": 0.16, "punch": 0.6,
+              "lowpass": 2500, "volume": 0.45}, [1.0, 0.92]),
+    # you are knocked out: a long falling whistle
+    "ko": ({"wave": "sine", "freq": 900, "slide": -1.4, "vibrato_depth": 0.6, "vibrato_rate": 8,
+            "sustain": 0.7, "decay": 0.25, "volume": 0.42}, [1.0]),
+    # picking up a gun
+    "pickup": ({"wave": "square", "freq": 660, "arp_mult": 1.5, "arp_time": 0.08, "duty": 0.4, "sustain": 0.12,
+                "decay": 0.22, "punch": 0.3, "lowpass": 8000, "volume": 0.38}, [1.0]),
+    # a run-and-gun tumble starts: a quick wobbly whistle down
+    "tumble": ({"wave": "sine", "freq": 700, "slide": -2.0, "vibrato_depth": 2, "vibrato_rate": 14,
+                "sustain": 0.35, "decay": 0.12, "volume": 0.4}, [1.0, 1.1]),
+    # a dummy starts glowing: about to shoot
+    "alert": ({"wave": "square", "freq": 1100, "duty": 0.3, "repeat": 0.09, "sustain": 0.17, "decay": 0.03,
+               "volume": 0.26}, [1.0]),
     # dummy respawn: a soft pop-in
     "popin": ({"wave": "square", "freq": 420, "slide": 1.6, "duty": 0.35, "sustain": 0.05, "decay": 0.12,
                "lowpass": 6000, "volume": 0.3}, [1.0]),

@@ -25,6 +25,20 @@ export interface HudState {
   reduceMotion: boolean;
   /** The Spin Doctor's scope covers the view. */
   scoped: boolean;
+  /** Which guns you own (slots of the others are greyed out). */
+  owned: boolean[];
+  /** 0..1 health, or null when nothing can hurt you (Sandbox). */
+  hp: number | null;
+  /** Shown big in the middle while knocked out ("" when not). */
+  banner: string;
+  /** Dummies knocked out this run, or null to hide the counter. */
+  kos: number | null;
+  level: string;
+  /** 0..1 sprint stamina, and whether you are winded (emptied it). */
+  stamina: number;
+  winded: boolean;
+  /** Tumbling: show the tip. */
+  tumbling: boolean;
 }
 
 const CSS = `
@@ -75,6 +89,27 @@ const CSS = `
 .yh-scope::before, .yh-scope::after { content: ""; position: absolute; background: rgba(0, 0, 0, 0.85); }
 .yh-scope::before { left: 50%; top: 17vh; width: 2px; height: 66vh; transform: translateX(-1px); }
 .yh-scope::after { top: 50%; left: calc(50% - 33vh); height: 2px; width: 66vh; transform: translateY(-1px); }
+.yh-slot.locked { opacity: 0.35; filter: grayscale(1); }
+.yh-hp { position: absolute; left: 18px; bottom: 62px; width: 220px; display: none; }
+.yh-hp .bar { height: 16px; border-radius: 8px; background: rgba(0, 0, 0, 0.5); overflow: hidden; border: 2px solid #fff5; }
+.yh-hp .fill { height: 100%; width: 100%; background: linear-gradient(90deg, #43a047, #9ccc65); transition: width 0.15s; }
+.yh-hp.low .fill { background: linear-gradient(90deg, #e53935, #ff7043); }
+.yh-hurt { position: absolute; inset: 0; opacity: 0; transition: opacity 0.35s;
+  background: radial-gradient(circle, transparent 45%, rgba(229, 57, 53, 0.55) 100%); }
+.yh-hurt.on { opacity: 1; transition: none; }
+.yh-banner { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); font-weight: 900;
+  font-size: calc(44px * var(--s)); color: #ff5252; -webkit-text-stroke: 3px #1b1b1b; paint-order: stroke fill;
+  text-align: center; white-space: nowrap; display: none; }
+.yh-level { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); font-weight: 800;
+  font-size: calc(14px * var(--s)); background: rgba(20, 24, 34, 0.6); padding: 4px 12px; border-radius: 10px; }
+.yh-stam { position: absolute; left: 18px; bottom: 90px; width: 160px; height: 8px; border-radius: 4px;
+  background: rgba(0, 0, 0, 0.45); overflow: hidden; transition: opacity 0.3s; }
+.yh-stam .fill { height: 100%; width: 100%; background: #4fc3f7; }
+.yh-stam.winded .fill { background: #ff8a65; }
+.yh-tip { position: absolute; left: 50%; top: 74%; transform: translateX(-50%); background: rgba(20, 24, 34, 0.85);
+  border: 3px solid #ffd84a; border-radius: 14px; padding: 10px 18px; font-weight: 800;
+  font-size: calc(18px * var(--s)); text-align: center; max-width: 80vw; display: none; }
+.yh-tip em { color: #ffd84a; font-style: normal; letter-spacing: 1px; }
 .yh-click { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); background: rgba(20, 24, 34, 0.8);
   padding: 12px 22px; border-radius: 16px; font-weight: 800; font-size: calc(22px * var(--s)); border: 3px solid #ffd84a; }
 @keyframes yh-pop {
@@ -111,6 +146,15 @@ export class YeetHud {
   private readonly click: HTMLDivElement;
   private readonly scope: HTMLDivElement;
   private readonly cross: HTMLDivElement;
+  private readonly hp: HTMLDivElement;
+  private readonly hpFill: HTMLDivElement;
+  private readonly hurt: HTMLDivElement;
+  private readonly banner: HTMLDivElement;
+  private readonly level: HTMLDivElement;
+  private hurtT = 0;
+  private readonly stam: HTMLDivElement;
+  private readonly stamFill: HTMLDivElement;
+  private readonly tip: HTMLDivElement;
   private hitT = 0;
   private starT = 0;
   private popN = 0;
@@ -123,7 +167,10 @@ export class YeetHud {
     this.root = el("yh", host);
     this.rush = el("yh-rush", this.root);
     this.scope = el("yh-scope", this.root);
+    this.hurt = el("yh-hurt", this.root);
     this.cross = el("yh-cross", this.root);
+    this.banner = el("yh-banner", this.root);
+    this.level = el("yh-level", this.root);
     this.hit = el("yh-hit", this.root);
     this.stars = el("yh-stars", this.root);
     for (let i = 0; i < 5; i++) {
@@ -143,8 +190,14 @@ export class YeetHud {
     const bar = el("bar", this.heat);
     this.heatFill = el("fill", bar);
     this.speed = el("yh-speed", this.root);
+    this.stam = el("yh-stam", this.root);
+    this.stamFill = el("fill", this.stam);
+    this.tip = el("yh-tip", this.root);
+    this.tip.innerHTML = "Plant your feet to avoid getting blown off balance by <em>YEETPOWDER</em>";
+    this.hp = el("yh-hp", this.root);
+    this.hpFill = el("fill", el("bar", this.hp));
     el("yh-hint", this.root,
-      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (steadier, less kick) · 1-4 or wheel switch guns · R respawn · Esc pause");
+      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · 1-4 or wheel switch guns · R respawn · Esc pause");
     this.feed = el("yh-feed", this.root);
     this.pops = el("yh-pops", this.root);
     this.click = el("yh-click", this.root, "Click to play");
@@ -173,11 +226,34 @@ export class YeetHud {
     this.hitT = 0.12;
   }
 
+  /** The red edge flash of taking a hit. */
+  hurtFlash(): void {
+    this.hurtT = 0.12;
+  }
+
   update(dt: number, s: HudState): void {
     this.reduceMotion = s.reduceMotion;
     this.hitT = Math.max(0, this.hitT - dt);
     this.hit.classList.toggle("on", this.hitT > 0);
-    this.slots.forEach((el, i) => el.classList.toggle("on", i === s.weapon));
+    this.slots.forEach((el, i) => {
+      el.classList.toggle("on", i === s.weapon);
+      el.classList.toggle("locked", !s.owned[i]);
+    });
+    this.hurtT = Math.max(0, this.hurtT - dt);
+    this.hurt.classList.toggle("on", this.hurtT > 0);
+    this.hp.style.display = s.hp === null ? "none" : "block";
+    if (s.hp !== null) {
+      this.hpFill.style.width = `${Math.round(s.hp * 100)}%`;
+      this.hp.classList.toggle("low", s.hp < 0.35);
+    }
+    this.stamFill.style.width = `${Math.round(s.stamina * 100)}%`;
+    this.stam.classList.toggle("winded", s.winded);
+    this.stam.style.opacity = s.stamina >= 0.999 && !s.winded ? "0" : "1";
+    this.tip.style.display = s.tumbling ? "block" : "none";
+    this.banner.style.display = s.banner ? "block" : "none";
+    if (this.banner.textContent !== s.banner) this.banner.textContent = s.banner;
+    const lvl = s.kos === null ? s.level : `${s.level} · Dummies knocked out: ${s.kos}`;
+    if (this.level.textContent !== lvl) this.level.textContent = lvl;
     this.heat.style.display = s.showHeat ? "block" : "none";
     this.heatFill.style.width = `${Math.round(s.heat * 100)}%`;
     this.heat.classList.toggle("hot", s.overheated);
