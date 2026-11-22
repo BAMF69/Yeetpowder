@@ -19,14 +19,19 @@
 import { Log } from "../core/log";
 import { knobOffset, stickFrom } from "../core/yeet/touch";
 import { TUNING } from "../core/yeet/tuning";
+import { Gyro } from "./gyro";
+import { buildTouchPanel, loadTouchSettings, PANEL_CSS, type TouchSettings } from "./touchSettings";
 
 export interface TouchFrame {
   moveX: number;
   moveZ: number;
   sprint: boolean;
-  /** Look drag since the last take, in mouse-equivalent px (lookScale applied). */
+  /** Look drag since the last take, in mouse-equivalent px (lookScale and the player's Look speed applied). */
   dx: number;
   dy: number;
+  /** Gyro turn since the last take (rad, + left / + up; gyro tuning and the player's Gyro speed applied). */
+  gyroYaw: number;
+  gyroPitch: number;
   firePressed: boolean;
   fireHeld: boolean;
   /** The Aim toggle is on. */
@@ -66,7 +71,7 @@ const CSS = `
 .yt-top { position: static; border-radius: 12px; width: auto; height: auto; padding: 8px 12px; font-size: 14px; }
 /* the shell's "Esc Pause" prompt means nothing on a tablet: the Pause button replaces it */
 body.yt-touch .hudbar { display: none; }
-`;
+${PANEL_CSS}`;
 
 export class TouchControls {
   /** A finger is the main pointer, or ?touch asks for the controls anyway. */
@@ -95,7 +100,14 @@ export class TouchControls {
   private dx = 0;
   private dy = 0;
   // buttons
-  private fireId = -1;
+  /** Fingers holding fire: the Fire button, or (Gatling) anywhere on the right half. */
+  private readonly fireIds = new Set<number>();
+  /** The right half fires while held (the world turns it on while the Gatling is in hand). */
+  private zoneFires = false;
+  private readonly zoneFireIds = new Set<number>();
+  /** The player's options (⚙) and the gyro. */
+  readonly settings: TouchSettings = loadTouchSettings();
+  private readonly gyro = new Gyro();
   private firePressed = false;
   private aim = false;
   private jump = false;
@@ -136,18 +148,29 @@ export class TouchControls {
     this.on(left, "pointermove", (e) => e.pointerId === this.stickId && this.moveStick(e));
     this.release(left, (e) => e.pointerId === this.stickId && this.dropStick());
 
-    // right half: look
-    this.capture(right, (e) => this.lookers.set(e.pointerId, { x: e.clientX, y: e.clientY }));
+    // right half: look; with the Gatling, a press there also fires until lifted (playtest 2026-11-22)
+    this.capture(right, (e) => {
+      this.lookers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.zoneFires) {
+        this.fireIds.add(e.pointerId);
+        this.zoneFireIds.add(e.pointerId);
+        this.firePressed = true;
+      }
+    });
     this.on(right, "pointermove", (e) => this.look(e));
-    this.release(right, (e) => this.lookers.delete(e.pointerId));
+    this.release(right, (e) => {
+      this.lookers.delete(e.pointerId);
+      this.fireIds.delete(e.pointerId);
+      this.zoneFireIds.delete(e.pointerId);
+    });
 
     // buttons (added after the zones, so they sit on top)
     const fire = this.button("yt-fire", "FIRE", (e) => {
-      this.fireId = e.pointerId;
+      this.fireIds.add(e.pointerId);
       this.firePressed = true;
       this.lookers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }, (e) => {
-      if (e.pointerId === this.fireId) this.fireId = -1;
+      this.fireIds.delete(e.pointerId);
       this.lookers.delete(e.pointerId);
     });
     this.on(fire, "pointermove", (e) => this.look(e));
@@ -174,6 +197,10 @@ export class TouchControls {
     const bar = div("yt-bar", this.root);
     this.button("yt-top", "❚❚ Pause", () => (this.pause = true), undefined, bar);
     this.button("yt-top", "↺ Respawn", () => (this.reset = true), undefined, bar);
+    const panel = buildTouchPanel(document.body, this.settings, (s) => this.applySettings(s), () => this.gyro.blockedReason);
+    this.button("yt-top", "⚙", () => panel.show(panel.root.style.display === "none"), undefined, bar);
+    this.off.push(() => panel.root.remove());
+    if (this.settings.gyro) void this.gyro.enable(); // turned on last time (iOS may need the switch tapped again)
 
     // a finger lifted while the page was away never sends pointerup: let go of everything
     this.on(window, "blur", () => this.letGo());
@@ -196,12 +223,27 @@ export class TouchControls {
     if (!active && this.latched) this.setLatched(false);
   }
 
+  /** The world, each frame: does a press on the right half fire (the Gatling in hand)? */
+  setZoneFires(on: boolean): void {
+    this.zoneFires = on;
+    if (!on) for (const id of this.zoneFireIds) this.fireIds.delete(id); // switched away: the right half only looks
+    if (!on) this.zoneFireIds.clear();
+  }
+
+  /** Aim assist is switched on (⚙). */
+  get assist(): boolean {
+    return this.settings.assist;
+  }
+
   /** Everything since the last call; one-shot presses reset. */
   take(): TouchFrame {
+    const scale = TUNING.touch.lookScale * this.settings.look;
+    const g = this.gyro.running ? this.gyro.take() : { yaw: 0, pitch: 0 };
+    const gs = TUNING.touch.gyro * this.settings.gyroSpeed;
     const f: TouchFrame = {
       moveX: this.moveX, moveZ: this.moveZ, sprint: this.sprint,
-      dx: this.dx * TUNING.touch.lookScale, dy: this.dy * TUNING.touch.lookScale,
-      firePressed: this.firePressed, fireHeld: this.fireId >= 0, aimHeld: this.aim, jump: this.jump,
+      dx: this.dx * scale, dy: this.dy * scale, gyroYaw: g.yaw * gs, gyroPitch: g.pitch * gs,
+      firePressed: this.firePressed, fireHeld: this.fireIds.size > 0, aimHeld: this.aim, jump: this.jump,
       slash: this.slash, slashHeld: this.slashId >= 0 || this.latched, reload: this.reload, reset: this.reset, pause: this.pause,
     };
     this.dx = this.dy = 0;
@@ -215,9 +257,16 @@ export class TouchControls {
     this.aimBtn.classList.remove("on");
   }
 
+  /** ⚙ changed something: the gyro follows its switch (the tap that flipped it lets iOS ask permission). */
+  private applySettings(s: TouchSettings): void {
+    if (s.gyro && !this.gyro.running) void this.gyro.enable();
+    if (!s.gyro && this.gyro.running) this.gyro.disable();
+  }
+
   /** A finger lifted (seen at the window): free whatever it held. The latch stays (it outlives the finger). */
   private fingerUp(id: number): void {
-    if (id === this.fireId) this.fireId = -1;
+    this.fireIds.delete(id);
+    this.zoneFireIds.delete(id);
     if (id === this.slashId) {
       this.slashId = -1;
       if (this.holdActive) this.setLatched(true);
@@ -229,7 +278,7 @@ export class TouchControls {
 
   /** No finger on the glass: nothing can still be held (the latch stays). */
   private allFingersUp(): void {
-    for (const id of [this.fireId, this.slashId, this.stickId, ...this.lookers.keys()]) if (id >= 0) this.fingerUp(id);
+    for (const id of [...this.fireIds, this.slashId, this.stickId, ...this.lookers.keys()]) if (id >= 0) this.fingerUp(id);
     for (const b of this.root.querySelectorAll(".yt-btn.down")) b.classList.remove("down");
   }
 
@@ -242,7 +291,9 @@ export class TouchControls {
 
   /** Pause opened: fingers on the glass are no longer ours. */
   letGo(): void {
-    this.stickId = this.fireId = this.slashId = this.unlatchId = -1;
+    this.stickId = this.slashId = this.unlatchId = -1;
+    this.fireIds.clear();
+    this.zoneFireIds.clear();
     this.setLatched(false);
     this.lookers.clear();
     this.moveX = this.moveZ = 0;
@@ -254,6 +305,7 @@ export class TouchControls {
   dispose(): void {
     for (const f of this.off) f();
     this.off.length = 0;
+    this.gyro.dispose();
     this.root.remove();
     this.style.remove();
     document.body.classList.remove("yt-touch");

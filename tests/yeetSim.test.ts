@@ -1107,3 +1107,18 @@ describe("autoplay tour", () => {
     expect(top).toBeGreaterThan(4);
   });
 });
+
+describe("touch players", () => {
+  it("the Gatling turns a touch player less (gentler recoil for thumbs); mouse players keep the full kick", () => {
+    const turned = (touch: boolean) => {
+      const sim = newSim();
+      parkDummies(sim);
+      select(sim, TUNING.weaponOrder.indexOf("copter"));
+      const yaw0 = sim.player.yaw;
+      for (let i = 0; i < 60; i++) sim.step({ ...NO_INPUT, fireHeld: true, firePressed: i === 0, touch });
+      return Math.abs(sim.player.yaw - yaw0);
+    };
+    expect(turned(true)).toBeLessThan(turned(false) * 0.8);
+    expect(turned(true)).toBeGreaterThan(0);
+  });
+});

@@ -43,3 +43,21 @@ export function knobOffset(dx: number, dy: number, radius: number): { x: number;
   if (len <= radius || len === 0) return { x: dx, y: dy };
   return { x: (dx / len) * radius, y: (dy / len) * radius };
 }
+
+/**
+ * The phone's gyro (DeviceMotionEvent.rotationRate, degrees per second about the device's own axes: beta about its
+ * x, gamma about its y, as held in portrait) -> look rates (rad/s) for the screen as it is turned
+ * (screen.orientation.angle 0, 90, 180 or 270). Turning the device left turns you left (+yaw); tilting its top edge
+ * toward you looks up (+pitch). Right-handed rotations: + is anticlockwise looking down the axis.
+ */
+export function gyroToLook(rate: { beta: number; gamma: number }, angle: number): { yaw: number; pitch: number } {
+  const d = Math.PI / 180;
+  const b = rate.beta * d; // about device x (portrait right)
+  const g = rate.gamma * d; // about device y (portrait up)
+  switch (((Math.round(angle / 90) % 4) + 4) % 4) {
+    case 1: return { yaw: b, pitch: -g }; // landscape, device's right side up: up = +x, right = -y
+    case 3: return { yaw: -b, pitch: g }; // landscape, left side up: up = -x, right = +y
+    case 2: return { yaw: -g, pitch: -b }; // upside down
+    default: return { yaw: g, pitch: b }; // portrait: up = +y, right = +x
+  }
+}

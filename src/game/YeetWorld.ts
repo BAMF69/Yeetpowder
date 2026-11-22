@@ -33,7 +33,8 @@ import { AUTOPLAY_SECONDS, autoplayStep } from "../core/yeet/autoplay";
 import { levelById } from "../core/yeet/levels";
 import { NO_INPUT, PLAYER_CODE, YeetSim, type PlayerState, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
-import { len, normalize, vec } from "../core/yeet/vec";
+import { len, normalize, vec, type Vec3 } from "../core/yeet/vec";
+import { aimAssist } from "../core/yeet/aimAssist";
 import { shell } from "../shell/app";
 import { FpsInput, type FpsFrame } from "./fpsInput";
 import { TouchControls, type TouchFrame } from "./touchControls";
@@ -338,6 +339,7 @@ export class YeetWorld implements World {
     // input that happens once per frame goes into the first fixed step only
     const f = this.fps.take();
     this.touch?.holdMove(pl.stance || pl.hook >= 0);
+    this.touch?.setZoneFires(pl.weapon === "copter"); // Gatling: hold anywhere on the right to fire, drag to aim
     this.mergeTouch(f);
     if (this.forceAim) f.aimHeld = true;
     this.aimKnock = Math.max(0, this.aimKnock - dt);
@@ -360,8 +362,9 @@ export class YeetWorld implements World {
     let stepped = false;
     // mouse speed follows the zoom, so aimed look feels the same on screen; no look while tumbling or knocked out
     const sens = TUNING.mouseSensitivity * this.zoomFactor();
-    const dYaw = -f.dx * sens;
-    const dPitch = -f.dy * sens * (shell.settings.input.invert_y ? -1 : 1);
+    let dYaw = -f.dx * sens;
+    let dPitch = -f.dy * sens * (shell.settings.input.invert_y ? -1 : 1);
+    if (this.touch && this.tf) [dYaw, dPitch] = this.touchLook(dYaw, dPitch, f.fireHeld, dt);
     if (this.link) {
       // online, looking travels with the input so the server turns you exactly as your screen did
       if (this.third < 0.5 && this.link.ready) {
@@ -554,7 +557,44 @@ export class YeetWorld implements World {
       reload: f.reload,
       slash: f.slash,
       slashHeld: f.slashHeld,
+      ...(this.touch ? { touch: true } : {}), // gentler Gatling wobble for thumbs (the server sees it too)
     };
+  }
+
+  /**
+   * A touch player's look this frame: the thumb's drag (already scaled), plus the gyro (scaled down with the zoom,
+   * like the drag), then aim assist if it is on: slower over a target, easing onto it while you play. The targets
+   * are the figures as drawn (what you see), each checked for a clear line from your eye.
+   */
+  private touchLook(dYaw: number, dPitch: number, firing: boolean, dt: number): [number, number] {
+    const t = this.tf!;
+    const zoom = this.zoomFactor();
+    dYaw += t.gyroYaw * zoom;
+    dPitch += t.gyroPitch * zoom;
+    if (!this.touch!.assist || this.third >= 0.5 || this.sim.helpless) return [dYaw, dPitch];
+    const pl = this.sim.player;
+    const targets: Vec3[] = [];
+    this.others.forEach((fig, j) => {
+      if (fig.root.visible && j !== (this.link?.slot ?? 0) && this.sim.players[j]?.dead === 0) targets.push(fig.root.position);
+    });
+    this.views.forEach((v, i) => {
+      if (this.sim.dummies[i]?.down === 0 && v.fig.root.visible) targets.push(v.fig.root.position);
+    });
+    if (!targets.length) return [dYaw, dPitch];
+    const eye = this.sim.eye();
+    const moving = Math.abs(t.moveX) + Math.abs(t.moveZ) > 0.1;
+    const out = aimAssist(
+      { eye, yaw: pl.yaw, pitch: pl.pitch, dYaw, dPitch, active: firing || moving || dYaw !== 0 || dPitch !== 0, dt },
+      targets,
+      (i) => {
+        const p = targets[i];
+        const d = vec(p.x - eye.x, p.y - eye.y, p.z - eye.z);
+        const dist = len(d);
+        return rayArena(this.sim.arena, eye, normalize(d), dist) >= dist - 0.4;
+      },
+      TUNING.touch.assist,
+    );
+    return [out.dYaw, out.dPitch];
   }
 
   // ---- events -> effects -------------------------------------------------------

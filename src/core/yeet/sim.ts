@@ -56,6 +56,8 @@ export interface YeetInput {
   slash: boolean;
   /** F held: past a moment it becomes the hold move (scythe hook, katana dash stance). */
   slashHeld: boolean;
+  /** Playing on a touch screen: the Gatling's random wobble and turn are gentler (TUNING.touch.recoil). */
+  touch?: boolean;
 }
 
 export const NO_INPUT: YeetInput = {
@@ -637,9 +639,10 @@ export class YeetSim {
       pl.vel.z *= k;
       // it fights you: turns you right and makes the aim wander (smooth, deterministic noise)
       const b = t.aim.braced;
-      pl.spin -= t.copter.torque * (input.aiming ? b.copterTurn : 1) * dt;
+      const tr = input.touch ? t.touch.recoil : null; // a thumb cannot fight it like a mouse hand
+      pl.spin -= t.copter.torque * (input.aiming ? b.copterTurn : 1) * (tr ? tr.copterTurn : 1) * dt;
       const n = this.time;
-      const wob = t.copter.wobble * (input.aiming ? b.copterWobble : 1) * dt;
+      const wob = t.copter.wobble * (input.aiming ? b.copterWobble : 1) * (tr ? tr.wobble : 1) * dt;
       this.look(Math.cos(n * 5.7 + 1) * wob, (Math.sin(n * 7.3) + Math.sin(n * 12.1) * 0.5) * wob, this.cur);
       pl.heat += t.copter.heatPerSecond * dt;
       if (pl.heat >= t.copter.heatMax) {

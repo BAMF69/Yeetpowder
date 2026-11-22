@@ -281,9 +281,20 @@ export const TUNING = {
    * Touch controls (src/game/touchControls.ts, maths in src/core/yeet/touch.ts), phones and tablets.
    *   stickRadius  px a thumb travels from where it landed to full speed; deadzone the share of it that does nothing
    *   sprintAt     the stick past this share of full travel also sprints (no Shift on a tablet)
-   *   lookScale    x mouseSensitivity per px of finger drag (a thumb covers fewer px than a mouse sweep)
+   *   lookScale    x mouseSensitivity per px of finger drag (a thumb covers fewer px than a mouse sweep); the
+   *                player's own Look speed (touch settings panel, 0.5x..3x) multiplies it. Playtest 2026-11-22: 1.6 slow
+   *   recoil       touch players' Gatling: its random aim wobble and its turn to the right are scaled by these
+   *                (a thumb cannot fight it the way a mouse hand does; mouse players keep the full kick)
+   *   assist       aim assist (src/core/yeet/aimAssist.ts): cone (rad) and range (m) a target must be in; friction
+   *                0..1 slows your look over it; pull (rad/s) eases you onto it while you play
+   *   gyro         look rad per rad the device turns, before the player's Gyro speed
    */
-  touch: { stickRadius: 64, deadzone: 0.15, sprintAt: 0.92, lookScale: 1.6 },
+  touch: {
+    stickRadius: 64, deadzone: 0.15, sprintAt: 0.92, lookScale: 2.6,
+    recoil: { wobble: 0.35, copterTurn: 0.6 },
+    assist: { cone: 0.16, range: 45, friction: 0.45, pull: 0.9 },
+    gyro: 1,
+  },
 
   /**
    * Bots (src/core/yeet/bot.ts): full players driven by a brain that only presses what a player can press. Each

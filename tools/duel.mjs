@@ -5,7 +5,9 @@
 //           (server/main.ts) and the game's dev server reachable from other devices (vite --host), then prints the
 //           address to open on the laptop and the phone.
 // Usage   : npm run duel           (Ctrl+C stops both)
-// Notes   : Both devices must be on the same Wi-Fi. Windows may ask to let Node through the firewall: allow it on
+// Notes   : Served over https with a self-signed certificate (ADR 0003: the gyro needs a secure page); each device
+//           warns once about it. The duel socket goes through the page's port at /duel-ws (vite.config.ts).
+//           Both devices must be on the same Wi-Fi. Windows may ask to let Node through the firewall: allow it on
 //           private networks. The game page finds the duel server on the same host, port 7357 (src/net/protocol.ts).
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
@@ -30,12 +32,14 @@ const kids = [
   spawn(process.execPath, ["build/server/main.js"], { stdio: "inherit" }),
   spawn(process.execPath, [VITE, "--host", "--port", "5180", "--strictPort"], {
     stdio: "inherit",
-    env: { ...process.env, VITE_LAN_HOST: home },
+    env: { ...process.env, VITE_LAN_HOST: home, YEET_HTTPS: "1" }, // https for the gyro (ADR 0003)
   }),
 ];
 setTimeout(() => {
-  console.log("\n  Duel ready. Open on this PC:  http://localhost:5180/?play&level=duel");
-  for (const a of lan) console.log(`  On the phone (same Wi-Fi):   http://${a}:5180/?play&level=duel`);
+  console.log("\n  Duel ready. Open on this PC:  https://localhost:5180/?play&level=duel");
+  for (const a of lan) console.log(`  On the phone (same Wi-Fi):   https://${a}:5180/?play&level=duel`);
+  console.log("  First visit on each device the browser warns about the certificate (made on this PC):");
+  console.log("  choose Advanced, then Continue / Proceed. HTTPS is what lets the gyro work (ADR 0003).");
   console.log("  Ctrl+C stops both.\n");
 }, 2500);
 const stop = () => {

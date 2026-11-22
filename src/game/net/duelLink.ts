@@ -48,6 +48,16 @@ body.yt-touch .yd.corner { padding-top: 120px; }
  * The origin to put in the room link. Opened on the PC as localhost, the link would point a phone at itself, so it
  * swaps in the PC's home-network address that `npm run duel` hands Vite (VITE_LAN_HOST), keeping the port.
  */
+/**
+ * Where the duel server is. On an https page (`npm run duel` serves https for the gyro, ADR 0003) a plain ws://
+ * socket is refused, so it goes through the page's own host and port at /duel-ws (Vite passes it on); on http it is
+ * the duel server's own port on the same host, as before.
+ */
+function duelSocketUrl(): string {
+  if (location.protocol === "https:") return `wss://${location.host}/duel-ws`;
+  return `ws://${location.hostname || "localhost"}:${DUEL_PORT}`;
+}
+
 function shareOrigin(): string {
   const lan = import.meta.env.VITE_LAN_HOST as string | undefined;
   const local = ["localhost", "127.0.0.1", "[::1]", ""].includes(location.hostname);
@@ -70,8 +80,7 @@ export class DuelLink {
   private corrections: number[] = [];
 
   constructor(params: URLSearchParams) {
-    const host = location.hostname || "localhost";
-    this.net = new NetClient(`ws://${host}:${DUEL_PORT}`, Number(params.get("lag")) || 0, (m) => this.onMsg(m));
+    this.net = new NetClient(duelSocketUrl(), Number(params.get("lag")) || 0, (m) => this.onMsg(m));
     this.style = document.createElement("style");
     this.style.textContent = CSS;
     document.head.append(this.style);
