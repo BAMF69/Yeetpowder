@@ -64,6 +64,8 @@ const CSS = `
 .yh-slots { position: absolute; right: 18px; bottom: 18px; display: flex; gap: 8px; }
 /* the shell's subtitle bar (announcer, sound captions) sits above the weapon slots while playing */
 #subtitles { bottom: calc(6vh + 64px); }
+.yh-debugtag { position: absolute; transform: translate(-50%, -100%); font: 12px ui-monospace, monospace; color: #fff;
+  background: rgba(0, 0, 0, 0.65); padding: 2px 6px; border-radius: 3px; white-space: nowrap; display: none; }
 .yh-slot { background: rgba(20, 24, 34, 0.65); border: 3px solid rgba(255, 255, 255, 0.25); border-radius: 14px;
   padding: 6px 12px; font-weight: 800; font-size: calc(15px * var(--s)); }
 .yh-slot b { color: #ffd84a; margin-right: 6px; }
@@ -146,6 +148,8 @@ const el = (cls: string, parent: HTMLElement, text = ""): HTMLDivElement => {
 
 export class YeetHud {
   private readonly root: HTMLDivElement;
+  /** ?debug label (the bot's state), made on first use. */
+  private tag: HTMLDivElement | null = null;
   private readonly style: HTMLStyleElement;
   private readonly hit: HTMLDivElement;
   private readonly stars: HTMLDivElement;
@@ -244,6 +248,19 @@ export class YeetHud {
 
   hitMarker(): void {
     this.hitT = 0.12;
+  }
+
+  /** ?debug: a label at a screen point (x, y from -1 to 1, as Vector3.project gives), or hidden with null. */
+  debugTag(text: string | null, x: number, y: number): void {
+    if (!text) {
+      if (this.tag) this.tag.style.display = "none";
+      return;
+    }
+    if (!this.tag) this.tag = el("yh-debugtag", this.root);
+    this.tag.style.display = "block";
+    this.tag.textContent = text;
+    this.tag.style.left = `${(x * 0.5 + 0.5) * 100}%`;
+    this.tag.style.top = `${(0.5 - y * 0.5) * 100}%`;
   }
 
   /** The red edge flash of taking a hit. */

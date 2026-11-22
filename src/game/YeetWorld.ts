@@ -16,6 +16,7 @@
 //           (reduce motion keeps first person). Sound: src/game/yeet/sound.ts; audio starts on the first click.
 //           DEBUG: ?debug logs sim events on the "yeet" channel; ?weapon=0..3 starts with that gun in hand;
 //           ?tumble trips a tumble 1 s in (logs YEET_MARK_tumble 0.4 s later, ?hold=tumble freezes there).
+//           ?yeetreap (in a bot duel) hooks the bot 1 s in and YEETREAPs it (YEET_MARK_yeetreap; a crash fails smoke).
 //           ?hero fires Reaper's Kick straight down 1 s in (YEET_MARK_hero mid hero landing, ?hold=hero freezes).
 //           ?showcase holds the camera in front of your third-person operative (art review);
 //           ?flash holds the muzzle flash on (stills). &pose=kneel|fling|
@@ -30,12 +31,13 @@ import { Shake } from "../core/shake";
 import { rayArena } from "../core/yeet/arena";
 import { AUTOPLAY_SECONDS, autoplayStep } from "../core/yeet/autoplay";
 import { levelById } from "../core/yeet/levels";
-import { NO_INPUT, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
+import { NO_INPUT, PLAYER_CODE, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
 import { len, normalize, vec } from "../core/yeet/vec";
 import { shell } from "../shell/app";
 import { FpsInput, type FpsFrame } from "./fpsInput";
 import { DuelLink } from "./net/duelLink";
+import { BOT_SKILLS, BotBrain, type BotSkill } from "../core/yeet/bot";
 import { INTERP_MS } from "./net/remote";
 import type { World } from "./threeHost";
 import { makeDummy, makeStars, PIVOT, type DummyFigure, type Stars } from "./yeet/figures";
@@ -99,10 +101,18 @@ export class YeetWorld implements World {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   private readonly autoplay = shell.params.has("autoplay");
-  private readonly levelId = this.autoplay ? "sandbox" : shell.params.get("level") ?? shell.worldOption;
-  /** Online duel: the connection, prediction and lobby (null in single player). */
-  private readonly link = this.levelId === "duel" ? new DuelLink(shell.params) : null;
-  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, levelById(this.levelId));
+  /** Duel vs bot (menu "Duel vs bot", or ?level=duel&bot=easy|medium|hard): offline, the bot is player 2. */
+  private readonly botSkill = this.autoplay ? null : YeetWorld.botFrom(shell.params.get("bot"), shell.params.get("level") ?? shell.worldOption);
+  private readonly levelId = this.autoplay ? "sandbox" : this.botSkill ? "duel" : shell.params.get("level") ?? shell.worldOption;
+  /** Online duel: the connection, prediction and lobby (null in single player and against a bot). */
+  private readonly link = this.levelId === "duel" && !this.botSkill ? new DuelLink(shell.params) : null;
+  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, levelById(this.levelId), this.botSkill ? 2 : 1);
+  /** The bot's brain (src/core/yeet/bot.ts). Its seed only varies matches (?botseed=N replays one). */
+  private readonly brain = this.botSkill
+    ? new BotBrain(TUNING, 1, this.botSkill, Number(shell.params.get("botseed") ?? Math.floor(Math.random() * 1e6)))
+    : null;
+  /** ?debug against a bot: its aim and goal lines (the label is in the HUD). */
+  private readonly botLines = this.brain && shell.params.has("debug") ? YeetWorld.makeBotLines() : null;
   /** Duel: every player's figure (yours is hidden), and their tumble angles. */
   private readonly others: Operative[] = [];
   private readonly otherRoll: number[] = [];
@@ -135,6 +145,9 @@ export class YeetWorld implements World {
   private readonly debugTumble = shell.params.has("tumble");
   /** ?hero: 1 s in, fire Reaper's Kick straight down (a backflip, then a hero landing; logs YEET_MARK_hero). */
   private readonly debugHero = shell.params.has("hero");
+  /** ?yeetreap (with ?bot=): 1 s in, hook the bot with Reaper's Kick and YEETREAP it (logs YEET_MARK_yeetreap). */
+  private readonly debugReap = shell.params.has("yeetreap");
+  private reapStart = -1;
   private heroFired = false;
   /** ?showcase: the camera stays in front of your operative; ?pose=...: force a pose (art review stills). */
   private readonly showcase = shell.params.has("showcase");
@@ -213,7 +226,7 @@ export class YeetWorld implements World {
       this.scene.add(fig.root);
       this.views.push({ fig, stars, quat: facing(0), name: `${name} Dummy`, lastWeapon: "pistol" });
     });
-    if (this.link) {
+    if (this.link || this.brain) {
       this.sim.players.forEach((_p, j) => {
         const fig = makeOperative(DUEL_SUITS[j % DUEL_SUITS.length]);
         fig.root.visible = false;
@@ -345,9 +358,16 @@ export class YeetWorld implements World {
         pl.pitch = -1.4; // straight down: the backflip
         input = { ...input, firePressed: true };
       }
+      if (this.debugReap && this.brain) input = this.reapScript(input);
       if (this.link) {
         for (const e of this.link.stepLocal(input, this.lookYaw, this.lookPitch)) this.onEvent(e);
         this.lookYaw = this.lookPitch = 0;
+      } else if (this.brain) {
+        // the bot plays through the same controls as you: a look turn, then its keys and buttons
+        // (?yeetreap holds the bot still while the script hooks it: the check is the YEETREAP, not the fight)
+        const out = this.reapHolding() ? { input: { ...NO_INPUT }, dYaw: 0, dPitch: 0 } : this.brain.think(this.sim);
+        this.sim.look(out.dYaw, out.dPitch, 1);
+        for (const e of this.sim.step([input, out.input])) this.routeBotMatch(e);
       } else {
         for (const e of this.sim.step(input)) this.onEvent(e);
       }
@@ -367,7 +387,7 @@ export class YeetWorld implements World {
       this.marks.sort((a, b) => a[0] - b[0]);
     }
     // smoke can stop at these to screenshot a moment: --until YEET_MARK_launch (spin, copter)
-    while ((this.autoplay || this.debugTumble || this.debugHero) && this.marks.length && this.sim.time >= this.marks[0][0]) {
+    while ((this.autoplay || this.debugTumble || this.debugHero || (this.debugReap && this.reapStart >= 0)) && this.marks.length && this.sim.time >= this.marks[0][0]) {
       const mark = this.marks.shift()![1];
       Log.info("yeet", `YEET_MARK_${mark}`);
       if (shell.params.get("hold") === mark) this.held = true; // ?hold=<mark>: freeze here for a screenshot
@@ -396,6 +416,7 @@ export class YeetWorld implements World {
     const fight = this.sim.level.dummiesFight;
     const duel = this.link;
     const other = duel ? (duel.slot === 0 ? 1 : 0) : 0;
+    const vsBot = this.botSkill;
     this.hud.update(dt, {
       weapon: TUNING.weaponOrder.indexOf(pl.weapon),
       heat: pl.heat / TUNING.copter.heatMax,
@@ -409,12 +430,12 @@ export class YeetWorld implements World {
       reduceMotion: shell.settings.access.reduce_motion,
       scoped: this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
-      hp: fight || duel ? pl.hp / TUNING.player.hp : null,
+      hp: fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
       banner: pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
       kos: fight ? this.kos : null,
       level: duel && duel.ready
         ? `Duel · room ${duel.code} · You ${this.sim.kos[duel.slot]} – ${this.sim.kos[other]} Player ${other + 1}`
-        : this.sim.level.name,
+        : vsBot ? `Duel vs ${this.playerName(1)} · You ${this.sim.kos[0]} – ${this.sim.kos[1]}` : this.sim.level.name,
       stamina: pl.stamina / TUNING.sprint.stamina,
       winded: pl.winded,
       tumbling: pl.tumbling > 0 && pl.dead === 0,
@@ -633,7 +654,13 @@ export class YeetWorld implements World {
         this.vm.setHold("none");
         break;
       case "yeetreap":
-        this.views[e.dummy].lastWeapon = "yeetreap";
+        if (this.debugReap) {
+          this.marks.push([this.sim.time + 0.3, "yeetreap"]);
+          this.marks.sort((a, b) => a[0] - b[0]);
+        }
+        // e.dummy is a target code: a dummy's index, or PLAYER_CODE + a player (a duel or a bot match). Only dummies
+        // have a view to note the kill weapon on (a YEETREAP on the bot crashed here, 2026-11-22)
+        if (e.dummy < PLAYER_CODE) this.views[e.dummy].lastWeapon = "yeetreap";
         this.hud.pop("YEETREAP!", true);
         this.sound.play("kaboom");
         this.sound.play("crowd_cheer");
@@ -782,6 +809,104 @@ export class YeetWorld implements World {
     }
   }
 
+  // ---- duel vs bot ------------------------------------------------------------------
+  /** The bot difficulty from ?bot= or the menu's world option "duel-bot-<skill>", or null. */
+  private static botFrom(param: string | null, world: string | null): BotSkill | null {
+    const s = param ?? (world?.startsWith("duel-bot-") ? world.slice("duel-bot-".length) : null);
+    return BOT_SKILLS.includes(s as BotSkill) ? (s as BotSkill) : null;
+  }
+
+  /**
+   * ?yeetreap: the steps a player takes to YEETREAP the bot (the crash of 2026-11-22): Reaper's Kick in hand, the
+   * bot held 1.8 m in front, F pressed and held to hook it, then Fire. Returns this step's input for player 1 (you).
+   */
+  private reapScript(input: YeetInput): YeetInput {
+    const pl = this.sim.player;
+    const t = this.sim.time;
+    if (t < 1) return input;
+    if (this.reapStart < 0) {
+      this.reapStart = t;
+      pl.hp = TUNING.player.hp;
+      if (!pl.owned.includes("reaper")) pl.owned.push("reaper");
+      pl.weapon = "reaper";
+      pl.pitch = 0;
+      this.vm.show("reaper");
+    }
+    const since = t - this.reapStart;
+    if (since > 1.2) return input;
+    const bot = this.sim.players[1];
+    if (since < 0.5) {
+      // keep the bot in reach in front of you until the hook has it
+      bot.pos = { x: pl.pos.x - Math.sin(pl.yaw) * 1.8, y: pl.pos.y, z: pl.pos.z - Math.cos(pl.yaw) * 1.8 };
+      bot.vel = { x: 0, y: 0, z: 0 };
+    }
+    const first = since < TUNING.step;
+    const fire = since >= 0.5 && since < 0.5 + TUNING.step;
+    return { ...input, slash: first, slashHeld: since < 0.5 + TUNING.step * 2, firePressed: fire };
+  }
+
+  /** True while the ?yeetreap script runs (the bot stands still for it). */
+  private reapHolding(): boolean {
+    return this.debugReap && this.sim.time >= 1 && (this.reapStart < 0 || this.sim.time - this.reapStart < 1.2);
+  }
+
+  /** "Player 2", or "Hard bot" for the bot. */
+  private playerName(j: number): string {
+    if (this.botSkill && j === 1) return `${this.botSkill[0].toUpperCase()}${this.botSkill.slice(1)} bot`;
+    return `Player ${j + 1}`;
+  }
+
+  /** A bot match's events: yours play as always; the bot's and the hits between you go the way a remote player's do. */
+  private routeBotMatch(e: TaggedEvent): void {
+    if (e.type === "pvpHit" || e.type === "pvpDown" || e.p === 1) this.onServerEvent(e);
+    else this.onEvent(e);
+  }
+
+  /** The bot's figure, straight from the sim (no network smoothing), and the ?debug view. */
+  private drawBot(dt: number): void {
+    const st = this.sim.players[1];
+    this.others.forEach((fig, j) => (fig.root.visible = j === 1));
+    const fig = this.others[1];
+    if (!fig || !st) return;
+    const kneel = this.sim.kneelDepth(st);
+    fig.root.position.set(st.pos.x, st.pos.y + PIVOT - kneel * 0.6, st.pos.z);
+    this.otherRoll[1] = st.tumbling > 0 || st.dead > 0 ? this.otherRoll[1] + (st.tumbleRoll || 8) * dt : 0;
+    facing(st.yaw, fig.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.otherRoll[1]));
+    fig.setPose(inputFromPlayer(st, this.sim.time, 0, kneel / TUNING.reaper.heroLanding.kneel));
+    fig.setHp(st.hp / TUNING.player.hp);
+    fig.update(dt, this.camera);
+    if (!this.botLines || !this.brain) return;
+    // ?debug: pink aim line (grey while it cannot see you), cyan line to where it is going, a state label
+    const d = this.brain.debug;
+    const eye = this.tmpA.set(st.pos.x, st.pos.y + TUNING.player.eyeHeight, st.pos.z);
+    const dir = this.tmpB.set(-Math.sin(st.yaw) * Math.cos(st.pitch), Math.sin(st.pitch), -Math.cos(st.yaw) * Math.cos(st.pitch));
+    const aim = this.botLines.aim.geometry.getAttribute("position") as THREE.BufferAttribute;
+    aim.setXYZ(0, eye.x, eye.y, eye.z);
+    aim.setXYZ(1, eye.x + dir.x * 8, eye.y + dir.y * 8, eye.z + dir.z * 8);
+    aim.needsUpdate = true;
+    const goal = this.botLines.goal.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const g = d.goal ?? st.pos;
+    goal.setXYZ(0, st.pos.x, st.pos.y + 0.1, st.pos.z);
+    goal.setXYZ(1, g.x, g.y + 0.1, g.z);
+    goal.needsUpdate = true;
+    (this.botLines.aim.material as THREE.LineBasicMaterial).color.set(d.visible ? "#ff3fa4" : "#888888");
+    if (!this.botLines.aim.parent) this.scene.add(this.botLines.aim, this.botLines.goal);
+    const head = this.tmpA.set(st.pos.x, st.pos.y + 2.2, st.pos.z).project(this.camera);
+    const label = `${this.botSkill} · ${d.state}${d.launching ? " · LAUNCH" : ""} · aim ${(d.aimError * 57.3).toFixed(0)}°`;
+    this.hud.debugTag(head.z < 1 ? label : null, head.x, head.y);
+  }
+
+  private static makeBotLines(): { aim: THREE.Line; goal: THREE.Line } {
+    const line = (color: string) => {
+      const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color, depthTest: false }));
+      l.renderOrder = 20;
+      l.frustumCulled = false;
+      return l;
+    };
+    return { aim: line("#ff3fa4"), goal: line("#4dd0e1") };
+  }
+
   // ---- launch camera kick-out ----------------------------------------------------
   private static loadKickSetting(): boolean {
     try {
@@ -861,6 +986,10 @@ export class YeetWorld implements World {
 
   /** Duel: the other player, drawn from the server's snapshots ~100 ms behind, smoothed (src/game/net/remote.ts). */
   private drawOthers(dt: number): void {
+    if (this.brain) {
+      this.drawBot(dt);
+      return;
+    }
     if (!this.link) return;
     const link = this.link;
     const now = performance.now();
@@ -895,12 +1024,12 @@ export class YeetWorld implements World {
     }
     if (e.type === "pvpDown") {
       if (e.target === me) {
-        this.killer = `Player ${e.by + 1}`;
+        this.killer = this.playerName(e.by);
         this.hud.feedLine("WAS KNOCKED OUT BY", this.killer);
         this.sound.play("ko");
         this.sound.play("crowd_aww");
       } else if (e.by === me) {
-        this.hud.feedLine("YEETED", `Player ${e.target + 1}`);
+        this.hud.feedLine("YEETED", this.playerName(e.target));
         this.sound.play("boing");
         this.sound.play("crowd_cheer");
       }

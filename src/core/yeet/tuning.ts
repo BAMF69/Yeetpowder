@@ -273,6 +273,44 @@ export const TUNING = {
 
   /** Mouse look (rad per pixel of mouse movement). Scaled down while aiming, with the zoom. */
   mouseSensitivity: 0.0022,
+
+  /**
+   * Bots (src/core/yeet/bot.ts): full players driven by a brain that only presses what a player can press. Each
+   * difficulty is how human its hands and judgment are, never a cheat (same guns, recoil, tumbles, ammo, hp).
+   *   reaction    s between seeing something and acting on it (it aims at where you were that long ago)
+   *   turnRate    rad/s the most it can turn its view; aimGain how hard it chases the target angle (1/s)
+   *   wobble      rad of slow aim drift (a hand on a mouse); fireCone x the target's angular size: fires inside it
+   *   lead        aims ahead by its own reaction time (a good player tracks motion)
+   *   switchSkill chance per decision to switch to the right gun for the range
+   *   aimed       chance to aim down the sights (braced: less twist and spread) with the pistol and Spin Doctor
+   *   plantFeet   chance to stop moving for a heavy shot (fewer run-and-gun tumbles)
+   *   launch      chance per decision to travel by Boomstick floor launch when far from its target
+   *   strafe      0..1 how much it side-steps while fighting; sprint: whether it sprints to reach you
+   *   retreatHp   below this fraction of hp it backs off (0: never); gatling: whether it goes for the Gatling
+   */
+  bot: {
+    decideEvery: 0.1, // s between decisions (aim and steering run every step)
+    sightRange: 60, // m
+    eyeMemory: 3, // s it keeps hunting where it last saw you
+    probe: 1.6, // m: wall check ahead when steering
+    ranges: { shotgun: 8, pistol: 22 }, // m: the Boomstick inside 8, the Pea Pistol to 22, the Spin Doctor past that
+    hold: { shotgun: 5, pistol: 12, sniper: 24, copter: 10 }, // m it tries to keep from its target, per gun
+    launchFrom: 14, // m: only launches toward a target at least this far
+    skills: {
+      easy: {
+        reaction: 0.6, turnRate: 2.4, aimGain: 4, wobble: 0.09, fireCone: 4.5, lead: false, switchSkill: 0.15,
+        aimed: 0, plantFeet: 0, launch: 0.03, strafe: 0.25, sprint: false, retreatHp: 0, gatling: false,
+      },
+      medium: {
+        reaction: 0.35, turnRate: 4.5, aimGain: 7, wobble: 0.045, fireCone: 1.6, lead: false, switchSkill: 0.6,
+        aimed: 0.35, plantFeet: 0.5, launch: 0.25, strafe: 0.6, sprint: true, retreatHp: 0.25, gatling: true,
+      },
+      hard: {
+        reaction: 0.18, turnRate: 8, aimGain: 11, wobble: 0.018, fireCone: 1.0, lead: true, switchSkill: 1,
+        aimed: 0.75, plantFeet: 1, launch: 0.5, strafe: 1, sprint: true, retreatHp: 0.35, gatling: true,
+      },
+    },
+  },
 };
 
 export type Tuning = typeof TUNING;

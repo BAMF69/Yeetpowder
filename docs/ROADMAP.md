@@ -4,6 +4,7 @@
 > Claude reads the **Now** section at session start.
 
 ## Now (max 3 items)
+- [ ] **Bots: easy / medium / hard** (full players driven by a brain that only presses player controls; offline Duel vs bot from the menu; guns only, gunblades next) | Done when: Elaina plays each difficulty and easy feels beatable, hard feels like a good player, none feel like cheats | First build 2026-11-22: `src/core/yeet/bot.ts`, TUNING.bot, 7 tests
 - [ ] **Duel netcode** (2 players on the home network, server on this PC with `ws` (ADR 0002), room code + link, client prediction and interpolation; ADR 0001 toy physics) | Done when: two browser windows (then laptop + phone) join one room by link and play each other with every slice weapon, smooth on both | Timebox: 4 sessions
 
 ## Next
