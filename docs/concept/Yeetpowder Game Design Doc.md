@@ -185,7 +185,7 @@ The game is a web app built on WebGL with a server-authoritative multiplayer set
 
 ## Future systems
 
-The Stuffer and Smith lore opens up three systems for after launch: heavy Smith-built guns that trade mobility for control, weapon durability for scavenging modes, and armor with damage types.
+The Stuffer and Smith lore opens up three systems for after launch: heavy Smith-built guns that trade mobility for control, weapon durability for scavenging modes, and armor with damage types. A couch mode for TV split-screen is planned alongside them.
 
 **Smith heavy guns**
 
@@ -244,6 +244,34 @@ All numbers are starting points for tuning.
 - **Lore fit:** Smiths forge chainmail and plate; modern vests are mass-produced for the Stuffer market.
 - **Readability:** armor must be visible at a glance (metal clanks, sparks on deflected slashes, a dull thud on bullet hits to vests).
 - **Where it lives:** map pickups (put on in 2 seconds, dropped on death) in armor-enabled modes. Off by default in quick play.
+
+**Couch mode: TV split-screen with phones as controllers**
+
+A TV or laptop shows a classic split-screen match while everyone in the room uses their phone as a controller. People look up at the shared screen and laugh together instead of staring at their own phones.
+
+**Approach: the TV renders the game itself, no video stream.** The TV opens the game in its browser as a "host screen" and draws every local player's view, up to 4 panes, from the live game state. Phones send only their button and stick inputs. A server-encoded video stream would add roughly 100–300 ms of delay from encoding, sending and decoding, which is too slow for a shooter. Sending inputs and game state keeps the delay close to normal online play.
+
+**How a couch match starts**
+
+1. The TV or laptop opens the game and taps "Couch mode." It shows a big room code and a QR code.
+2. Each player scans the QR code with their phone, which opens a controller page in the browser. No app or account is needed.
+3. Each player gets a colored pane on the TV and a matching color on their phone.
+4. Couch players can share a match with online players on their own devices.
+
+**Keeping it fast**
+
+- When everyone is on the same Wi-Fi, phones connect directly to the TV's browser (WebRTC peer-to-peer). That skips the trip to a far-away server, which gives the lowest delay.
+- When the match mixes in online players, the server stays in charge as usual, and the TV acts as one client with several players.
+- The TV draws all panes in one pass by splitting the screen into viewports. The low-poly art budget is what makes 4 views at once possible.
+
+**The phone controller**
+
+- Big, thumb-sized buttons, designed to be used without looking: left movement pad, plus Fire, Jump and Slash on the right.
+- **Gyro aim:** tilt the phone to fine-tune aim, with an on/off setting. This is the best fix for aiming without a real stick. iPhones ask the player for permission once.
+- Vibration on firing and getting hit, where the phone supports it.
+- A real Bluetooth gamepad connected to the TV also works as a couch player.
+
+**Open questions:** 2 or 4 panes as the maximum? Can a low-end laptop render 4 views at 60 fps? Should each phone also show the player's own HUD (ammo, killstreak meter) to save space on the TV?
 
 ## Prototype roadmap and open questions
 

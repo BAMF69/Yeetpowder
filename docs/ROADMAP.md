@@ -23,6 +23,7 @@
 - Smith heavy guns: oversized versions of standard guns, ~25% recoil, walk only (design doc "Future systems")
 - Weapon durability, scavenging and Smith workbench repair, for Scrapyard / Junk Wars modes only (design doc "Future systems")
 - Armor and damage types (bullet, slash, blast, bonk): Modern vest, Medium brigandine, Chainmail, Plate; heavier armor cuts recoil and knockback, total recoil cut capped ~75% (design doc "Future systems")
+- Couch mode: TV/laptop browser renders up to 4 split-screen panes from game state; phones join by QR code as controllers (WebRTC on same Wi-Fi, gyro aim); no video streaming, too much delay (design doc "Future systems")
 - 
 
 ## Milestones
