@@ -30,7 +30,7 @@
 // ---------------------------------------------------------------------------
 import { moveBody, rayArena, rayBox } from "./arena";
 import type { Level } from "./levels";
-import type { Tuning, WeaponId, WeaponTuning } from "./tuning";
+import { GUNBLADES, type Tuning, type WeaponId, type WeaponTuning } from "./tuning";
 import { addScaled, aimDir, copy, len, lenXZ, normalize, spreadDir, vec, type Vec3 } from "./vec";
 
 export interface YeetInput {
@@ -52,11 +52,17 @@ export interface YeetInput {
   sprint: boolean;
   /** Reload the current gun (R). */
   reload: boolean;
+  /** Slash with a gunblade (F pressed this step). */
+  slash: boolean;
+  /** F held: past a moment it becomes the hold move (scythe hook, katana dash stance). */
+  slashHeld: boolean;
 }
 
 export const NO_INPUT: YeetInput = {
-  moveX: 0, moveZ: 0, jump: false, firePressed: false, fireHeld: false, select: -1, reset: false, aiming: false, sprint: false, reload: false,
+  moveX: 0, moveZ: 0, jump: false, firePressed: false, fireHeld: false, select: -1, reset: false, aiming: false, sprint: false, reload: false, slash: false, slashHeld: false,
 };
+
+export type FlipKind = "backflip" | "frontflip" | "cartwheel";
 
 export interface Tracer {
   from: Vec3;
@@ -86,7 +92,17 @@ export type YeetEvent =
   | { type: "playerDown"; dummy: number }
   | { type: "reload"; weapon: WeaponId }
   | { type: "reloaded"; weapon: WeaponId }
-  | { type: "dry"; weapon: WeaponId };
+  | { type: "dry"; weapon: WeaponId }
+  | { type: "slash"; weapon: WeaponId; hits: number; reap: boolean; combo: number }
+  | { type: "flip"; kind: FlipKind }
+  | { type: "lunge" }
+  | { type: "finisher"; dummy: number }
+  | { type: "hook"; dummy: number }
+  | { type: "unhook"; dummy: number }
+  | { type: "yeetreap"; dummy: number }
+  | { type: "stance"; on: boolean }
+  | { type: "dash" }
+  | { type: "ultraslash"; hits: number; round: number; last: boolean };
 
 export interface PlayerState {
   pos: Vec3;
@@ -125,6 +141,27 @@ export interface PlayerState {
   mag: Record<WeaponId, number>;
   /** > 0 while reloading the current gun: seconds left. */
   reloading: number;
+  /** Gunblades: sim time of the last gun shot (Reap window), slash cooldown, the Sakura's swing recovery (a revolver
+   * shot during it cancels it and lunges), the combo count and when the last slash landed. */
+  lastShotAt: number;
+  slashCd: number;
+  slashRecover: number;
+  combo: number;
+  lastSlashAt: number;
+  /** How long F has been held (s); whether this hold already tried its move. */
+  holdT: number;
+  holdUsed: boolean;
+  /** Reaper's Kick: the hooked dummy (-1 = none) and for how long. */
+  hook: number;
+  hookT: number;
+  /** Six-Shot Sakura: the reversed-blade dash stance, whether it has dash-fired, and ULTRASLASH rounds still to fire. */
+  stance: boolean;
+  stanceDashed: boolean;
+  ultraLeft: number;
+  ultraT: number;
+  ultraRound: number;
+  /** The dummy this hold's opening slash hit (-1 = none): the hook yanks it back even after the slash shoved it. */
+  slashHit: number;
 }
 
 export interface DummyState {
@@ -183,6 +220,9 @@ export class YeetSim {
       overheated: false, yeeted: false, hp: t.player.hp, dead: 0, tumbling: 0, tumbleAge: 0, tumbleRoll: 0,
       stamina: t.sprint.stamina, sprinting: false, winded: false, sprintRest: 0,
       mag: this.fullMags(), reloading: 0,
+      lastShotAt: -99, slashCd: 0, slashRecover: 0, combo: 0, lastSlashAt: -99,
+      holdT: 0, holdUsed: false, hook: -1, hookT: 0, stance: false, slashHit: -1,
+      stanceDashed: false, ultraLeft: 0, ultraT: 0, ultraRound: 0,
     };
     this.dummies = level.arena.dummySpawns.map((sp, i) => ({
       pos: copy(sp), vel: vec(), spawn: copy(sp), hp: t.dummy.hp, onGround: true, stun: 0, down: 0, tumble: 0,
@@ -192,8 +232,9 @@ export class YeetSim {
   }
 
   private fullMags(): Record<WeaponId, number> {
-    const w = this.t.weapons;
-    return { pistol: w.pistol.mag, shotgun: w.shotgun.mag, sniper: w.sniper.mag, copter: w.copter.mag };
+    const out = {} as Record<WeaponId, number>;
+    for (const id of this.t.weaponOrder) out[id] = this.t.weapons[id].mag;
+    return out;
   }
 
   get arena() {
@@ -268,6 +309,7 @@ export class YeetSim {
       if (w !== pl.weapon && pl.owned.includes(w)) {
         pl.weapon = w;
         pl.reloading = 0; // switching guns drops a reload in progress
+        this.endHolds(ev);
         pl.cooldown = Math.max(pl.cooldown, 0.1);
         ev.push({ type: "switch", weapon: w });
       }
@@ -277,6 +319,7 @@ export class YeetSim {
     this.updateSprint(control ? input : NO_INPUT, dt);
     this.runAndJump(control ? input : NO_INPUT, dt);
     this.fireWeapons(control ? input : NO_INPUT, speedBefore, dt, ev);
+    this.melee(control ? input : NO_INPUT, dt, ev);
 
     // recoil twist: the camera and body turn, then settle
     pl.yaw += pl.spin * dt;
@@ -473,7 +516,12 @@ export class YeetSim {
     const aimed = input.aiming;
     const aim = aimDir(pl.yaw, pl.pitch);
     const grounded = pl.onGround;
-    const kick = addScaled(vec(), aim, -w.recoil * (aimed ? b.recoil : 1) * (grounded ? 1 : w.airRecoil));
+    const velBefore = vec(pl.vel.x, 0, pl.vel.z);
+    // Six-Shot Sakura: a shot during a slash's recovery cancels it and lunges you forward into the next cut
+    const dash = pl.weapon === "sakura" && pl.stance;
+    const lunge = pl.weapon === "sakura" && pl.slashRecover > 0 && !dash;
+    const kick = addScaled(vec(), aim, lunge || dash ? 0 : -w.recoil * (aimed ? b.recoil : 1) * (grounded ? 1 : w.airRecoil));
+    if (pl.weapon === "reaper" && aim.y < -t.reaper.downAim && kick.y > 0) kick.y *= t.reaper.backflipLift;
     // mid-air, a small gun can slow your fall but not lift you past airLiftCap (no pistol jetpack)
     if (!grounded && kick.y > 0) kick.y = Math.min(kick.y, Math.max(0, w.airLiftCap - pl.vel.y));
     addScaled(pl.vel, kick, 1);
@@ -486,6 +534,8 @@ export class YeetSim {
     // hip fire twists you right; aimed, the gun is centred; in mid-air, some guns twist harder (airTwist)
     pl.spin -= w.twist * (aimed ? w.aimedTwist : 1) * (grounded ? 1 : w.airTwist);
 
+    // Reaper's Kick with an enemy hooked: the YEETREAP lands first (the bullet would otherwise knock them out)
+    if (pl.weapon === "reaper" && pl.hook >= 0) this.yeetreap(ev);
     const from = this.eye();
     const tracers: Tracer[] = [];
     const spread = w.spread * (aimed ? b.spread : 1);
@@ -494,13 +544,279 @@ export class YeetSim {
       tracers.push(this.castPellet(from, dir, w, ev));
     }
     ev.push({ type: "fire", weapon: pl.weapon, tracers, aimed });
+    pl.lastShotAt = this.time;
+    if (pl.weapon === "reaper") ev.push({ type: "flip", kind: this.flipKind(aim, velBefore) });
+    if (dash) {
+      // the blade held backwards: the revolver fires behind you and throws you forward
+      const f = aimDir(pl.yaw, 0);
+      pl.vel.x = f.x * t.sakura.dash.speed;
+      pl.vel.z = f.z * t.sakura.dash.speed;
+      pl.vel.y = Math.max(pl.vel.y, 2);
+      pl.onGround = false;
+      pl.stanceDashed = true;
+      ev.push({ type: "dash" });
+    }
+    if (lunge) {
+      const f = aimDir(pl.yaw, 0);
+      pl.vel.x = f.x * t.sakura.lungeSpeed;
+      pl.vel.z = f.z * t.sakura.lungeSpeed;
+      pl.vel.y = Math.max(pl.vel.y, 1);
+      pl.onGround = false;
+      pl.slashRecover = 0;
+      pl.slashCd = 0;
+      ev.push({ type: "lunge" });
+    }
+    if (pl.weapon === "sakura" && pl.mag.sakura === 0) this.finisher(ev); // the sixth round (the mag is counted down before the shot)
 
     // run-and-gun: firing while moving may send you tumbling (not the copter: it kicks you out of zoom instead)
     const moving = speedBefore >= t.tumble.minSpeed && Math.abs(input.moveX) + Math.abs(input.moveZ) > 0.1;
-    if (moving && pl.weapon !== "copter" && pl.tumbling === 0) {
+    // (the copter and the gunblades never tumble you: they are made to be used on the move)
+    if (moving && pl.weapon !== "copter" && !GUNBLADES.includes(pl.weapon) && pl.tumbling === 0) {
       const chance = this.tumbleChance(w, speedBefore, aimed, pl.sprinting);
       if (this.rand() < chance) this.startTumble(ev);
     }
+  }
+
+  /** Which flip a Reaper's Kick shot gives: aimed down = backflip; pushing you along your run = front-flip;
+   * across it = cartwheel; against it or from a standstill = backflip. */
+  private flipKind(aim: Vec3, velBefore: Vec3): FlipKind {
+    if (aim.y < -this.t.reaper.downAim) return "backflip";
+    const push = normalize(vec(-aim.x, 0, -aim.z));
+    const speed = lenXZ(velBefore);
+    if (speed < 2) return "backflip";
+    const along = (push.x * velBefore.x + push.z * velBefore.z) / speed;
+    if (along > 0.5) return "frontflip";
+    if (along > -0.5) return "cartwheel";
+    return "backflip";
+  }
+
+  // ---- gunblade melee (F) ---------------------------------------------------------
+  private melee(input: YeetInput, dt: number, ev: YeetEvent[]): void {
+    const t = this.t;
+    const pl = this.player;
+    pl.slashCd = Math.max(0, pl.slashCd - dt);
+    pl.slashRecover = Math.max(0, pl.slashRecover - dt);
+    this.ultraFlurry(dt, ev);
+    this.holdMoves(input, dt, ev);
+    if (pl.stance || pl.hook >= 0) return; // a hold move owns F until it is released
+    if (!input.slash || !GUNBLADES.includes(pl.weapon) || pl.slashCd > 0) return;
+    if (pl.weapon === "sakura" && pl.reloading > 0) return; // the spin-reload leaves you open
+    if (pl.weapon === "reaper") {
+      const s = t.reaper.slash;
+      const reap = this.time - pl.lastShotAt <= t.reaper.reapWindow;
+      const before = this.dummies.map((d) => d.hp);
+      const hits = this.meleeHits(s.range, s.arc, s.damage * (reap ? t.reaper.reapMult : 1), s.knockback, s.lift, ev);
+      pl.slashHit = this.dummies.findIndex((d, i) => d.hp < before[i]);
+      pl.slashCd = s.cooldown;
+      ev.push({ type: "slash", weapon: "reaper", hits, reap, combo: 1 });
+      return;
+    }
+    const s = t.sakura.slash;
+    pl.combo = this.time - pl.lastSlashAt <= t.sakura.comboWindow && pl.combo < t.sakura.comboMax ? pl.combo + 1 : 1;
+    pl.lastSlashAt = this.time;
+    const hits = this.meleeHits(s.range, s.arc, s.damage, s.knockback, s.lift, ev);
+    pl.slashRecover = s.recovery;
+    pl.slashCd = pl.combo === t.sakura.comboMax ? s.recovery * 1.6 : s.recovery; // the last cut of a full combo lingers
+    ev.push({ type: "slash", weapon: "sakura", hits, reap: false, combo: pl.combo });
+  }
+
+  /** Hold F: past holdTime the scythe hooks an enemy / the katana goes into its dash stance; release ends it. */
+  private holdMoves(input: YeetInput, dt: number, ev: YeetEvent[]): void {
+    const t = this.t;
+    const pl = this.player;
+    const gunblade = GUNBLADES.includes(pl.weapon);
+    if (!input.slashHeld || !gunblade) {
+      if (pl.holdT > 0) this.releaseHold(ev);
+      pl.holdT = 0;
+      pl.holdUsed = false;
+      pl.slashHit = -1;
+      return;
+    }
+    pl.holdT += dt;
+    if (pl.weapon === "reaper") {
+      if (pl.hook < 0 && !pl.holdUsed && pl.holdT >= t.reaper.hook.holdTime) {
+        pl.holdUsed = true;
+        const h = t.reaper.hook;
+        // the enemy your opening slash just hit (shoved away by it) is yanked back with extra reach
+        const hit = this.dummies[pl.slashHit];
+        const yank = hit && hit.down === 0 && Math.hypot(hit.pos.x - pl.pos.x, hit.pos.z - pl.pos.z) <= h.range * h.yankReach;
+        const target = yank ? pl.slashHit : this.nearestInFront(h.range, h.arc);
+        if (target >= 0) {
+          pl.hook = target;
+          pl.hookT = 0;
+          ev.push({ type: "hook", dummy: target });
+        }
+      }
+      if (pl.hook >= 0) this.holdHooked(dt, ev);
+    } else if (pl.weapon === "sakura" && !pl.stance && !pl.holdUsed && pl.holdT >= t.sakura.dash.holdTime && pl.reloading === 0) {
+      pl.holdUsed = true;
+      pl.stance = true;
+      pl.stanceDashed = false;
+      ev.push({ type: "stance", on: true });
+    }
+  }
+
+  /** Keeps the hooked dummy pinned at the scythe's end, moving with you; it cannot act. */
+  private holdHooked(dt: number, ev: YeetEvent[]): void {
+    const h = this.t.reaper.hook;
+    const pl = this.player;
+    const d = this.dummies[pl.hook];
+    pl.hookT += dt;
+    if (!d || d.down > 0 || pl.hookT > h.maxTime) {
+      this.unhook(ev);
+      return;
+    }
+    const f = aimDir(pl.yaw, 0);
+    d.pos = vec(pl.pos.x + f.x * h.distance, pl.pos.y, pl.pos.z + f.z * h.distance);
+    d.vel = copy(pl.vel);
+    d.stun = Math.max(d.stun, 0.2);
+    d.aiming = 0;
+  }
+
+  private unhook(ev: YeetEvent[]): void {
+    const pl = this.player;
+    const d = this.dummies[pl.hook];
+    if (d && d.down === 0) {
+      const f = aimDir(pl.yaw, 0);
+      addScaled(d.vel, f, this.t.reaper.hook.release); // let go: a small shove away
+    }
+    ev.push({ type: "unhook", dummy: pl.hook });
+    pl.hook = -1;
+  }
+
+  /** Fire with an enemy wrapped in the scythe: the shot goes through them point-blank. */
+  private yeetreap(ev: YeetEvent[]): void {
+    const y = this.t.reaper.yeetreap;
+    const pl = this.player;
+    const i = pl.hook;
+    const d = this.dummies[i];
+    pl.hook = -1;
+    if (!d || d.down > 0) return;
+    const f = aimDir(pl.yaw, 0);
+    this.hitDummy(i, vec(f.x, 0.25, f.z), y.damage, y.knockback, vec(d.pos.x, d.pos.y + 1, d.pos.z), ev);
+    d.vel.y += y.lift;
+    ev.push({ type: "yeetreap", dummy: i });
+  }
+
+  /** F let go: drop a hooked enemy; leave the dash stance with an ULTRASLASH if a round is left. */
+  private releaseHold(ev: YeetEvent[]): void {
+    const t = this.t;
+    const pl = this.player;
+    if (pl.hook >= 0) this.unhook(ev);
+    if (!pl.stance) return;
+    pl.stance = false;
+    ev.push({ type: "stance", on: false });
+    // ULTRASLASH only after a dash-fire, while still faster than a sprint, with rounds left
+    const fast = lenXZ(pl.vel) >= t.sakura.ultra.minSpeed;
+    if (pl.weapon !== "sakura" || !pl.stanceDashed || !fast || pl.reloading > 0 || pl.mag.sakura < 1) return;
+    pl.ultraLeft = pl.mag.sakura;
+    pl.ultraRound = 0;
+    pl.ultraT = 0; // the first cut lands this step
+    this.ultraFlurry(0, ev);
+  }
+
+  /** The ULTRASLASH flurry: every round left, one wide cut each, `interval` apart; reload after the last. */
+  private ultraFlurry(dt: number, ev: YeetEvent[]): void {
+    const pl = this.player;
+    if (pl.ultraLeft <= 0) return;
+    if (pl.weapon !== "sakura") {
+      pl.ultraLeft = 0;
+      return;
+    }
+    pl.ultraT -= dt;
+    if (pl.ultraT > 0) return;
+    const u = this.t.sakura.ultra;
+    pl.ultraT = u.interval;
+    pl.ultraLeft--;
+    pl.ultraRound++;
+    pl.mag.sakura = Math.max(0, pl.mag.sakura - 1);
+    const last = pl.ultraLeft === 0;
+    const f = aimDir(pl.yaw, 0);
+    pl.vel.x += f.x * u.lunge;
+    pl.vel.z += f.z * u.lunge;
+    pl.vel.y = Math.max(pl.vel.y, 1);
+    pl.onGround = false;
+    const hits = this.meleeHits(u.range, u.arc, u.damage, last ? u.lastKnockback : u.knockback, u.lift, ev);
+    pl.slashCd = this.t.sakura.slash.recovery;
+    ev.push({ type: "ultraslash", hits, round: pl.ultraRound, last });
+    if (last) this.startReload(ev);
+  }
+
+  /** Ends any hold move (switching weapons, respawning) without its release effect. */
+  private endHolds(ev: YeetEvent[]): void {
+    const pl = this.player;
+    if (pl.hook >= 0) this.unhook(ev);
+    if (pl.stance) ev.push({ type: "stance", on: false });
+    pl.stance = false;
+    pl.ultraLeft = 0;
+    pl.holdT = 0;
+    pl.holdUsed = true; // the key is probably still held: wait for a fresh press
+  }
+
+  /** The nearest standing dummy in front within range and the arc, or -1. */
+  private nearestInFront(range: number, arc: number): number {
+    const pl = this.player;
+    const face = aimDir(pl.yaw, 0);
+    let best = -1;
+    let bestD = range + this.t.player.halfWidth;
+    this.dummies.forEach((d, i) => {
+      if (d.down > 0) return;
+      const dx = d.pos.x - pl.pos.x;
+      const dz = d.pos.z - pl.pos.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > bestD || Math.abs(d.pos.y - pl.pos.y) > 1.9) return;
+      const cos = dist < 0.01 ? 1 : (dx * face.x + dz * face.z) / dist;
+      if (Math.acos(Math.max(-1, Math.min(1, cos))) > arc / 2) return;
+      best = i;
+      bestD = dist;
+    });
+    return best;
+  }
+
+  /** Hits every standing dummy in front of you within range and the arc (radians, centred on where you face). */
+  private meleeHits(range: number, arc: number, damage: number, knockback: number, lift: number, ev: YeetEvent[]): number {
+    const pl = this.player;
+    const face = aimDir(pl.yaw, 0);
+    let hits = 0;
+    this.dummies.forEach((d, i) => {
+      if (d.down > 0) return;
+      const dx = d.pos.x - pl.pos.x;
+      const dz = d.pos.z - pl.pos.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > range + this.t.player.halfWidth || Math.abs(d.pos.y - pl.pos.y) > 1.9) return;
+      const cos = dist < 0.01 ? 1 : (dx * face.x + dz * face.z) / dist;
+      if (Math.acos(Math.max(-1, Math.min(1, cos))) > arc / 2) return;
+      const dir = dist < 0.01 ? vec(face.x, 0, face.z) : vec(dx / dist, 0, dz / dist);
+      this.hitDummy(i, dir, damage, knockback, vec(d.pos.x, d.pos.y + 1, d.pos.z), ev);
+      d.vel.y += lift;
+      hits++;
+    });
+    return hits;
+  }
+
+  /** The Sakura's sixth round fired point-blank: the nearest dummy in front within reach is knocked flying. */
+  private finisher(ev: YeetEvent[]): void {
+    const t = this.t.sakura;
+    const pl = this.player;
+    const face = aimDir(pl.yaw, 0);
+    let best = -1;
+    let bestD = t.finisherRange + this.t.player.halfWidth;
+    this.dummies.forEach((d, i) => {
+      if (d.down > 0) return;
+      const dx = d.pos.x - pl.pos.x;
+      const dz = d.pos.z - pl.pos.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > bestD || Math.abs(d.pos.y - pl.pos.y) > 1.9) return;
+      if (dist > 0.01 && (dx * face.x + dz * face.z) / dist < 0.5) return; // roughly in front
+      best = i;
+      bestD = dist;
+    });
+    if (best < 0) return;
+    const d = this.dummies[best];
+    const dir = normalize(vec(d.pos.x - pl.pos.x || face.x, 0, d.pos.z - pl.pos.z || face.z));
+    this.hitDummy(best, dir, 0, t.finisherKnockback, vec(d.pos.x, d.pos.y + 1, d.pos.z), ev);
+    d.vel.y += t.finisherLift;
+    ev.push({ type: "finisher", dummy: best });
   }
 
   /** The chance a shot fired at speed (m/s) knocks you into a tumble. */
@@ -631,6 +947,12 @@ export class YeetSim {
     pl.winded = false;
     pl.reloading = 0;
     pl.mag = this.fullMags();
+    pl.slashCd = pl.slashRecover = 0;
+    pl.combo = 0;
+    pl.hook = -1;
+    pl.stance = false;
+    pl.ultraLeft = 0;
+    pl.holdT = 0;
     if (fullReset) {
       pl.owned = [...lv.startWeapons];
       if (!pl.owned.includes(pl.weapon)) pl.weapon = pl.owned[0];

@@ -47,7 +47,7 @@ Time per loop: 2 to 5 seconds. The fun must be present in this loop before anyth
 | **MVP / Release** | The PDF's "Party": up to 8 players, all six guns, one real map (Bunker Bonkers suggested), Free-for-all, bots filling empty slots, kill feed, touch controls | Passes `/release-check` |
 | **Stretch** | Gunblades (Reaper's Kick, Six-Shot Sakura), the other killstreaks, Team Yeet / Ring Out / Hot Potato, party modifiers, maps 2 and 3, "Yeet of the Match" replay, PWA, public playtest | Only after release scope is locked |
 
-Current tier: **Toy**
+Current tier: **Vertical slice**
 
 Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when the tier's "Done means" is met.
 
@@ -71,13 +71,14 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Run-and-gun tumble | A shot fired while moving may knock you into a tumble (no control; the camera pops out to third person to watch). Chance grows with speed and recoil, halves when aimed; the copter never tumbles you (Elaina's call) *(playtest 3)* | yes |
 | Levels | Sandbox (the open test room, every gun) and Fight Back (dummies shoot back; start with Pea Pistol + Boomstick; Spin Doctor on the ground; Gatling Copter on an 11 m tower only a Boomstick launch reaches) *(playtest 3)* | yes |
 | Wall bonk | Impact above a speed threshold stuns ~0.5 s with a splat; no damage unless "Hard Walls" | yes |
-| Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol | 3 standard guns; decide the Gatling prototype's slice role before implementation |
+| Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol | 3 standard guns + the Gatling Copter as one rare pickup (Elaina) |
 | Hit knockback | Being shot pushes you too | yes |
 | Health and damage | Cartoon damage, respawn | yes |
 | Ragdoll-lite | Tumble/flail animation over a physics capsule; full ragdoll only on death (client-side) | yes |
 | Multiplayer | Server-authoritative rooms (Colyseus suggested), prediction, ~100 ms interpolation | yes (2 players) |
 | Killstreaks | Temporary super weapons earned by kill chains | no (Gatling Copter prototype in the toy only) |
-| Gunblades, modes, replay, bots, touch controls | See the PDF | no |
+| Gunblades | Reaper's Kick and Six-Shot Sakura: recoil-powered melee movesets (see the PDF), F to slash, keys 5 and 6; rare pickups in Fight Back, always available in the Sandbox; exempt from run-and-gun tumbles. Hold F: Reaper's Kick hooks an enemy (Fire = YEETREAP: heavy damage and a launch); the Sakura reverses its blade (each Fire dashes you forward; releasing after a dash-fire while still faster than a sprint = ULTRASLASH, rapid-firing every round left) *(Elaina, 2026-11-21)* | yes (both) |
+| Modes, replay, bots, touch controls | See the PDF | no |
 
 ## Controls
 | Action | Keyboard/Mouse | Gamepad |
@@ -88,6 +89,7 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Aim (braced: same push, less twist, tighter spread) | Right click (hold) | Left trigger |
 | Jump | Space | A |
 | Melee / gunblade slash | F (was right click: moved for aiming, playtest 2) | Right bumper |
+| Gunblades | 5 Reaper's Kick, 6 Six-Shot Sakura | |
 | Sprint (a few seconds) | Shift (hold) | |
 | Reload | R | |
 | Respawn (toy) | Backspace (was R) | |

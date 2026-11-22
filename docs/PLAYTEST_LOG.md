@@ -24,6 +24,34 @@ Tasks created (ROADMAP):
 ```
 
 ## Entries
+### 2026-11-21  Build gunblade hold moves (feat/reload, uncommitted)  Tester: self (Elaina the Great)
+Question being tested: Do the hold-F moves work?
+Quotes (exact words):
+- "the dash stance with the sakura has the blade bouncing around all crazy, not in a static hold position"
+- "it shouldn't trigger an ultraslash if you don't dashfire or if you've slowed down to normal running/walking/stopped speeds. if you are still moving fast it should expend all your remaining ammo rapid fire"
+- "yeetreap is awesome"
+Delight moments:
+- YEETREAP
+Decisions / tuning changes:
+- Bug fixed: the stance added its blade turn every frame instead of setting it (the bouncing blade)
+- ULTRASLASH only after a dash-fire and while faster than 12 m/s (above a sprint); it rapid-fires every round left (one wide cut per round, 0.07 s apart, the last knocks hard), then the spin-reload
+
+### 2026-11-21  Build gunblades first pass (feat/reload, uncommitted)  Tester: self (Elaina the Great)
+Question being tested: Do the gunblades feel like the skill showcase?
+Quotes (exact words):
+- "the sakura rush is super satisfying"
+- "the reaper's kick is super interesting and I think has the potential for some high skill gameplay"
+- "both are fun"
+- "if you hold F you can wrap the scythe around an enemy and then fire to do even more damage and trigger a yeetreap"
+- "holding F with the katana allows you to execute a dash slash - the player holds the blade backwards and fires to propel themselves forwards and then if they still have at least 1 shot in the chamber when they release F it uses the last shot to perform an ultraslash"
+Delight moments:
+- The Sakura revolver-cancel rush
+- Reaper's Kick flips: room for high-skill play
+Decisions / tuning changes:
+- F press still slashes at once; holding F past 0.2 s starts the new move
+- Reaper hold F: hook the nearest dummy in front (3 m), pinned on the scythe; Fire = YEETREAP (heavy damage, launch); release = drop
+- Sakura hold F: blade reversed (dash stance); each Fire propels you forward; release with a round left = ULTRASLASH (spends it)
+
 ### 2026-11-21  Build 8d10b5d + playtest-5 changes (feat/reload, uncommitted)  Tester: self (Elaina the Great)
 Question being tested: (requests, not a play session)
 Quotes (exact words):

@@ -215,7 +215,7 @@ export class YeetHud {
     this.hp = el("yh-hp", this.root);
     this.hpFill = el("fill", el("bar", this.hp));
     el("yh-hint", this.root,
-      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · 1-4 or wheel switch guns · Backspace respawn · Esc pause");
+      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · F slash, hold F: hook (scythe) / dash stance (katana) · 1-6 or wheel switch weapons · Backspace respawn · Esc pause");
     this.feed = el("yh-feed", this.root);
     this.pops = el("yh-pops", this.root);
     this.click = el("yh-click", this.root, "Click to play");

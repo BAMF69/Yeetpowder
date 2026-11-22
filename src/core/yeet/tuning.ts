@@ -13,7 +13,10 @@
 // Updated : 2026-11-21 with Claude (Opus 5.5, claude-opus-5-5): playtest 3: twist model, air recoil, tumbles, AI
 // ---------------------------------------------------------------------------
 
-export type WeaponId = "pistol" | "shotgun" | "sniper" | "copter";
+/** The four guns, then the two gunblades (melee + gun, the slice's skill showcase). */
+export type WeaponId = "pistol" | "shotgun" | "sniper" | "copter" | "reaper" | "sakura";
+
+export const GUNBLADES: readonly WeaponId[] = ["reaper", "sakura"];
 
 export interface WeaponTuning {
   /** Shown in the HUD. */
@@ -194,9 +197,61 @@ export const TUNING = {
       name: "Gatling Copter", auto: true, cooldown: 0.06, recoil: 0, airRecoil: 1, airTwist: 1, airLiftCap: 999, mag: 200, reload: 3, twist: 0, aimedTwist: 0, hop: 0, damage: 5,
       pellets: 1, spread: 0.03, knockback: 1.2, range: 60, trauma: 0.06,
     },
+    // ---- gunblades (vertical slice): Fire is the gun, F is the slash (see `reaper` and `sakura` below) ----
+    reaper: {
+      name: "Reaper's Kick", auto: false, cooldown: 0.7, recoil: 17, airRecoil: 1, airTwist: 1, airLiftCap: 999,
+      mag: 4, reload: 1.8, twist: 0, aimedTwist: 0, hop: 0, damage: 55, pellets: 1, // the kick is the flip, not a twist
+      spread: 0, knockback: 12, range: 120, trauma: 0.45,
+    },
+    sakura: {
+      name: "Six-Shot Sakura", auto: false, cooldown: 0.12, recoil: 5, airRecoil: 1, airTwist: 1, airLiftCap: 999,
+      mag: 6, reload: 1.2, twist: 0.8, aimedTwist: 0.15, hop: 0, damage: 15, pellets: 1, // reload = the spin-reload
+      spread: 0, knockback: 3, range: 40, trauma: 0.18,
+    },
   } satisfies Record<WeaponId, WeaponTuning>,
 
-  weaponOrder: ["pistol", "shotgun", "sniper", "copter"] as WeaponId[],
+  /**
+   * Reaper's Kick (scythe + sniper rifle): the shot's kick decides your flip (shoot down = high backflip, push forward
+   * along your run = front-flip, sideways = cartwheel); F is a wide 180 degree sweep; a slash within reapWindow of a
+   * shot does reapMult damage ("REAP!").
+   */
+  reaper: {
+    backflipLift: 1.35, // a shot aimed this far down (aim.y < -downAim) gets its upward kick multiplied: "backflip high"
+    downAim: 0.55,
+    flipTime: 0.5, // s of the visual flip
+    slash: { damage: 32, range: 2.8, arc: Math.PI, cooldown: 0.45, knockback: 9, lift: 3 },
+    reapWindow: 0.3,
+    reapMult: 2,
+    /** Hold F (past holdTime): wrap the scythe around the nearest enemy in front; Fire while hooked = YEETREAP. */
+    hook: { holdTime: 0.2, range: 3, arc: (2 * Math.PI) / 3, distance: 1.4, maxTime: 2, release: 3, yankReach: 1.8 },
+    yeetreap: { damage: 120, knockback: 26, lift: 10 },
+  },
+
+  /**
+   * Six-Shot Sakura (katana + revolver in the handle): F slashes chain into a combo of up to comboMax hits (each within
+   * comboWindow of the last); Fire mid-slash fires the revolver, cancels the swing's recovery and lunges you
+   * lungeSpeed toward where you face (~4 m); the sixth round fired point-blank (within finisherRange) knocks the target
+   * flying; then a 1.2 s spin-reload (weapons.sakura.reload) with no slashing: it leaves you open.
+   */
+  sakura: {
+    slash: { damage: 18, range: 2.5, arc: (2 * Math.PI) / 3, recovery: 0.36, knockback: 4, lift: 1.5 },
+    comboMax: 6,
+    comboWindow: 0.65,
+    lungeSpeed: 15, // m/s along the floor: ~4 m with ground friction
+    finisherRange: 3,
+    finisherKnockback: 22,
+    finisherLift: 8,
+    /** Hold F (past holdTime): blade reversed; each Fire propels you dashSpeed forward instead of kicking you back. */
+    dash: { holdTime: 0.2, speed: 22 },
+    /**
+     * ULTRASLASH (playtest): letting go of the stance after a dash-fire, while still faster than minSpeed (above a
+     * sprint), rapid-fires every round left: one wide cut per round, `interval` apart, each nudging you forward; the
+     * last cut knocks hard. No dash-fire, or slowed to a run, walk or stop: letting go just lowers the blade.
+     */
+    ultra: { minSpeed: 12, interval: 0.07, damage: 24, range: 3.6, arc: Math.PI, knockback: 5, lastKnockback: 18, lift: 3, lunge: 4 },
+  },
+
+  weaponOrder: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura"] as WeaponId[],
 
   /** Pick up a gun by walking within this distance of it (m, from your middle). */
   pickupRadius: 1.4,
@@ -204,7 +259,7 @@ export const TUNING = {
   /** Right-click aim: field of view per gun (degrees; hip fire is 75) and how fast the zoom moves (s). */
   aim: {
     hipFov: 75,
-    fov: { pistol: 55, shotgun: 60, sniper: 18, copter: 62 } satisfies Record<WeaponId, number>,
+    fov: { pistol: 55, shotgun: 60, sniper: 18, copter: 62, reaper: 30, sakura: 60 } satisfies Record<WeaponId, number>,
     time: 0.12,
     /**
      * Aimed fire (playtest 3: physics, not a weaker gun): the gun is centred, so the kick goes straight back

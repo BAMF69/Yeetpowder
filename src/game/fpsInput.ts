@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // fpsInput.ts
 // Purpose : The FPS controls the shell's action map does not cover: pointer-lock mouse look, mouse buttons
-//           (left fire, right aim), weapon keys 1-4, the wheel, Shift to sprint, R to reload and Backspace to respawn. WASD, Space and Esc stay with the
+//           (left fire, right aim), weapon keys 1-6, F to slash (gunblades), the wheel, Shift to sprint, R to reload and Backspace to respawn. WASD, Space and Esc stay with the
 //           shell (shell.input), so rebinding and pause keep working.
 // Usage   : const fps = new FpsInput(canvas); each frame: const f = fps.take(); ... ; fps.dispose() when leaving
 // Notes   : Pointer lock needs a click (browser rule). Esc unlocks it; the game then shows "Click to play".
@@ -29,9 +29,13 @@ export interface FpsFrame {
   reset: boolean;
   /** R: reload. */
   reload: boolean;
+  /** F: gunblade slash (pressed since the last take). */
+  slash: boolean;
+  /** F held right now (the hold moves). */
+  slashHeld: boolean;
 }
 
-const WEAPON_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 };
+const WEAPON_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 };
 
 export class FpsInput {
   private dx = 0;
@@ -44,6 +48,8 @@ export class FpsInput {
   private cycle = 0;
   private reset = false;
   private reload = false;
+  private slash = false;
+  private slashHeld = false;
   private readonly off: Array<() => void> = [];
 
   constructor(private readonly canvas: HTMLElement) {
@@ -77,8 +83,9 @@ export class FpsInput {
     this.on(window, "keyup", (e) => {
       const c = (e as KeyboardEvent).code;
       if (c === "ShiftLeft" || c === "ShiftRight") this.sprintHeld = false;
+      if (c === "KeyF") this.slashHeld = false;
     });
-    this.on(window, "blur", () => (this.sprintHeld = false)); // keys let go while away never send keyup
+    this.on(window, "blur", () => (this.sprintHeld = this.slashHeld = false)); // keys let go while away never send keyup
     this.on(window, "wheel", (e) => {
       if (this.locked) this.cycle = Math.sign((e as WheelEvent).deltaY);
     });
@@ -88,6 +95,7 @@ export class FpsInput {
       if (k.code in WEAPON_KEYS) this.select = WEAPON_KEYS[k.code];
       if (k.code === "KeyR") this.reload = true; // playtest 5: R reloads (respawn moved to Backspace)
       if (k.code === "Backspace") this.reset = true;
+      if (k.code === "KeyF") this.slash = this.slashHeld = true;
       if (k.code === "ShiftLeft" || k.code === "ShiftRight") this.sprintHeld = true;
     });
   }
@@ -117,7 +125,8 @@ export class FpsInput {
       dx: this.dx, dy: this.dy, firePressed: this.firePressed, fireHeld: this.fireHeld && this.locked,
       aimHeld: this.aimHeld && this.locked,
       sprintHeld: this.sprintHeld,
-      select: this.select, cycle: this.cycle, reset: this.reset, reload: this.reload,
+      select: this.select, cycle: this.cycle, reset: this.reset, reload: this.reload, slash: this.slash,
+      slashHeld: this.slashHeld && this.locked,
     };
     this.dx = this.dy = 0;
     this.firePressed = false;
@@ -125,6 +134,7 @@ export class FpsInput {
     this.cycle = 0;
     this.reset = false;
     this.reload = false;
+    this.slash = false;
     return f;
   }
 

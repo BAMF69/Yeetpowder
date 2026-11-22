@@ -316,7 +316,7 @@ describe("sprint (playtest 4)", () => {
 describe("magazines and reloading (playtest 5)", () => {
   it("each gun holds its magazine: pistol 9, shotgun 2, sniper 5, gatling 200", () => {
     const sim = newSim();
-    expect(sim.player.mag).toEqual({ pistol: 9, shotgun: 2, sniper: 5, copter: 200 });
+    expect(sim.player.mag).toEqual({ pistol: 9, shotgun: 2, sniper: 5, copter: 200, reaper: 4, sakura: 6 });
   });
 
   it("emptying the Boomstick reloads it on its own; it cannot fire until the reload is done, then it is full", () => {
@@ -362,6 +362,229 @@ describe("magazines and reloading (playtest 5)", () => {
     const ev = run(sim, 0.5, { fireHeld: true });
     expect(ev.filter((e) => e.type === "fire").length).toBe(3);
     expect(has(ev, "reload")).toBe(true);
+  });
+});
+
+describe("gunblades (vertical slice)", () => {
+  const REAPER = 4;
+  const SAKURA = 5;
+  /** Sandbox with one dummy 2 m in front of the player (facing -Z), the rest parked. */
+  const duelDummy = (gun: number, dist = 2) => {
+    const sim = newSim();
+    parkDummies(sim);
+    sim.player.pos = vec(15, 0, 10);
+    sim.player.yaw = 0;
+    sim.dummies[0].pos = vec(15, 0, 10 - dist);
+    select(sim, gun);
+    run(sim, 0.2);
+    return sim;
+  };
+  const slash = (sim: YeetSim) => sim.step({ ...NO_INPUT, slash: true });
+
+  it("the Sandbox has every weapon; Fight Back hides both gunblades as pickups", () => {
+    expect(newSim().player.owned).toEqual(TUNING.weaponOrder);
+    const f = newSim(fightLevel());
+    expect(f.player.owned).not.toContain("reaper");
+    expect(f.pickups.map((p) => p.weapon)).toEqual(expect.arrayContaining(["reaper", "sakura"]));
+  });
+
+  it("Reaper's Kick: shooting down is a high backflip (more lift than the Spin Doctor gives)", () => {
+    const sim = newSim();
+    select(sim, REAPER);
+    run(sim, 0.2);
+    sim.look(0, -10);
+    const ev = fire(sim);
+    expect(ev.some((e) => e.type === "flip" && e.kind === "backflip")).toBe(true);
+    expect(sim.player.vel.y).toBeGreaterThan(TUNING.weapons.reaper.recoil * 1.2);
+  });
+
+  it("Reaper's Kick: a shot that pushes you along your run is a front-flip; across it, a cartwheel", () => {
+    const flip = (yawOffset: number) => {
+      const sim = newSim();
+      parkDummies(sim);
+      sim.player.pos = vec(15, 0, 15);
+      select(sim, REAPER);
+      run(sim, 0.6, { moveZ: 1 }); // running toward -Z
+      sim.player.yaw = yawOffset; // look this way and fire: the push is the opposite way
+      const f = fire(sim).find((e) => e.type === "flip");
+      return f && f.type === "flip" ? f.kind : "none";
+    };
+    expect(flip(Math.PI)).toBe("frontflip"); // look back along the run: pushed forward
+    expect(flip(Math.PI / 2)).toBe("cartwheel"); // look sideways
+    expect(flip(0)).toBe("backflip"); // look ahead: pushed back against the run
+  });
+
+  it("Reaper's Kick slash sweeps 180 degrees: hits beside you, not behind", () => {
+    const side = duelDummy(REAPER);
+    side.dummies[0].pos = vec(13, 0, 10); // straight to the left
+    expect(slash(side).some((e) => e.type === "slash" && e.hits === 1)).toBe(true);
+    const behind = duelDummy(REAPER);
+    behind.dummies[0].pos = vec(15, 0, 12);
+    expect(slash(behind).some((e) => e.type === "slash" && e.hits === 0)).toBe(true);
+  });
+
+  it("a slash within 0.3 s of a Reaper shot is a Reap: double damage", () => {
+    const reap = duelDummy(REAPER);
+    reap.look(0, 0.4); // shoot over the dummy so only the slash hits
+    fire(reap);
+    run(reap, 0.1);
+    reap.dummies[0].pos = vec(reap.player.pos.x, reap.player.pos.y, reap.player.pos.z - 1.5); // still in reach
+    const ev = slash(reap);
+    expect(ev.some((e) => e.type === "slash" && e.reap)).toBe(true);
+    expect(ev.find((e) => e.type === "hit")).toMatchObject({ damage: TUNING.reaper.slash.damage * 2 });
+    const late = duelDummy(REAPER);
+    late.look(0, 0.4);
+    fire(late);
+    run(late, 0.5);
+    expect(slash(late).some((e) => e.type === "slash" && !e.reap)).toBe(true);
+  });
+
+  it("Six-Shot Sakura slashes chain into a combo of up to six, then start over", () => {
+    const sim = duelDummy(SAKURA, 1.5);
+    sim.dummies[0].hp = 1e9; // a dummy that never goes down, so every cut lands
+    const combos: number[] = [];
+    for (let k = 0; k < 7; k++) {
+      // wait out the recovery (the sixth cut lingers longer), then cut again
+      for (let i = 0; i < 120 && sim.player.slashCd > 0; i++) sim.step(NO_INPUT);
+      const e = slash(sim).find((x) => x.type === "slash");
+      if (e && e.type === "slash") combos.push(e.combo);
+      sim.dummies[0].pos = vec(15, 0, sim.player.pos.z - 1.5); // keep it in reach
+      sim.dummies[0].vel = vec();
+    }
+    expect(combos).toEqual([1, 2, 3, 4, 5, 6, 1]);
+  });
+
+  it("Sakura: firing mid-slash cancels the recovery and lunges you about 4 m forward", () => {
+    const sim = duelDummy(SAKURA, 6);
+    const z0 = sim.player.pos.z;
+    slash(sim);
+    run(sim, 0.05);
+    expect(sim.player.slashRecover).toBeGreaterThan(0);
+    const ev = fire(sim);
+    expect(has(ev, "lunge")).toBe(true);
+    expect(sim.player.slashCd).toBe(0); // recovery cancelled: you can cut again at once
+    run(sim, 1);
+    const moved = z0 - sim.player.pos.z;
+    expect(moved).toBeGreaterThan(3);
+    expect(moved).toBeLessThan(6);
+  });
+
+  it("Sakura: the sixth round point-blank knocks the target flying, then the spin-reload leaves you open", () => {
+    const sim = duelDummy(SAKURA, 1.5);
+    sim.dummies[0].hp = 1e9;
+    sim.look(0, 0.5); // fire over the dummy: only the finisher should move it much
+    let fin: YeetEvent[] = [];
+    for (let k = 0; k < 6; k++) {
+      run(sim, 0.15);
+      sim.dummies[0].pos = vec(15, 0, sim.player.pos.z - 1.5);
+      sim.dummies[0].vel = vec();
+      fin = fire(sim);
+    }
+    expect(has(fin, "finisher")).toBe(true);
+    expect(Math.hypot(sim.dummies[0].vel.x, sim.dummies[0].vel.z)).toBeGreaterThan(15);
+    expect(sim.player.reloading).toBeGreaterThan(0);
+    expect(has(slash(sim), "slash")).toBe(false); // open: no slashing during the spin-reload
+    run(sim, TUNING.weapons.sakura.reload + 0.05);
+    expect(sim.player.mag.sakura).toBe(6);
+  });
+
+  // ---- hold-F moves (playtest: "yeetreap" and "ultraslash") ----
+  const hold = (sim: YeetSim, seconds: number, extra: Partial<YeetInput> = {}) => run(sim, seconds, { slashHeld: true, ...extra });
+
+  it("Reaper's Kick: holding F hooks the dummy in front; it is pinned at the scythe and follows you", () => {
+    const sim = duelDummy(REAPER, 2);
+    sim.step({ ...NO_INPUT, slash: true, slashHeld: true });
+    const ev = hold(sim, 0.3);
+    expect(ev.some((e) => e.type === "hook" && e.dummy === 0)).toBe(true);
+    hold(sim, 0.5, { moveX: 1 }); // strafe while holding
+    const d = sim.dummies[0];
+    const p = sim.player;
+    expect(Math.hypot(d.pos.x - p.pos.x, d.pos.z - p.pos.z)).toBeCloseTo(TUNING.reaper.hook.distance, 1);
+  });
+
+  it("holding F with nothing in reach hooks nothing; letting go drops a hooked dummy", () => {
+    const empty = duelDummy(REAPER, 8);
+    expect(has(hold(empty, 0.5), "hook")).toBe(false);
+    const sim = duelDummy(REAPER, 2);
+    hold(sim, 0.4);
+    expect(sim.player.hook).toBe(0);
+    expect(has(sim.step(NO_INPUT), "unhook")).toBe(true);
+    expect(sim.player.hook).toBe(-1);
+  });
+
+  it("firing with a dummy hooked is a YEETREAP: heavy damage and a launch", () => {
+    const sim = duelDummy(REAPER, 2);
+    hold(sim, 0.4);
+    const ev = sim.step({ ...NO_INPUT, slashHeld: true, firePressed: true });
+    expect(ev.some((e) => e.type === "yeetreap" && e.dummy === 0)).toBe(true);
+    expect(ev.find((e) => e.type === "hit")).toMatchObject({ damage: TUNING.reaper.yeetreap.damage });
+    expect(Math.hypot(sim.dummies[0].vel.x, sim.dummies[0].vel.z)).toBeGreaterThan(20);
+    expect(sim.player.hook).toBe(-1);
+  });
+
+  it("Sakura: a quick tap is still a normal slash, no stance", () => {
+    const sim = duelDummy(SAKURA, 1.5);
+    const ev = sim.step({ ...NO_INPUT, slash: true, slashHeld: true });
+    expect(has(ev, "slash")).toBe(true);
+    run(sim, 0.1, { slashHeld: true });
+    expect(sim.player.stance).toBe(false);
+  });
+
+  it("Sakura: holding F reverses the blade; each Fire in the stance dashes you forward instead of kicking you back", () => {
+    const sim = duelDummy(SAKURA, 30);
+    const ev = hold(sim, 0.3);
+    expect(ev.some((e) => e.type === "stance" && e.on)).toBe(true);
+    const z0 = sim.player.pos.z;
+    expect(has(sim.step({ ...NO_INPUT, slashHeld: true, firePressed: true }), "dash")).toBe(true);
+    hold(sim, 0.6);
+    expect(z0 - sim.player.pos.z).toBeGreaterThan(5); // forward (-Z), well past a normal lunge
+    expect(sim.player.mag.sakura).toBe(5);
+  });
+
+  it("Sakura: letting go after a dash-fire while still fast rapid-fires every round left as an ULTRASLASH", () => {
+    const sim = duelDummy(SAKURA, 6);
+    sim.dummies[0].hp = 1e9;
+    hold(sim, 0.3);
+    sim.step({ ...NO_INPUT, slashHeld: true, firePressed: true }); // dash-fire: 5 rounds left
+    run(sim, 0.08, { slashHeld: true });
+    expect(Math.hypot(sim.player.vel.x, sim.player.vel.z)).toBeGreaterThan(TUNING.sakura.ultra.minSpeed);
+    const ev = run(sim, 0.6); // let go, and let the flurry play out
+    const cuts = ev.filter((e) => e.type === "ultraslash");
+    expect(cuts.length).toBe(5);
+    expect(cuts.at(-1)).toMatchObject({ last: true, round: 5 });
+    expect(sim.player.mag.sakura).toBe(0);
+    expect(sim.player.reloading).toBeGreaterThan(0);
+  });
+
+  it("Sakura: no ULTRASLASH without a dash-fire, or once you have slowed to a run", () => {
+    const noDash = duelDummy(SAKURA, 2.5);
+    hold(noDash, 0.3);
+    expect(has(run(noDash, 0.3), "ultraslash")).toBe(false);
+    expect(noDash.player.mag.sakura).toBe(6);
+
+    const slowed = duelDummy(SAKURA, 30);
+    hold(slowed, 0.3);
+    slowed.step({ ...NO_INPUT, slashHeld: true, firePressed: true });
+    hold(slowed, 1.5); // the dash bleeds off on the ground
+    expect(Math.hypot(slowed.player.vel.x, slowed.player.vel.z)).toBeLessThan(TUNING.sakura.ultra.minSpeed);
+    expect(has(run(slowed, 0.3), "ultraslash")).toBe(false);
+  });
+
+  it("gunblades never tumble you, even fired on the run", () => {
+    const sim = newSim();
+    parkDummies(sim);
+    select(sim, REAPER);
+    let tumbles = 0;
+    for (let i = 0; i < 120 * 20; i++) {
+      if (Math.abs(sim.player.pos.z) > 12) sim.player.yaw += Math.PI;
+      if (has(sim.step({ ...NO_INPUT, moveZ: 1, sprint: true, firePressed: true }), "tumble")) tumbles++;
+    }
+    expect(tumbles).toBe(0);
+  });
+
+  it("other guns do nothing on F", () => {
+    const sim = duelDummy(1);
+    expect(has(slash(sim), "slash")).toBe(false);
   });
 });
 

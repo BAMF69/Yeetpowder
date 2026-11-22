@@ -48,6 +48,8 @@ const AIM_Z = -0.42;
 const AIM_BELOW = 0.1;
 /** Above this much aim the Spin Doctor's scope covers the view and the gun hides. */
 const SCOPE_AT = 0.85;
+/** Gunblade slash swing: seconds of the cut, how far the arm sweeps (rad), and how far the blade tilts flat. */
+const SWING = { time: 0.2, back: 0.14, reaper: 1.5, sakura: 1.1, tilt: 1.0 };
 
 interface GunModel {
   group: THREE.Group;
@@ -101,6 +103,13 @@ export class Viewmodel {
   private aim = 0;
   /** Reload progress 0..1 (0 = not reloading): the gun dips and tilts. */
   private reloadP = 0;
+  private swingT = 99;
+  private swingDir = 1;
+  private swingAmp = SWING.sakura;
+  /** Hold-move poses, eased 0..1: the Sakura's reversed blade (dash stance) and the scythe pulled in (hook). */
+  private stancePose = 0;
+  private hookPose = 0;
+  private holdKind: "none" | "stance" | "hook" = "none";
   /** True while the Spin Doctor's scope covers the view (the HUD draws the scope). */
   scoped = false;
   private spin = 0;
@@ -170,6 +179,25 @@ export class Viewmodel {
       ["box", 0.05, 0.12, 0.08, "#3a3a44", 0, -0.12, 0.12],
       ["box", 0.04, 0.06, 0.12, "#3a3a44", 0, 0.08, -0.02],
     ], new THREE.Vector3(0, -0.12, 0.12), new THREE.Vector3(0, 0.1, -0.02), new THREE.Vector3(0, 0, -0.5));
+    // Reaper's Kick: a weathered farm scythe (wood, rust, bone charm) with a sniper barrel along the shaft,
+    // held tilted up so the blade shows above your hand
+    const reaper = this.addGun("reaper", [
+      ["cyl", 0.026, 1.35, "#7a5a3a", 0, 0, -0.32],
+      ["cyl", 0.016, 0.95, "#2a2f3a", 0, 0.045, -0.5],
+      ["box", 0.62, 0.11, 0.02, "#8d8a84", -0.27, 0.06, -0.98],
+      ["box", 0.2, 0.05, 0.021, "#7a4a2a", -0.5, 0.02, -0.98],
+      ["sph", 0.03, "#e8dcc0", 0.03, -0.09, -0.86],
+      ["box", 0.06, 0.08, 0.1, "#5a3f2a", 0, -0.04, 0.15],
+    ], new THREE.Vector3(0, -0.02, 0.2), new THREE.Vector3(0, 0, -0.42), new THREE.Vector3(0, 0.045, -0.98));
+    reaper.group.rotation.set(0.4, -0.32, 0.05); // shaft up and to the right: the blade stays clear of the crosshair
+    // Six-Shot Sakura: a katana with a revolver cylinder at the blade's base
+    this.addGun("sakura", [
+      ["box", 0.016, 0.05, 0.95, "#dfe3e8", 0, 0.01, -0.6],
+      ["cyl", 0.026, 0.28, "#2a2a33", 0, 0, 0.02],
+      ["cyl", 0.062, 0.016, "#b08a3e", 0, 0, -0.12],
+      ["cyl", 0.045, 0.09, "#5a5a66", 0, 0.0, -0.18],
+      ["sph", 0.025, "#f48fb1", 0, -0.05, 0.17],
+    ], new THREE.Vector3(0, 0, 0.06), null, new THREE.Vector3(0, 0, -0.23));
     const spinner = new THREE.Group();
     spinner.position.set(0, 0, -0.25);
     for (let i = 0; i < 6; i++) {
@@ -218,6 +246,25 @@ export class Viewmodel {
       this.flingT = 0;
       this.flingAmp = aimed ? FLING.aimed : 1;
     }
+  }
+
+  /** A gunblade slash: the arm sweeps across (Sakura cuts alternate direction through a combo). */
+  slashed(weapon: WeaponId, combo: number): void {
+    this.swingT = 0;
+    this.swingAmp = weapon === "reaper" ? SWING.reaper : SWING.sakura;
+    this.swingDir = weapon === "sakura" && combo % 2 === 0 ? -1 : 1;
+  }
+
+  /** The hold move's pose: "stance" (blade held backwards), "hook" (scythe wrapped round an enemy) or "none". */
+  setHold(kind: "none" | "stance" | "hook"): void {
+    this.holdKind = kind;
+  }
+
+  /** A bigger, slower sweep (the ULTRASLASH). */
+  ultra(): void {
+    this.swingT = 0;
+    this.swingAmp = SWING.reaper * 1.3;
+    this.swingDir = 1;
   }
 
   /** Reload progress 0..1 (0 when not reloading). */
@@ -277,6 +324,22 @@ export class Viewmodel {
     // the wrist snaps the barrel up before the arm follows (pistol)
     this.mount.rotation.x = flip * FLIP.angle * (this.blowAmp / BLOW.angle);
     this.mount.rotation.z = dip * 0.9;
+    // hold moves: the Sakura's blade turns to point behind you; the scythe is pulled in tight around its catch
+    const ease = 1 - Math.exp(-14 * dt);
+    this.stancePose += ((this.holdKind === "stance" ? 1 : 0) - this.stancePose) * ease;
+    this.hookPose += ((this.holdKind === "hook" ? 1 : 0) - this.hookPose) * ease;
+    this.mount.rotation.y = this.stancePose * Math.PI * 0.85; // set, never add: "+=" spun the blade every frame (playtest)
+    this.armR.rotation.x -= this.stancePose * 0.25;
+    this.armR.rotation.x += this.hookPose * 0.35;
+    this.armR.rotation.y += this.hookPose * 0.45;
+    // a slash: sweep from right to left (or back), the blade laid flat for the cut, then settle
+    this.swingT += dt;
+    if (this.swingT < SWING.time + SWING.back) {
+      const k = Math.min(1, this.swingT / SWING.time);
+      const sweep = this.swingT < SWING.time ? 1 - 2 * (k * k * (3 - 2 * k)) : -1 + (this.swingT - SWING.time) / SWING.back;
+      this.armR.rotation.y += this.swingDir * sweep * this.swingAmp * 0.6;
+      this.mount.rotation.z += this.swingDir * SWING.tilt * Math.sin(Math.PI * Math.min(1, this.swingT / (SWING.time + SWING.back)));
+    }
     this.scoped = this.current === "sniper" && this.aim > SCOPE_AT;
     this.armR.visible = !this.scoped;
 

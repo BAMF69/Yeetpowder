@@ -45,9 +45,15 @@ const SUITS: Array<[string, string]> = [
   ["#e53935", "Red"], ["#1e88e5", "Blue"], ["#fdd835", "Yellow"], ["#43a047", "Green"], ["#8e24aa", "Purple"], ["#fb8c00", "Orange"],
 ];
 const PLAYER_SUIT = "#26a69a"; // matches the first-person sleeves
-const DOWN_VERB: Record<WeaponId, string> = { pistol: "PEA'D", shotgun: "BLASTED", sniper: "YEETED", copter: "SHREDDED" };
-const FIRE_POP: Partial<Record<WeaponId, string>> = { shotgun: "BLAM!", sniper: "KRAK!" };
-const FIRE_SOUND: Record<WeaponId, string> = { pistol: "pea", shotgun: "boom", sniper: "krak", copter: "brrt" };
+const DOWN_VERB: Record<WeaponId, string> = {
+  pistol: "PEA'D", shotgun: "BLASTED", sniper: "YEETED", copter: "SHREDDED", reaper: "REAPED", sakura: "SLICED",
+};
+const FIRE_POP: Partial<Record<WeaponId, string>> = { shotgun: "BLAM!", sniper: "KRAK!", reaper: "KRAK!" };
+const FIRE_SOUND: Record<WeaponId, string> = {
+  pistol: "pea", shotgun: "boom", sniper: "krak", copter: "brrt", reaper: "krak", sakura: "revolver",
+};
+/** Reaper's Kick flips, seen from inside: a full turn of the camera over flipTime (none with reduce motion). */
+const FLIP_AXIS = { backflip: [1, 0], frontflip: [-1, 0], cartwheel: [0, 1] } as const;
 const SHAKE_TO_RAD = 0.0025; // shake offset pixels -> camera wobble radians
 const HARD_LANDING = 14; // m/s
 const CHASE = { back: 5, up: 2.2, blend: 0.18 };
@@ -58,7 +64,7 @@ interface DummyView {
   stars: Stars;
   quat: THREE.Quaternion;
   name: string;
-  lastWeapon: WeaponId | "crash";
+  lastWeapon: WeaponId | "crash" | "yeetreap";
 }
 
 const X_AXIS = new THREE.Vector3(1, 0, 0);
@@ -102,6 +108,8 @@ export class YeetWorld implements World {
   private chaseYaw = 0;
   private bodyRoll = 0;
   private kos = 0;
+  private flipT = 99;
+  private flipKind: keyof typeof FLIP_AXIS = "backflip";
   private killer = "";
   private autoplayDone = false;
   /** ?hold=<mark>: the tour stopped at that moment (everything frozen, still drawn). */
@@ -225,7 +233,8 @@ export class YeetWorld implements World {
     if (this.carry) {
       const c = this.carry;
       first = { ...first, firePressed: first.firePressed || c.firePressed, jump: first.jump || c.jump,
-        reset: first.reset || c.reset, reload: first.reload || c.reload, select: first.select >= 0 ? first.select : c.select };
+        reset: first.reset || c.reset, reload: first.reload || c.reload, slash: first.slash || c.slash, slashHeld: first.slashHeld,
+        select: first.select >= 0 ? first.select : c.select };
       this.carry = null;
     }
     let stepped = false;
@@ -247,7 +256,7 @@ export class YeetWorld implements World {
       }
       for (const e of this.sim.step(input)) this.onEvent(e);
       stepped = true;
-      first = { ...input, jump: false, firePressed: false, select: -1, reset: false, reload: false };
+      first = { ...input, jump: false, firePressed: false, select: -1, reset: false, reload: false, slash: false };
       this.stats.top = Math.max(this.stats.top, pl.pos.y);
     }
     if (!stepped) this.carry = first; // nothing simulated this frame: keep its clicks for the next one
@@ -353,6 +362,8 @@ export class YeetWorld implements World {
       aiming,
       sprint: f.sprintHeld,
       reload: f.reload,
+      slash: f.slash,
+      slashHeld: f.slashHeld,
     };
   }
 
@@ -392,7 +403,7 @@ export class YeetWorld implements World {
       }
       case "down": {
         const v = this.views[e.dummy];
-        this.hud.feedLine(v.lastWeapon === "crash" ? "SQUASHED" : DOWN_VERB[v.lastWeapon], v.name);
+        this.hud.feedLine(v.lastWeapon === "crash" ? "SQUASHED" : v.lastWeapon === "yeetreap" ? "YEETREAPED" : DOWN_VERB[v.lastWeapon], v.name);
         this.sound.play("boing");
         this.kos++;
         break;
@@ -433,6 +444,7 @@ export class YeetWorld implements World {
         this.fx.puff(this.tmpA.set(e.at.x, e.at.y + 0.3, e.at.z), true);
         break;
       case "switch":
+        this.vm.setHold("none");
         this.vm.show(e.weapon);
         this.sound.play("click");
         break;
@@ -468,6 +480,7 @@ export class YeetWorld implements World {
         this.sound.play("ko");
         break;
       case "playerRespawn":
+        this.vm.setHold("none"); // respawning ends any hold move
         this.vm.show(pl.weapon);
         break;
       case "reload":
@@ -478,6 +491,55 @@ export class YeetWorld implements World {
         break;
       case "dry":
         this.sound.play("dry");
+        break;
+      case "slash":
+        this.vm.slashed(e.weapon, e.combo);
+        this.sound.play(e.hits > 0 ? "shing" : "swish");
+        if (e.reap) this.hud.pop("REAP!", true);
+        else if (e.weapon === "sakura" && e.combo >= 2 && e.hits > 0) this.hud.pop(`x${e.combo}`);
+        if (e.hits > 0) this.shake.addTrauma(e.reap ? 0.35 : 0.15);
+        break;
+      case "flip":
+        this.flipT = 0;
+        this.flipKind = e.kind;
+        break;
+      case "lunge":
+        this.sound.play("swish");
+        break;
+      case "hook":
+        this.hud.pop("HOOKED!");
+        this.sound.play("shing");
+        this.vm.setHold("hook");
+        break;
+      case "unhook":
+        this.vm.setHold("none");
+        break;
+      case "yeetreap":
+        this.views[e.dummy].lastWeapon = "yeetreap";
+        this.hud.pop("YEETREAP!", true);
+        this.sound.play("kaboom");
+        this.shake.addTrauma(0.7);
+        this.vm.setHold("none");
+        break;
+      case "stance":
+        this.vm.setHold(e.on ? "stance" : "none");
+        if (e.on) this.sound.play("swish");
+        break;
+      case "dash":
+        this.sound.play("swish");
+        this.shake.addTrauma(0.2);
+        break;
+      case "ultraslash":
+        this.vm.ultra();
+        if (e.round === 1) this.hud.pop("ULTRASLASH!", true);
+        this.sound.play("revolver");
+        this.sound.play(e.hits > 0 ? "shing" : "swish");
+        if (e.hits > 0) this.shake.addTrauma(e.last ? 0.45 : 0.2);
+        break;
+      case "finisher":
+        this.hud.pop("FINISHER!", true);
+        this.sound.play("boom");
+        this.shake.addTrauma(0.5);
         break;
     }
   }
@@ -490,7 +552,17 @@ export class YeetWorld implements World {
     let roll = s.angle;
     if (pl.stun > 0 && !shell.settings.access.reduce_motion) roll += Math.sin(this.time * 22) * 0.07 * (pl.stun / TUNING.bonk.stun);
     this.camera.position.set(eye.x, eye.y, eye.z);
-    this.camera.rotation.set(pl.pitch + s.y * SHAKE_TO_RAD, pl.yaw + s.x * SHAKE_TO_RAD, roll);
+    // Reaper's Kick flip: one full turn of the view (pitch for flips, roll for a cartwheel), back on your aim after
+    let flipPitch = 0;
+    this.flipT += dt;
+    if (this.flipT < TUNING.reaper.flipTime && !shell.settings.access.reduce_motion) {
+      const k = this.flipT / TUNING.reaper.flipTime;
+      const turn = Math.PI * 2 * (k * k * (3 - 2 * k));
+      const [p, r] = FLIP_AXIS[this.flipKind];
+      flipPitch = p * turn;
+      roll += r * turn;
+    }
+    this.camera.rotation.set(pl.pitch + flipPitch + s.y * SHAKE_TO_RAD, pl.yaw + s.x * SHAKE_TO_RAD, roll);
 
     // tumbling or knocked out: swing out behind you (from the direction you faced as it began) and watch
     const wantThird = (pl.tumbling > 0 || pl.dead > 0) && !shell.settings.access.reduce_motion;

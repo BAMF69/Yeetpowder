@@ -40,7 +40,8 @@ export interface Level {
 export function sandboxLevel(): Level {
   return {
     id: "sandbox", name: "Sandbox", arena: testRoom(), spawn: { x: 0, y: 0, z: 14 }, spawnYaw: 0,
-    startWeapons: ["pistol", "shotgun", "sniper", "copter"], pickups: [], dummiesFight: false, dummyRespawn: 2.5,
+    startWeapons: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura"], // every weapon, for testing
+    pickups: [], dummiesFight: false, dummyRespawn: 2.5,
     seed: 1,
   };
 }
@@ -80,6 +81,8 @@ export function fightLevel(): Level {
     pickups: [
       { weapon: "sniper", pos: { x: 18, y: 0, z: -23 } }, // on the ground, behind the far wall
       { weapon: "copter", pos: { x: -1.5, y: TOWER_TOP, z: -1.5 } }, // on the tower
+      { weapon: "reaper", pos: { x: -22.5, y: 0, z: -1 } }, // rare gunblades on the flanks, near dummies
+      { weapon: "sakura", pos: { x: 22.5, y: 0, z: -1 } },
     ],
     dummiesFight: true,
     dummyRespawn: 6,

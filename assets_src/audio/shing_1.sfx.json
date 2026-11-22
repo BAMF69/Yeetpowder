@@ -1,0 +1,16 @@
+{
+ "tool": "sfx_synth",
+ "name": "shing_1",
+ "params": {
+  "wave": "saw",
+  "freq": 1900.0,
+  "slide": -0.6,
+  "vibrato_depth": 0.3,
+  "vibrato_rate": 30,
+  "sustain": 0.05,
+  "decay": 0.22,
+  "punch": 0.6,
+  "highpass": 900,
+  "volume": 0.32
+ }
+}

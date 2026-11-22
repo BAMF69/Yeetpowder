@@ -54,6 +54,9 @@
   "reload": {"bus": "sfx", "files": ["sfx/reload.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "caption": "[reloading]"},
   "loaded": {"bus": "sfx", "files": ["sfx/loaded.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "caption": "[reloaded]"},
   "dry": {"bus": "sfx", "files": ["sfx/dry.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "cooldown_ms": 120, "caption": "[click: empty]"},
+  "swish": {"bus": "sfx", "files": ["sfx/swish_1.wav", "sfx/swish_2.wav", "sfx/swish_3.wav"], "pitch_semitones": [-1, 1], "max_voices": 3, "caption": "[swish]"},
+  "shing": {"bus": "sfx", "files": ["sfx/shing_1.wav", "sfx/shing_2.wav", "sfx/shing_3.wav"], "pitch_semitones": [-1, 1], "max_voices": 3, "caption": "[blade hits]"},
+  "revolver": {"bus": "sfx", "files": ["sfx/revolver_1.wav", "sfx/revolver_2.wav"], "pitch_semitones": [-1, 1], "volume_db": [-2, 0], "max_voices": 3, "caption": "[bang]"},
   "popin": {"bus": "sfx", "files": ["sfx/popin.wav"], "pitch_semitones": [-2, 2], "volume_db": [-4, -2],
             "max_voices": 3, "caption": "[pop]"}
  }
