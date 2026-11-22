@@ -2350,10 +2350,38 @@ def main(argv=None):
             (out / name).write_bytes(text.encode("utf-8"))
             print(f"[ OK ] wrote {out / name}")
         return 0
-    stale = [n for n, t in files.items() if not (out / n).exists() or (out / n).read_bytes() != t.encode("utf-8")]
+    stale, close = [], []
+    for n, t in files.items():
+        p = out / n
+        if p.exists() and p.read_bytes() == t.encode("utf-8"):
+            continue
+        # sin / exp / pow may differ in the last bit between Windows' and Linux's maths libraries, so a file written
+        # on one fails a byte compare on the other (CI on Linux, every run). Same structure and numbers within
+        # FLOAT_TOL is current; anything else (a changed key, case or value) is stale.
+        if p.exists() and _same_within(json.loads(p.read_text(encoding="utf-8")), json.loads(t)):
+            close.append(n)
+        else:
+            stale.append(n)
     for n in files:
-        print(f"[{'FAIL' if n in stale else ' OK '}] {n}")
+        note = " (equal within float tolerance: last-bit maths differences between platforms)" if n in close else ""
+        print(f"[{'FAIL' if n in stale else ' OK '}] {n}{note}")
     return 1 if stale else 0
+
+
+FLOAT_TOL = 1e-9   # relative (absolute near zero): far below any engine port's tolerance, far above last-bit noise
+
+
+def _same_within(a, b):
+    """True if a and b have the same structure and equal values, floats equal within FLOAT_TOL."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return a == b or abs(a - b) <= FLOAT_TOL * max(1.0, abs(a), abs(b))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_same_within(a[k], b[k]) for k in a)
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_same_within(x, y) for x, y in zip(a, b))
+    return a == b
 
 
 if __name__ == "__main__":

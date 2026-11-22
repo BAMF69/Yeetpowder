@@ -1,81 +1,158 @@
 // ---------------------------------------------------------------------------
 // room.ts
-// Purpose : Draws the toy's gray-box arena from its collision boxes (src/core/yeet/arena.ts), so what you see is
-//           exactly what you collide with: a checkered floor (1 m tiles, to read speed and distance), walls, blocks
-//           with dark edges.
+// Purpose : Draws a level from its collision boxes (src/core/yeet/arena.ts), so what you see is exactly what you
+//           collide with, in the vertical slice's look (docs/GDD.md art direction, the shotgun corridor keyframe):
+//           painted concrete walls with an orange band, a dark worn floor, a ceiling with fluorescent panels,
+//           wooden crates, teal riveted steel and hazard-striped trim on tall blocks.
 // Usage   : const room = buildRoom(arena); scene.add(room.group); ... room.dispose()
+// Notes   : Every surface is an axis-aligned box, so each face gets UVs from its world position (metres / tile
+//           size): textures never stretch and line up across boxes. This gives the kit's triplanar recipe's result
+//           without a custom shader, so three.js lighting, shadows and fog keep working (SOP-24: the triplanar
+//           recipe is for models with poor UVs). Textures: src/game/yeet/paint.ts. No outlines (GDD).
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
+// Updated : 2026-11-22 with Claude (Opus 5.5, claude-opus-5-5): the painted vertical-slice look (was gray boxes)
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
-import type { Arena } from "../../core/yeet/arena";
+import type { Arena, Box } from "../../core/yeet/arena";
+import { disposePaint, paintedTexture, type PaintKind } from "./paint";
 
-const BLOCK_COLORS = ["#c9b79c", "#9fb4c7", "#c7a09f", "#a9c79f", "#c7c09f"];
+/** Metres per texture repeat, per surface. */
+const TILE: Partial<Record<PaintKind, number>> = {
+  concrete: 3, floor: 2, ceiling: 3, crate: 1.6, steel: 2, hazard: 0.8, band: 2, light: 1,
+};
+const BAND = { bottom: 1.15, top: 1.6, inset: 0.02 }; // the orange wall stripe (m above the floor)
+const HAZARD_H = 0.45; // hazard trim round the foot of tall blocks
+const LIGHT_EVERY = 8; // m between ceiling light panels
+const DOOR = { width: 4.2, height: 4.2, depth: 0.08 }; // a riveted steel door in the middle of each wall (decoration)
 
-function checkerTexture(a: string, b: string, cells: number): THREE.CanvasTexture {
-  const c = document.createElement("canvas");
-  c.width = c.height = 64;
-  const g = c.getContext("2d")!;
-  g.fillStyle = a;
-  g.fillRect(0, 0, 64, 64);
-  g.fillStyle = b;
-  g.fillRect(0, 0, 32, 32);
-  g.fillRect(32, 32, 32, 32);
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(cells, cells);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.magFilter = THREE.NearestFilter;
-  return t;
+/** Which painted surface a block gets, from its size. */
+function blockKind(b: Box): PaintKind {
+  const h = b.max.y - b.min.y;
+  const w = Math.max(b.max.x - b.min.x, b.max.z - b.min.z);
+  const thin = Math.min(b.max.x - b.min.x, b.max.z - b.min.z);
+  if (h <= 1.7 && thin <= 1.2) return "steel"; // low cover walls
+  if (h <= 3.6 && w <= 4.5) return "crate";
+  return "concrete";
+}
+
+/** Rewrites a box geometry's UVs from world positions: x/z/y metres over the tile size, per face direction. */
+function worldUVs(geo: THREE.BufferGeometry, center: THREE.Vector3, tile: number): void {
+  const pos = geo.getAttribute("position");
+  const nrm = geo.getAttribute("normal");
+  const uv = geo.getAttribute("uv");
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i) + center.x;
+    const y = pos.getY(i) + center.y;
+    const z = pos.getZ(i) + center.z;
+    const nx = Math.abs(nrm.getX(i));
+    const ny = Math.abs(nrm.getY(i));
+    let u: number;
+    let v: number;
+    if (nx > 0.5) {
+      u = z;
+      v = y;
+    } else if (ny > 0.5) {
+      u = x;
+      v = z;
+    } else {
+      u = x;
+      v = y;
+    }
+    uv.setXY(i, u / tile, v / tile);
+  }
+  uv.needsUpdate = true;
 }
 
 export function buildRoom(arena: Arena): { group: THREE.Group; dispose(): void } {
   const group = new THREE.Group();
   const geos: THREE.BufferGeometry[] = [];
-  const mats: THREE.Material[] = [];
-  const tex: THREE.Texture[] = [];
-  const edgeMat = new THREE.LineBasicMaterial({ color: "#2a2f3a", transparent: true, opacity: 0.55 });
-  mats.push(edgeMat);
-  let blockN = 0;
+  const mats = new Map<PaintKind, THREE.Material>();
+  const mat = (kind: PaintKind): THREE.Material => {
+    let m = mats.get(kind);
+    if (!m) {
+      // light panels glow, and the ceiling (facing away from every light) shows as painted: both unlit
+      m = kind === "light" || kind === "ceiling"
+        ? new THREE.MeshBasicMaterial({ map: paintedTexture(kind) })
+        : new THREE.MeshStandardMaterial({ map: paintedTexture(kind), roughness: 0.92, metalness: kind === "steel" ? 0.15 : 0 });
+      mats.set(kind, m);
+    }
+    return m;
+  };
+  /** Adds a textured box (world-space min/max) to the group. */
+  const addBox = (min: THREE.Vector3, max: THREE.Vector3, kind: PaintKind, shadows: { cast: boolean; receive: boolean }) => {
+    const size = new THREE.Vector3().subVectors(max, min);
+    const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
+    const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
+    worldUVs(geo, center, TILE[kind] ?? 1);
+    geos.push(geo);
+    const mesh = new THREE.Mesh(geo, mat(kind));
+    mesh.position.copy(center);
+    mesh.castShadow = shadows.cast;
+    mesh.receiveShadow = shadows.receive;
+    group.add(mesh);
+    return mesh;
+  };
+  const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+
   for (const b of arena.boxes) {
     const top = b.kind === "wall" ? Math.min(b.max.y, b.drawTop ?? b.max.y) : b.max.y;
-    const sx = b.max.x - b.min.x;
-    const sy = top - b.min.y;
-    const sz = b.max.z - b.min.z;
-    const geo = new THREE.BoxGeometry(sx, sy, sz);
-    geos.push(geo);
-    let mat: THREE.MeshStandardMaterial;
+    const min = v3(b.min.x, b.min.y, b.min.z);
+    const max = v3(b.max.x, top, b.max.z);
     if (b.kind === "floor") {
-      const t = checkerTexture("#8d939c", "#7c828b", Math.round(sx / 2));
-      tex.push(t);
-      mat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 });
+      addBox(min, max, "floor", { cast: false, receive: true });
+    } else if (b.kind === "ceiling") {
+      addBox(min, max, "ceiling", { cast: false, receive: false });
+      // fluorescent panels on a grid just under the ceiling
+      for (let x = Math.ceil(b.min.x / LIGHT_EVERY) * LIGHT_EVERY; x < b.max.x - 1; x += LIGHT_EVERY) {
+        for (let z = Math.ceil(b.min.z / LIGHT_EVERY) * LIGHT_EVERY; z < b.max.z - 1; z += LIGHT_EVERY) {
+          addBox(v3(x - 1.2, b.min.y - 0.1, z - 0.6), v3(x + 1.2, b.min.y, z + 0.6), "light", { cast: false, receive: false });
+        }
+      }
     } else if (b.kind === "wall") {
-      const t = checkerTexture("#b8bec7", "#aeb4bd", 1);
-      t.repeat.set(Math.max(sx, sz) / 4, sy / 4);
-      tex.push(t);
-      mat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
+      addBox(min, max, "concrete", { cast: false, receive: true });
+      addWallBand(b, addBox, v3);
     } else {
-      mat = new THREE.MeshStandardMaterial({ color: BLOCK_COLORS[blockN++ % BLOCK_COLORS.length], roughness: 0.85 });
-    }
-    mats.push(mat);
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set((b.min.x + b.max.x) / 2, (b.min.y + top) / 2, (b.min.z + b.max.z) / 2);
-    mesh.receiveShadow = true;
-    mesh.castShadow = b.kind === "block";
-    group.add(mesh);
-    if (b.kind !== "floor") {
-      const eg = new THREE.EdgesGeometry(geo);
-      geos.push(eg);
-      const lines = new THREE.LineSegments(eg, edgeMat);
-      lines.position.copy(mesh.position);
-      group.add(lines);
+      const kind = blockKind(b);
+      addBox(min, max, kind, { cast: true, receive: true });
+      if (kind === "concrete" && b.min.y === 0) {
+        // hazard stripes round the foot of tall concrete blocks (pillars, ledges, the tower)
+        const e = 0.015;
+        addBox(v3(b.min.x - e, 0, b.min.z - e), v3(b.max.x + e, HAZARD_H, b.max.z + e), "hazard", { cast: false, receive: true });
+      }
     }
   }
   return {
     group,
     dispose() {
       for (const g of geos) g.dispose();
-      for (const m of mats) m.dispose();
-      for (const t of tex) t.dispose();
+      for (const m of mats.values()) m.dispose();
+      disposePaint();
     },
   };
+}
+
+/** The orange band along a wall's inner face (the face toward the room's middle). */
+function addWallBand(
+  b: Box,
+  addBox: (min: THREE.Vector3, max: THREE.Vector3, kind: PaintKind, s: { cast: boolean; receive: boolean }) => unknown,
+  v3: (x: number, y: number, z: number) => THREE.Vector3,
+): void {
+  const sx = b.max.x - b.min.x;
+  const sz = b.max.z - b.min.z;
+  const s = { cast: false, receive: true };
+  const hw = DOOR.width / 2;
+  if (sx < sz) {
+    // a wall along z: its inner face is the x face nearer x = 0
+    const x = Math.abs(b.min.x) < Math.abs(b.max.x) ? b.min.x : b.max.x;
+    const dir = x === b.min.x ? -1 : 1;
+    const mz = (b.min.z + b.max.z) / 2;
+    addBox(v3(Math.min(x, x + dir * BAND.inset), BAND.bottom, b.min.z), v3(Math.max(x, x + dir * BAND.inset), BAND.top, b.max.z), "band", s);
+    addBox(v3(Math.min(x, x + dir * DOOR.depth), 0, mz - hw), v3(Math.max(x, x + dir * DOOR.depth), DOOR.height, mz + hw), "steel", s);
+  } else {
+    const z = Math.abs(b.min.z) < Math.abs(b.max.z) ? b.min.z : b.max.z;
+    const dir = z === b.min.z ? -1 : 1;
+    const mx = (b.min.x + b.max.x) / 2;
+    addBox(v3(b.min.x, BAND.bottom, Math.min(z, z + dir * BAND.inset)), v3(b.max.x, BAND.top, Math.max(z, z + dir * BAND.inset)), "band", s);
+    addBox(v3(mx - hw, 0, Math.min(z, z + dir * DOOR.depth)), v3(mx + hw, DOOR.height, Math.max(z, z + dir * DOOR.depth)), "steel", s);
+  }
 }

@@ -15,6 +15,8 @@ const LOOK: Record<WeaponId, { color: string; size: [number, number, number] }> 
   shotgun: { color: "#8b5a2b", size: [0.14, 0.16, 0.9] },
   sniper: { color: "#7a4fd1", size: [0.12, 0.16, 1.2] },
   copter: { color: "#f28c28", size: [0.32, 0.28, 0.8] },
+  reaper: { color: "#9c7a54", size: [0.1, 0.5, 1.7] }, // the scythe: a long shaft and blade
+  sakura: { color: "#f48fb1", size: [0.06, 0.12, 1.2] }, // the katana
 };
 
 interface View {

@@ -1,0 +1,14 @@
+{
+ "tool": "sfx_synth",
+ "name": "revolver_2",
+ "params": {
+  "wave": "noise",
+  "freq": 453.6,
+  "slide": -1.8,
+  "sustain": 0.02,
+  "decay": 0.18,
+  "punch": 0.8,
+  "lowpass": 5000,
+  "volume": 0.42
+ }
+}

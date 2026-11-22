@@ -51,7 +51,21 @@
              "max_voices": 1, "caption": "[tumbling]"},
   "alert": {"bus": "sfx", "files": ["sfx/alert.wav"], "pitch_semitones": [-1, 1], "volume_db": [-4, -2], "max_voices": 3,
             "cooldown_ms": 100, "caption": "[dummy takes aim]", "directional": true},
+  "reload": {"bus": "sfx", "files": ["sfx/reload.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "caption": "[reloading]"},
+  "loaded": {"bus": "sfx", "files": ["sfx/loaded.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "caption": "[reloaded]"},
+  "dry": {"bus": "sfx", "files": ["sfx/dry.wav"], "pitch_semitones": [-1, 1], "max_voices": 1, "cooldown_ms": 120, "caption": "[click: empty]"},
+  "swish": {"bus": "sfx", "files": ["sfx/swish_1.wav", "sfx/swish_2.wav", "sfx/swish_3.wav"], "pitch_semitones": [-1, 1], "max_voices": 3, "caption": "[swish]"},
+  "shing": {"bus": "sfx", "files": ["sfx/shing_1.wav", "sfx/shing_2.wav", "sfx/shing_3.wav"], "pitch_semitones": [-1, 1], "max_voices": 3, "caption": "[blade hits]"},
+  "revolver": {"bus": "sfx", "files": ["sfx/revolver_1.wav", "sfx/revolver_2.wav"], "pitch_semitones": [-1, 1], "volume_db": [-2, 0], "max_voices": 3, "caption": "[bang]"},
   "popin": {"bus": "sfx", "files": ["sfx/popin.wav"], "pitch_semitones": [-2, 2], "volume_db": [-4, -2],
-            "max_voices": 3, "caption": "[pop]"}
+            "max_voices": 3, "caption": "[pop]"},
+  "fizz": {"bus": "sfx", "files": ["sfx/fizz_1.wav", "sfx/fizz_2.wav", "sfx/fizz_3.wav"], "pitch_semitones": [-2, 2],
+           "volume_db": [-9, -6], "max_voices": 3, "cooldown_ms": 90, "caption": "[yeetpowder fizz]"},
+  "crowd_ooh": {"bus": "ambience", "files": ["sfx/crowd_ooh_1.wav", "sfx/crowd_ooh_2.wav"], "pitch_semitones": [-1, 1],
+                "volume_db": [-7, -5], "max_voices": 1, "cooldown_ms": 2500, "caption": "[crowd: ooooh]"},
+  "crowd_cheer": {"bus": "ambience", "files": ["sfx/crowd_cheer_1.wav", "sfx/crowd_cheer_2.wav"], "pitch_semitones": [-1, 1],
+                  "volume_db": [-6, -4], "max_voices": 1, "cooldown_ms": 1500, "caption": "[crowd cheers]"},
+  "crowd_aww": {"bus": "ambience", "files": ["sfx/crowd_aww_1.wav", "sfx/crowd_aww_2.wav"], "pitch_semitones": [-1, 1],
+                "volume_db": [-7, -5], "max_voices": 1, "cooldown_ms": 2500, "caption": "[crowd: awww]"}
  }
 }

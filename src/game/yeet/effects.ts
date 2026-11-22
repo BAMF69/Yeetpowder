@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // effects.ts
-// Purpose : Short-lived 3D effects: bullet tracers and impact puffs (confetti-like sparks, no blood: GDD).
+// Purpose : Short-lived 3D effects: bullet tracers and impact puffs (confetti-like sparks, no blood: GDD), in
+//           yeetpowder pink (design doc Lore: every flash, explosion and smoke puff burns hot pink).
 // Usage   : const fx = new Effects(scene); fx.tracer(from, to, hit); fx.puff(at, big); fx.update(dt); fx.dispose()
 // Notes   : Shared geometry; each effect owns only a material, disposed when it ends (ENGINE.md gotcha 3).
 //           A cap keeps a long Gatling burst from piling up effects.
@@ -17,7 +18,9 @@ interface Fx {
 }
 
 const MAX_FX = 120;
-const PUFF_COLORS = ["#ffd84a", "#ff7043", "#7fd6ff", "#ffffff"];
+/** Yeetpowder pink, from hot to pale (lime green is the design doc's backup if pink tests poorly). */
+const PUFF_COLORS = ["#ff3fa4", "#ff7cc4", "#ffd6ec", "#e0218a"];
+const TRACER = { miss: "#ffc2e2", hit: "#ff3fa4" };
 
 export class Effects {
   private readonly live: Fx[] = [];
@@ -28,7 +31,7 @@ export class Effects {
 
   tracer(from: THREE.Vector3, to: THREE.Vector3, hit: boolean): void {
     const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
-    const mat = new THREE.LineBasicMaterial({ color: hit ? "#ff7043" : "#fff3b0", transparent: true, opacity: 0.9 });
+    const mat = new THREE.LineBasicMaterial({ color: hit ? TRACER.hit : TRACER.miss, transparent: true, opacity: 0.9 });
     const line = new THREE.Line(geo, mat);
     this.add({ obj: line, mat, life: 0.09, max: 0.09, grow: 0 });
   }

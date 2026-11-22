@@ -24,6 +24,91 @@ Tasks created (ROADMAP):
 ```
 
 ## Entries
+### 2026-11-22  Build art pass 3 (feat/reload 789127b)  Tester: self (Elaina the Great)
+Quotes (exact words):
+- "when the gatling gun zooms in just move it to the center but keep it low, so it doesn't move up into where the crosshair would be. currently it blocks view of what you're shooting at"
+- "for the reaper kick cartwheel to the right (D) the camera should spin clockwise"
+- "I'm also not seeing the camera pop out to third person on hero landings"
+Decisions / tuning changes:
+- Gatling aimed: slides to the middle at hip height and straightens (HOLD.copter.aim in viewmodel.ts) instead of rising to put the barrel under the crosshair
+- Cartwheel camera roll follows the strafe: the flip event carries side (+1 right, -1 left); right spins clockwise (test added)
+- Hero landing pop: it worked in a test run (?hero), but the C toggle and aiming could cancel it; hero landings now ignore both (reduce motion still stops it). Ask Elaina whether C was off.
+### 2026-11-22  Build art pass 2 review (feat/reload f8f686a)  Tester: self (Elaina the Great)
+Question being tested: do the first-person arms and weapons match the concept art?
+Quotes (exact words):
+- "the gatling gun and reaper's scythe are too small"
+- "the gatling should be held underhand, not like a pistol"
+- "the camera pop to 3rd person is too frequent"
+- "the models are more crude than I expected. I was hoping for things to look more like the concept art"
+Decisions / tuning changes:
+- Weapons rebuilt from bevelled side profiles to the keyframes' silhouettes (gunModels.ts): Gatling = boxy body, rear D-handle, top carry handle, ammo box and belt, six barrels with two clamps; Reaper's Kick = scoped rifle with a slotted handguard and collar plus a giant crescent blade (was a wooden shaft)
+- Gatling held at the hip, 1.4x the other guns' scale, right hand on the D-handle and left hand cradling it from below (on the top handle, the left arm hid the barrels)
+- Fingerless gloves with skin showing (the keyframes' operative)
+- Launch camera kick-out only for launches of 18 m/s or more (YEET fires at 13), cooldown 2 -> 6 s (KICK in YeetWorld.ts)
+Tasks created (ROADMAP):
+- Elaina plays it and checks the new looks and the camera pop rate
+### 2026-11-22  Build art pass 2 rework (uncommitted, on f8f686a)  Tester: self (Elaina the Great)
+Quotes (exact words):
+- "when firing the pea shooter zoomed in the wrist should still kick back/up"
+- "on the boomstick knockback I want to see the players legs in first person"
+- "the right hand should be on the back (likely not visible in first person) and the left hand on top, like the attached image"
+- "the camera should pop out on hero landings"
+- "why is the triangle budget set so low?"
+Decisions / tuning changes:
+- Aimed Pea Pistol keeps 75% of the wrist snap (FLIP.aimed in viewmodel.ts; was cut with the arm blowback to about 18%)
+- Boomstick launches never pop the camera out, and the legs swing into view in full even on aimed shots
+- Gatling: right hand on the rear D-handle (out of view), left hand on the top carry handle, gun angled in so the barrels show past the arm
+- Hero landing pops the camera out for the whole kneel (startKick with a hold), and your body sinks into the kneel
+### 2026-11-21  Build duel netcode first build (feat/reload bede7bb)  Tester: self (Elaina the Great)
+Question being tested: (requests; multiplayer not tested yet: "I can't test multiplayer right now")
+Quotes (exact words):
+- "when you land after a reaper's kick backflip your character does a hero landing on one knee that takes a moment to stand up from"
+- "make it so sakura dash firing allows you to travel upwards if you are looking up"
+Decisions / tuning changes:
+- Hero landing after a Reaper backflip: eye drops 0.7 m, no moving or jumping for 0.6 s; shooting and slashing still work
+- Sakura dash-fire follows your aim upward (level when looking down). Side effect: it climbs to ~19 m, so the Sakura can reach Fight Back's Gatling tower (asked Elaina whether to keep it Boomstick-only)
+
+### 2026-11-21  Build gunblade hold moves (feat/reload, uncommitted)  Tester: self (Elaina the Great)
+Question being tested: Do the hold-F moves work?
+Quotes (exact words):
+- "the dash stance with the sakura has the blade bouncing around all crazy, not in a static hold position"
+- "it shouldn't trigger an ultraslash if you don't dashfire or if you've slowed down to normal running/walking/stopped speeds. if you are still moving fast it should expend all your remaining ammo rapid fire"
+- "yeetreap is awesome"
+Delight moments:
+- YEETREAP
+Decisions / tuning changes:
+- Bug fixed: the stance added its blade turn every frame instead of setting it (the bouncing blade)
+- ULTRASLASH only after a dash-fire and while faster than 12 m/s (above a sprint); it rapid-fires every round left (one wide cut per round, 0.07 s apart, the last knocks hard), then the spin-reload
+
+### 2026-11-21  Build gunblades first pass (feat/reload, uncommitted)  Tester: self (Elaina the Great)
+Question being tested: Do the gunblades feel like the skill showcase?
+Quotes (exact words):
+- "the sakura rush is super satisfying"
+- "the reaper's kick is super interesting and I think has the potential for some high skill gameplay"
+- "both are fun"
+- "if you hold F you can wrap the scythe around an enemy and then fire to do even more damage and trigger a yeetreap"
+- "holding F with the katana allows you to execute a dash slash - the player holds the blade backwards and fires to propel themselves forwards and then if they still have at least 1 shot in the chamber when they release F it uses the last shot to perform an ultraslash"
+Delight moments:
+- The Sakura revolver-cancel rush
+- Reaper's Kick flips: room for high-skill play
+Decisions / tuning changes:
+- F press still slashes at once; holding F past 0.2 s starts the new move
+- Reaper hold F: hook the nearest dummy in front (3 m), pinned on the scythe; Fire = YEETREAP (heavy damage, launch); release = drop
+- Sakura hold F: blade reversed (dash stance); each Fire propels you forward; release with a round left = ULTRASLASH (spends it)
+
+### 2026-11-21  Build 8d10b5d + playtest-5 changes (feat/reload, uncommitted)  Tester: self (Elaina the Great)
+Question being tested: (requests, not a play session)
+Quotes (exact words):
+- "if you fire the pea shooter or sniper while airborne the knockback and twist should double"
+- "change \"copter heat\" to \"copter yeat\""
+- "guns should have to reload - pistol can be 9 shots, shotgun 2, sniper 5, gatling 200. for now guns can have infinite ammo"
+Decisions / tuning changes:
+- Pea Pistol and Spin Doctor: airborne shots kick and twist x2. Their mid-air upward kick stays capped (pistol 1 m/s,
+  Spin Doctor 4 m/s): uncapped, chained Spin Doctor floor shots climbed to 72 m, past the Boomstick-only tower
+- HUD: COPTER YEAT
+- Magazines: 9 / 2 / 5 / 200, infinite reserve; reload 1.0 / 1.4 / 1.8 / 3 s; reloads on its own after the last
+  round or on an empty trigger; R reloads early; switching guns cancels a reload. Respawn moved from R to Backspace
+
 ### 2026-11-21  Build playtest-3 changes (uncommitted)  Tester: self (Elaina the Great)  Duration: a few minutes
 Question being tested: Do the new aiming rules, tumbles and Fight Back work?
 Quotes (exact words):

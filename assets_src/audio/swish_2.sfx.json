@@ -1,0 +1,15 @@
+{
+ "tool": "sfx_synth",
+ "name": "swish_2",
+ "params": {
+  "wave": "noise",
+  "freq": 1540.0,
+  "slide": -1.2,
+  "attack": 0.02,
+  "sustain": 0.06,
+  "decay": 0.1,
+  "lowpass": 6000,
+  "highpass": 700,
+  "volume": 0.34
+ }
+}
