@@ -4,7 +4,8 @@
 > Last reviewed: 2026-11-21
 >
 > The author's full design doc (weapons, gunblades, killstreaks, modes, maps, netcode, art brief) is
-> `docs/concept/Yeetpowder Game Design Doc.pdf`, with concept art and keyframes beside it in `docs/concept/`.
+> `docs/concept/Yeetpowder Game Design Doc.pdf` (newer Markdown export with Lore and Future systems:
+> `docs/concept/Yeetpowder Game Design Doc.md`), with concept art and keyframes beside it in `docs/concept/`.
 > This page is the kit's working summary of it. Where they differ, this page wins for scoping; the PDF is the long-term vision.
 > Author: Elaina the Great *(from the PDF byline)*
 
