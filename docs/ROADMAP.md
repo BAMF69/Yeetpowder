@@ -21,6 +21,10 @@
 - Gatling Copter at x2 thrust climbs ~100 m in 5 s when aimed straight down: maybe a height falloff or more drag if it stops feeling like hovering
 - Limited reserve ammo and ammo pickups (magazines are in; reserve is infinite for now)
 - Fight Back win condition (knock them all out within a time? waves?) and dummies that move
+- Smith heavy guns: oversized versions of standard guns, ~25% recoil, walk only (design doc "Future systems")
+- Weapon durability, scavenging and Smith workbench repair, for Scrapyard / Junk Wars modes only (design doc "Future systems")
+- Armor and damage types (bullet, slash, blast, bonk): Modern vest, Medium brigandine, Chainmail, Plate; heavier armor cuts recoil and knockback, total recoil cut capped ~75% (design doc "Future systems")
+- Couch mode: TV/laptop browser renders up to 4 split-screen panes from game state; phones join by QR code as controllers (WebRTC on same Wi-Fi, gyro aim); no video streaming, too much delay (design doc "Future systems")
 - 
 
 ## Milestones
