@@ -330,10 +330,16 @@ export function quit(shell: Shell): Screen {
   });
 }
 
-export function crashed(shell: Shell, file: string): Screen {
+/** The crash screen; `detail` (crashSummary) is shown as is, selectable, so a phone player can screenshot or copy it. */
+export function crashed(shell: Shell, file: string, detail = ""): Screen {
   return built("crash", "dim", (root) => {
     const p = panel("narrow");
     p.append(tl(shell.i18n, "crash.title", "heading", {}, "div"), tl(shell.i18n, "crash.body", "text", { file }, "div"));
+    if (detail) {
+      const pre = el("pre", "crash-detail");
+      pre.textContent = detail; // text, never HTML: an error message can hold anything
+      p.append(pre);
+    }
     root.append(p);
   });
 }

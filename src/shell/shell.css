@@ -62,6 +62,9 @@
   gap: 0.35em;
 }
 .panel.narrow { width: min(94vw, 34em); }
+.crash-detail { margin: 0.8em 0 0; padding: 0.6em; max-height: 40vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; text-align: left; background: rgba(0, 0, 0, 0.35); border-radius: 4px;
+  user-select: text; -webkit-user-select: text; }
 .panel > * { flex-shrink: 0; } /* a long list scrolls; headings, tabs and buttons never get squeezed */
 .panel > .list { flex: 1 1 auto; }
 

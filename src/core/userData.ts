@@ -117,6 +117,40 @@ export function crashText(info: CrashInfo, now: Date = new Date()): string {
   ].join("\n");
 }
 
+/** Lines of the stack and of the log's warnings shown on the crash screen (the file keeps everything). */
+export const CRASH_SCREEN_STACK = 3;
+export const CRASH_SCREEN_WARNINGS = 4;
+
+/**
+ * An uncaught value in words. Errors keep their own message; a library may reject with a plain object or an Event
+ * (String() of either is "[object Object]", which tells nobody anything), so their type and message are spelled out.
+ */
+export function describeReason(reason: unknown): string {
+  if (reason instanceof Error) return `${reason.name}: ${reason.message}`;
+  if (typeof reason === "object" && reason !== null) {
+    const r = reason as { type?: unknown; name?: unknown; message?: unknown; constructor?: { name?: string } };
+    const kind = [r.constructor?.name, r.name, r.type].filter((v) => typeof v === "string" && v).join(" ");
+    const msg = typeof r.message === "string" ? r.message : "";
+    if (kind || msg) return [kind || "object", msg].filter(Boolean).join(": ");
+    try {
+      return JSON.stringify(reason).slice(0, 200);
+    } catch {
+      return "an object that cannot be shown";
+    }
+  }
+  return String(reason);
+}
+
+/**
+ * The short crash text shown on the crash screen, so a player on a phone (who cannot open the crash file) can read
+ * or screenshot what went wrong: the error, the top of its stack, and the last warnings or errors logged before it.
+ */
+export function crashSummary(info: CrashInfo): string {
+  const stack = (info.stack ?? "").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith(info.error));
+  const warnings = info.tail.filter((l) => /\[(WARN|ERROR)\]/.test(l)).slice(-CRASH_SCREEN_WARNINGS);
+  return [info.error, ...stack.slice(0, CRASH_SCREEN_STACK), ...(warnings.length ? ["", ...warnings] : [])].join("\n");
+}
+
 /** Writes crashes/crash_<stamp>.txt and returns its name. */
 export function writeCrash(store: TextStore, info: CrashInfo, now: Date = new Date()): string {
   const name = `${CRASH_DIR}crash_${stamp(now)}.txt`;
