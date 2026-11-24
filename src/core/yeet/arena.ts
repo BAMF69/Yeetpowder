@@ -18,10 +18,21 @@ export interface Box {
   min: Vec3;
   max: Vec3;
   /** Drawing hint: "floor", "wall" (drawn up to drawTop), "block". */
-  kind: "floor" | "wall" | "block";
+  kind: "floor" | "wall" | "block" | "ceiling";
   /** Walls: the height to draw (the solid goes far higher). */
   drawTop?: number;
+  /**
+   * Drawn as a prop instead of a painted box (props.ts): a car, or an explosive (truck, tank, drum: hazards.ts
+   * gives those health, a blast and a wreck). "hidden": a solid that is not drawn (an outdoor level's far bounds).
+   */
+  prop?: PropKind;
+  /** The painted surface to draw it with, instead of the one its size picks (room.ts). */
+  paint?: "sand" | "rock" | "asphalt" | "corrugated" | "container";
 }
+
+export type PropKind = "car" | "truck" | "tank" | "drum" | "hidden";
+export const EXPLOSIVES = ["truck", "tank", "drum"] as const;
+export type ExplosiveKind = (typeof EXPLOSIVES)[number];
 
 export interface Arena {
   boxes: Box[];
@@ -39,11 +50,13 @@ const ROOM_HALF = 20; // the room is 40 x 40 m
 const WALL_DRAW = 24; // m: Boomstick floor launches clear ~18 m
 const WALL_SOLID = 400; // m: the solid part, so the copter cannot fly out
 
-/** A floor and four walls for a (2*h) x (2*h) m room. Walls are solid far above their drawn height. */
+/** A floor, four walls and a ceiling (at the walls' drawn height: launches bonk off it, the copter stays in) for a
+ * (2*h) x (2*h) m room. Walls are solid far above their drawn height as well. */
 export function room(h: number): Box[] {
   const wall = (b: Box): Box => ({ ...b, kind: "wall", drawTop: WALL_DRAW });
   return [
     box(-h - 1, -1, -h - 1, h + 1, 0, h + 1, "floor"),
+    box(-h - 1, WALL_DRAW, -h - 1, h + 1, WALL_DRAW + 1, h + 1, "ceiling"),
     wall(box(-h - 1, 0, -h - 1, h + 1, WALL_SOLID, -h)), // north
     wall(box(-h - 1, 0, h, h + 1, WALL_SOLID, h + 1)), // south
     wall(box(-h - 1, 0, -h, -h, WALL_SOLID, h)), // west

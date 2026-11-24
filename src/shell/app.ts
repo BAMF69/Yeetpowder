@@ -42,7 +42,7 @@ import { PlatformService } from "../core/platform";
 import { SaveStore } from "../core/saveStore";
 import { defaultSettings, settingsLoad, settingsText, telemetryAllowed, type Settings } from "../core/settings";
 import { DEFAULT_DATA_PREFIX, MemoryStore, WebStorageStore, dataPrefix, type TextStore } from "../core/textStore";
-import { GameLog, Telemetry, TAIL_LINES, stamp, writeCrash } from "../core/userData";
+import { GameLog, Telemetry, TAIL_LINES, crashSummary, describeReason, stamp, writeCrash } from "../core/userData";
 import { DRIVE_PARAM, driveRequest, runDrive } from "./drive";
 import type { GameHost, GameKey } from "./host";
 import { Narrator } from "./narrator";
@@ -172,6 +172,8 @@ export class Shell {
   consentAsked = false;
   settingsTab = 0;
   plantedCrash = false;
+  /** Set by a game with touch controls: opens its touch options (Settings > Controls shows a row for it). */
+  touchSettings: (() => void) | null = null;
   readonly checks = { screens: 0, labels: 0, failures: [] as string[] };
   /** The open settings screen's Display staging (#308): pending changes and the keep-or-revert confirm. */
   staging: DisplayStaging | null = null;
@@ -575,18 +577,19 @@ export class Shell {
 
   /** Unhandled error: log it, write crashes/crash_<ts>.txt, show the crash screen. */
   crash(reason: unknown): void {
-    const err = reason instanceof Error ? reason : new Error(String(reason));
+    const err = reason instanceof Error ? reason : new Error(describeReason(reason));
     Log.error("core", `uncaught: ${err.message}`);
     if (this.crashes >= MAX_CRASH_FILES) return;
     this.crashes++;
     try {
-      const name = writeCrash(this.store, {
-        header: `${GAME_NAME} ${GAME_VERSION}`, error: err.message, stack: err.stack, seed: this.seed, tail: this.log.tail(40),
-      });
+      const info = {
+        header: `${GAME_NAME} ${GAME_VERSION}`, error: describeReason(err), stack: err.stack, seed: this.seed, tail: this.log.tail(40),
+      };
+      const name = writeCrash(this.store, info);
       this.log.flush();
       Log.info("core", `CRASH_WRITTEN ${name}`);
       this.stopGame();
-      this.reset(screens.crashed(this, name));
+      this.reset(screens.crashed(this, name, crashSummary(info))); // shown: a phone cannot open the file
     } catch (inner) {
       console.error(`[ERROR][core] could not write the crash file: ${String(inner)}`);
     }

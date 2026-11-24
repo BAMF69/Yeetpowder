@@ -14,6 +14,8 @@ The toy is playable (Toy tier, nothing committed yet for it). One gray-box room:
 - Built the toy: engine-free sim in `src/core/yeet/` (tuning, arena, sim, autoplay) with 16 tests; the play world `src/game/YeetWorld.ts` plus `src/game/yeet/` visuals and `src/game/fpsInput.ts`; `?play` in `src/shell/app.ts`; removed the kit's `src/game/Game.ts` prototype.
 
 ## Current task
+- Duel netcode first build is in (ROADMAP Now): `npm run duel`, then two windows on `?play&level=duel`. Next: Elaina plays it laptop-vs-laptop, then with the phone (touch controls are still a Next item); then the three duel modes.
+- 2026-11-21: moved to the Vertical slice tier ("Move on anyway", no recorded 2-minute playtest). Slice brief agreed (docs/VERTICAL_SLICE.md Decisions). Gunblades first build is in (keys 5/6, F slash; Sandbox has both, Fight Back has them as pickups on the flanks). Hold-F moves added (TUNING.reaper.hook/yeetreap, TUNING.sakura.dash/ultra). Next: Elaina plays them; poses (reversed blade, hook) are not yet checked in a still.
 - ROADMAP Now: playtest and tune the toy.
 
 ## Next step (specific, first action)
@@ -23,6 +25,9 @@ The toy is playable (Toy tier, nothing committed yet for it). One gray-box room:
 - Copter now climbs ~100 m in 5 s at full thrust: watch whether hovering still works in play.
 - Twist amounts, tumble chances and AI timing are Claude's picks (TUNING.weapons.*.twist, TUNING.tumble, TUNING.ai): confirm in play.
 - Decided (Elaina, 2026-11-21): the Gatling Copter never tumbles you when fired on the run.
+- Playtest 5 on branch feat/reload (from main 8d10b5d): airborne x2 kick/twist, COPTER YEAT, magazines + reload.
+- The ?operative art experiment (Quaternius SWAT model, Meshy trials) lives on its own branch, feat/operative-art,
+  built on feat/reload. The raw 265 MB "Modular Men" pack stays local and is gitignored (CC0, re-downloadable).
 - "Gunshots seem late" (playtest 4): files and scheduling are immediate; asked for the lowest latency and log it ("audio latency: ..." after the first click, ?debug not needed). Ask Elaina if it is better; if not, check the logged output latency.
 - Placeholder sounds are in (Elaina asked): balance by ear in play; tune recipes in tools/audio/yeet_sounds.py and rerun it.
 - Pointer lock, mouse look and the feel on a real GPU are not verified by a test (headless smoke cannot click-lock); first human run checks them.

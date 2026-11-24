@@ -130,3 +130,15 @@ dist/               production build (git-ignored)
 ## Generated (do not hand-edit)
 `node_modules/`, `dist/`, `package-lock.json` (written by npm; commit it, never edit it),
 `src/shaders/kit/` (edit `tools/shaders/ksl/`, then `python tools/shaders/shader_gen.py`).
+
+## Modular Men art preview
+Run `python tools/dev.py run` and open the displayed URL with `?play&operative`.
+The optional preview replaces target figures and the third-person player body with Quaternius's animated SWAT character.
+First-person arms/weapons and arena remain the toy placeholders. Default play keeps the original figures.
+The model loads only with the flag, uses its `Idle_Gun` clip, and retains the toy pivot, hit flash, alert and health bars.
+Source: `Modular Men/Ultimate Modular Men- Feb 2022/Individual Characters/glTF/Swat.gltf`.
+Runtime asset and included CC0 license: `public/assets/models/quaternius/modular_men/` (ASSET_LOG A-0004).
+The source has 8,794 triangles and 24 clips; it is a visual trial above the GDD's 2,000-triangle character budget.
+Animation transitions, team appearance, first-person sleeve matching and lower geometry are follow-up work.
+Verified: 303 tests, type check, shader compilation and browser smoke with `play&operative&autoplay&hold=launch`.
+The software-rendered smoke does not establish performance on the laptop GPU or target phones.

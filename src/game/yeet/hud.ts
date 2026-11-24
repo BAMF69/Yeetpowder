@@ -39,6 +39,12 @@ export interface HudState {
   winded: boolean;
   /** Tumbling: show the tip. */
   tumbling: boolean;
+  /** Rounds in the magazine and its size; reload progress 0..1 (0 = not reloading). */
+  ammo: number;
+  magSize: number;
+  reload: number;
+  /** A second ammo line (the Rocket Axe's grenade launcher), or "". */
+  extra?: string;
 }
 
 const CSS = `
@@ -58,6 +64,10 @@ const CSS = `
 .yh-stars span { position: absolute; font-size: calc(26px * var(--s)); color: #ffd84a; text-shadow: 0 0 3px #000;
   transform: translate(-50%, -50%); }
 .yh-slots { position: absolute; right: 18px; bottom: 18px; display: flex; gap: 8px; }
+/* the shell's subtitle bar (announcer, sound captions) sits above the weapon slots while playing */
+#subtitles { bottom: calc(6vh + 64px); }
+.yh-debugtag { position: absolute; transform: translate(-50%, -100%); font: 12px ui-monospace, monospace; color: #fff;
+  background: rgba(0, 0, 0, 0.65); padding: 2px 6px; border-radius: 3px; white-space: nowrap; display: none; }
 .yh-slot { background: rgba(20, 24, 34, 0.65); border: 3px solid rgba(255, 255, 255, 0.25); border-radius: 14px;
   padding: 6px 12px; font-weight: 800; font-size: calc(15px * var(--s)); }
 .yh-slot b { color: #ffd84a; margin-right: 6px; }
@@ -71,6 +81,20 @@ const CSS = `
   background: rgba(20, 24, 34, 0.65); padding: 6px 12px; border-radius: 14px; }
 .yh-hint { position: absolute; left: 18px; top: calc(54px * var(--s)); font-size: calc(13px * var(--s)); opacity: 0.85;
   background: rgba(20, 24, 34, 0.55); padding: 6px 10px; border-radius: 10px; max-width: 46vw; line-height: 1.5; }
+.yh-hint .full { display: none; }
+.yh-hint.open .full { display: inline; }
+.yh-hint.open .chip { display: none; }
+/* the list is keys and mouse buttons: no use on a phone or tablet */
+@media (pointer: coarse) { .yh-hint { display: none; } }
+/* touch controls (src/game/touchControls.ts) own the bottom right: the slots go to the top as tap targets, the ammo
+   count to the bottom middle, and "Click to play" never shows (no mouse to lock) */
+.yh.touch .yh-hint, .yh.touch .yh-click { display: none !important; }
+.yh.touch .yh-slots { right: auto; bottom: auto; left: 50%; top: calc(12px + 34px * var(--s)); transform: translateX(-50%);
+  flex-wrap: wrap; justify-content: center; max-width: 70vw; gap: 6px; z-index: 7; }
+.yh.touch .yh-slot { pointer-events: auto; touch-action: none; font-size: calc(13px * var(--s)); padding: 5px 9px; }
+.yh.touch .yh-slot.on { transform: translateY(2px); }
+.yh.touch .yh-ammo { right: auto; left: 50%; bottom: 14px; transform: translateX(-50%); text-align: center; }
+.yh.touch .yh-ammo .rl { margin: 4px auto 0; }
 .yh-feed { position: absolute; right: 18px; top: 14px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .yh-feed div { background: rgba(20, 24, 34, 0.7); padding: 4px 10px; border-radius: 8px; font-weight: 700;
   font-size: calc(14px * var(--s)); animation: yh-fade 4s forwards; }
@@ -110,6 +134,15 @@ const CSS = `
   border: 3px solid #ffd84a; border-radius: 14px; padding: 10px 18px; font-weight: 800;
   font-size: calc(18px * var(--s)); text-align: center; max-width: 80vw; display: none; }
 .yh-tip em { color: #ffd84a; font-style: normal; letter-spacing: 1px; }
+.yh-ammo { position: absolute; right: 18px; bottom: 66px; text-align: right; font-weight: 900;
+  font-size: calc(30px * var(--s)); text-shadow: 0 0 4px #000; }
+.yh-ammo small { font-size: 0.5em; opacity: 0.8; margin-left: 4px; }
+.yh-ammo.empty { color: #ff5252; }
+.yh-ammo-extra { font-size: 15px; font-weight: 800; opacity: 0.9; margin-top: 2px; }
+.yh-ammo .rl { display: none; height: 6px; width: 150px; margin-left: auto; margin-top: 4px; border-radius: 3px;
+  background: rgba(0, 0, 0, 0.5); overflow: hidden; }
+.yh-ammo .rl div { height: 100%; width: 0; background: #ffd84a; }
+.yh-ammo.reloading .rl { display: block; }
 .yh-click { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); background: rgba(20, 24, 34, 0.8);
   padding: 12px 22px; border-radius: 16px; font-weight: 800; font-size: calc(22px * var(--s)); border: 3px solid #ffd84a; }
 @keyframes yh-pop {
@@ -132,6 +165,8 @@ const el = (cls: string, parent: HTMLElement, text = ""): HTMLDivElement => {
 
 export class YeetHud {
   private readonly root: HTMLDivElement;
+  /** ?debug label (the bot's state), made on first use. */
+  private tag: HTMLDivElement | null = null;
   private readonly style: HTMLStyleElement;
   private readonly hit: HTMLDivElement;
   private readonly stars: HTMLDivElement;
@@ -144,6 +179,7 @@ export class YeetHud {
   private readonly pops: HTMLDivElement;
   private readonly rush: HTMLDivElement;
   private readonly click: HTMLDivElement;
+  private readonly hint: HTMLDivElement;
   private readonly scope: HTMLDivElement;
   private readonly cross: HTMLDivElement;
   private readonly hp: HTMLDivElement;
@@ -155,6 +191,10 @@ export class YeetHud {
   private readonly stam: HTMLDivElement;
   private readonly stamFill: HTMLDivElement;
   private readonly tip: HTMLDivElement;
+  private readonly ammo: HTMLDivElement;
+  private readonly ammoText: HTMLDivElement;
+  private readonly ammoBar: HTMLDivElement;
+  private readonly ammoExtra: HTMLDivElement;
   private hitT = 0;
   private starT = 0;
   private popN = 0;
@@ -190,17 +230,44 @@ export class YeetHud {
     const bar = el("bar", this.heat);
     this.heatFill = el("fill", bar);
     this.speed = el("yh-speed", this.root);
+    this.ammo = el("yh-ammo", this.root);
+    this.ammoText = el("", this.ammo);
+    this.ammoBar = el("", el("rl", this.ammo));
+    this.ammoExtra = el("yh-ammo-extra", this.ammo);
     this.stam = el("yh-stam", this.root);
     this.stamFill = el("fill", this.stam);
     this.tip = el("yh-tip", this.root);
     this.tip.innerHTML = "Plant your feet to avoid getting blown off balance by <em>YEETPOWDER</em>";
     this.hp = el("yh-hp", this.root);
     this.hpFill = el("fill", el("bar", this.hp));
-    el("yh-hint", this.root,
-      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · 1-4 or wheel switch guns · R respawn · Esc pause");
+    // playtest (tablet duel): the full list took too much screen, so it starts as a chip and H opens it
+    this.hint = el("yh-hint", this.root);
+    el("chip", this.hint, "H · controls");
+    el("full", this.hint,
+      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · F slash, hold F: hook (scythe) / dash stance (katana) · 1-6 or wheel switch weapons · C launch camera on/off · Backspace respawn · Esc pause · H hide");
     this.feed = el("yh-feed", this.root);
     this.pops = el("yh-pops", this.root);
     this.click = el("yh-click", this.root, "Click to play");
+  }
+
+  /**
+   * Touch controls are on: lay the HUD out around them and make the weapon slots tap targets. The HUD sits under the
+   * touch layer (z 5 < 6), so the slots are lifted above it while this is on.
+   */
+  setTouch(onSlot: (i: number) => void): void {
+    this.root.classList.add("touch");
+    this.root.style.zIndex = "7";
+    this.slots.forEach((s, i) =>
+      s.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        onSlot(i);
+      }),
+    );
+  }
+
+  /** H: open or close the controls list. */
+  toggleHint(): void {
+    this.hint.classList.toggle("open");
   }
 
   /** A comic text pop in the middle of the screen. */
@@ -226,6 +293,19 @@ export class YeetHud {
     this.hitT = 0.12;
   }
 
+  /** ?debug: a label at a screen point (x, y from -1 to 1, as Vector3.project gives), or hidden with null. */
+  debugTag(text: string | null, x: number, y: number): void {
+    if (!text) {
+      if (this.tag) this.tag.style.display = "none";
+      return;
+    }
+    if (!this.tag) this.tag = el("yh-debugtag", this.root);
+    this.tag.style.display = "block";
+    this.tag.textContent = text;
+    this.tag.style.left = `${(x * 0.5 + 0.5) * 100}%`;
+    this.tag.style.top = `${(0.5 - y * 0.5) * 100}%`;
+  }
+
   /** The red edge flash of taking a hit. */
   hurtFlash(): void {
     this.hurtT = 0.12;
@@ -246,6 +326,12 @@ export class YeetHud {
       this.hpFill.style.width = `${Math.round(s.hp * 100)}%`;
       this.hp.classList.toggle("low", s.hp < 0.35);
     }
+    const ammoHtml = s.reload > 0 ? "RELOADING" : `${s.ammo}<small>/ ${s.magSize}</small>`;
+    if (this.ammoText.innerHTML !== ammoHtml) this.ammoText.innerHTML = ammoHtml;
+    this.ammo.classList.toggle("reloading", s.reload > 0);
+    this.ammo.classList.toggle("empty", s.ammo === 0 && s.reload === 0);
+    this.ammoBar.style.width = `${Math.round((1 - s.reload) * 100)}%`;
+    if (this.ammoExtra.textContent !== (s.extra ?? "")) this.ammoExtra.textContent = s.extra ?? "";
     this.stamFill.style.width = `${Math.round(s.stamina * 100)}%`;
     this.stam.classList.toggle("winded", s.winded);
     this.stam.style.opacity = s.stamina >= 0.999 && !s.winded ? "0" : "1";
@@ -257,7 +343,7 @@ export class YeetHud {
     this.heat.style.display = s.showHeat ? "block" : "none";
     this.heatFill.style.width = `${Math.round(s.heat * 100)}%`;
     this.heat.classList.toggle("hot", s.overheated);
-    this.heatLbl.textContent = s.overheated ? "OVERHEATED: cooling down" : "COPTER HEAT";
+    this.heatLbl.textContent = s.overheated ? "OVERYEATED: cooling down" : "COPTER YEAT";
     this.speed.textContent = `${s.speed.toFixed(1)} m/s`;
     this.rush.style.opacity = s.reduceMotion ? "0" : String(Math.min(0.85, s.rush));
     this.click.style.display = s.locked || s.autoplay ? "none" : "block";

@@ -1,7 +1,7 @@
 # Architecture
 
 > How the code is organized and why. Keep it short and true. Update when structure changes.
-> Last reviewed: 2026-11-21
+> Last reviewed: 2026-11-22
 
 ## Big picture
 ```
@@ -39,8 +39,12 @@ Engine-specific folder layout is documented in `docs/ENGINE.md`. Universal folde
 | Autoplay | Scripted tour of every mechanic (browser `?play&autoplay` and Vitest) | `src/core/yeet/autoplay.ts` | `tests/yeetSim.test.ts` |
 | Play world | Fixed-step loop, input to YeetInput, events to effects, camera | `src/game/YeetWorld.ts` | smoke `--query "play&autoplay"` |
 | FPS input | Pointer lock, mouse look and buttons, weapon keys, R | `src/game/fpsInput.ts` | manual (pointer lock needs a real click) |
-| Visuals | Room from the arena boxes, dummy figures and stars, gun viewmodel, tracers, HUD | `src/game/yeet/` | smoke screenshots |
-| Sound | Sim events -> audio events through the kit's AudioPlayer/AudioDirector (takes, pitch, voices, cooldowns, sliders); files rendered in code | `src/game/yeet/sound.ts`, `data/audio_events.json`, `tools/audio/yeet_sounds.py` | `tests/yeetAudio.test.ts`; smoke `--until "29 sound files loaded"` |
+| Visuals | Room from the arena boxes in the painted slice look (world-scaled UVs, ceiling panels, wall band, doors, hazard trim; textures painted in code in `paint.ts`), dummy figures and stars, first-person viewmodel (navy sleeves, gloves; the six weapon models are built in `gunModels.ts` from bevelled side profiles, each with its grip/foregrip/muzzle anchors; per-gun hold (hand offset, tilt) in `viewmodel.ts` HOLD; the third-person operative (`operative.ts`: rigid parts on joints, two-bone arm solve onto the held gun; poses as pure maths in `operativePose.ts`, tested) for your body and duel opponents; Elaina's Meshy art (`meshyArt.ts`, loaded on the loading screen, `?noart` skips it): the scythe replaces the code-built Reaper's Kick through `registerWeaponArt` in `gunModels.ts`, and the rigged Meshy operative is worn over the code figure, whose joints drive its Mixamo bones every frame (`operativeSkin.ts`, rest-offset retarget, tested); shared materials and the glove in `materials.ts` and `glove.ts`, triangle budget tested), tracers, HUD | `src/game/yeet/` | smoke screenshots |
+| Bots | Engine-free brain per bot: perception (line of sight, a reaction-delayed memory), an FSM (engage, hunt, gun, retreat, recover) re-decided every 0.1 s, steering with wall probes and the Boomstick launch maneuver; outputs only a YeetInput and a look turn, so a bot is a normal player in the sim; difficulties in TUNING.bot | `src/core/yeet/bot.ts`; offline duel in `src/game/YeetWorld.ts` (routeBotMatch, drawBot); menu `botScreen` in `src/shell/screens.ts` | `tests/bot.test.ts` (controls, replay, no stuck bots, hard > easy over seeds, launch) |
+| Duel netcode | Protocol (inputs with look deltas up, 30 Hz snapshots down), socket-free Room (queues, acks, 120 Hz authoritative sim), client Predictor (replay unacked inputs). Who runs the Room (ADR 0004): by default the host's browser tab, the guest connecting over WebRTC (PeerJS broker for introductions, Worker clock); `?net=server` uses the home duel server (ADR 0002) | `src/net/protocol.ts`, `src/net/room.ts`, `src/net/predict.ts`, `src/game/net/transport.ts`, `src/game/net/peerLink.ts`, `src/game/net/netClient.ts` | `tests/net.test.ts`; peer connection tested by hand (ADR 0004 Notes) |
+| Duel server | `ws` rooms by 4-letter code on this PC, port 7357 (ADR 0002) | `server/main.ts` (`npm run duel`, `npm run duel:server`) | `tools/duel_smoke.mjs` (sockets), `tools/duel_browser_smoke.mjs` (two headless pages) |
+| Duel client | Connection, lobby (make / join a room, share link), other player drawn 100 ms behind from snapshots, server events for hits and knockouts | `src/game/net/` (`duelLink.ts`, `netClient.ts`, `remote.ts`) | the browser smoke |
+| Sound | Sim events -> audio events through the kit's AudioPlayer/AudioDirector (takes, pitch, voices, cooldowns, sliders); crowd reactions and the yeetpowder fizz; match music through the kit's MusicPlayer on the music bus; sound captions (throttled) and announcer lines through the subtitle bar (`data/dialogue.json` built to `data/dialogue/en.built.json`; the announcer stays silent until voice files `vo_<id>` exist); files rendered in code | `src/game/yeet/sound.ts`, `data/audio_events.json`, `data/music.json`, `data/dialogue.json`, `tools/audio/yeet_sounds.py`, `tools/audio/crowd.py`, `tools/audio/yeet_music.py`, `tools/audio/announcer.py` (recorded announcer lines in) | `tests/yeetAudio.test.ts`; smoke loads every sound and the music |
 
 ## Data flow and events
 The sim returns a list of `YeetEvent`s from each `step()`; `YeetWorld.onEvent` is the only place that turns them into
@@ -76,8 +80,19 @@ draws nothing (a logic budget), and a browser run cannot go below its 60 Hz fram
   (pistol, launch, spin, copter, crash) and `YEET_AUTOPLAY_DONE hits=.. top=.. bonks=..`. Screenshot a moment with
   `python tools/dev.py smoke --query "play&autoplay&hold=launch" --until YEET_MARK_launch --screenshot captures/progress/x.png`
   (`hold=<mark>` freezes the game at that moment, so the slow headless renderer cannot drift past it).
-- `?level=sandbox|fight` picks the level (the menu: Play = fight, Sandbox = sandbox via `shell.worldOption`).
-- `?weapon=0..3` starts with that gun in hand; `?tumble` trips a tumble 1 s in (`YEET_MARK_tumble`, `hold=tumble`).
+- Duel: open `?play&level=duel` (menu: Duel (online)); "Host a room" makes this tab the host (WebRTC, ADR 0004),
+  `&room=ABCD` joins one at once. `npm run duel` serves the game on the home network over https (and starts the
+  home duel server, used only with `&net=server`); `&lag=120` adds 120 ms each way; `&debug` shows ping, snapshots per
+  second, pending inputs and the worst prediction correction.
+- YEETREAP on a player (regression check for the 2026-11-22 crash): `python tools/dev.py smoke --query "play&level=duel&bot=easy&botseed=1&yeetreap" --until YEET_MARK_yeetreap --timeout 60` hooks the bot with Reaper's Kick and YEETREAPs it; any error fails the run.
+- Bots: `?level=duel&bot=easy|medium|hard` (the menu's Duel vs bot), `&botseed=N` replays a match, `&debug` draws the bot's aim line (pink, grey when it cannot see you), its goal line (cyan) and a label with its difficulty, state and aim error.
+- Touch: `?touch` shows the phone/tablet controls on the PC (mouse acts as a finger; they show by themselves on a coarse pointer); `src/game/touchControls.ts`, maths in `src/core/yeet/touch.ts`; aim assist `src/core/yeet/aimAssist.ts`; gyro `src/game/gyro.ts`; the ⚙ panel's options `src/game/touchSettings.ts` (saved per device in localStorage, outside the kit settings). H opens the controls list on PC.
+- Projectiles: rockets and grenades live in `sim.projectiles` (stepProjectiles: rockets straight, grenades fall and bounce; `blastAt` is the one blast for projectiles and explosive vehicles, with a self-scale for rocket jumps), drawn in flight by props.ts; weapons with `projectile` in TUNING.weapons fire them.
+- New levels: `src/core/yeet/levelsOutdoor.ts` (island, industrial, junkyard; boxes with a `prop` are cars/trucks/tanks/drums, `paint` picks a tinted surface, `hidden` bounds), hazards in `src/core/yeet/hazards.ts` (explosives: health, blast, chain, wreck and respawn; water knockouts in the sim; tests/hazards.test.ts), drawn by `src/game/yeet/props.ts` (placeholder shapes, the sea, the shark, pink fireballs); `?boom=<i>` blows up explosive i 1 s in (`YEET_MARK_boom`); `?bot=<skill>&level=island|industrial|junkyard` plays a bot match there (no dummies).
+- Touch shake moves: `?touch&shake=left|right|up|down` plays one shake 1 s in (`YEET_MARK_shake`, `&hold=shake` freezes); the rules are `src/core/yeet/shake.ts` (detector, moves, runner; tests/shake.test.ts) and `TUNING.touch.shake`; `?debug` logs each shake on the touch channel.
+- Art review: `?showcase` holds the camera in front of your operative (`&pose=kneel|fling|tumble|run|aim|ko|look|flip|slash`, `&side=<rad>`, 3.14 is in front); `?flash` holds the pink muzzle flash on; `?hero` fires Reaper's Kick straight down 1 s in and logs `YEET_MARK_hero` mid hero landing (`?hold=hero` freezes there).
+- `?level=sandbox|fight|duel` picks the level (the menu: Play = fight, Sandbox = sandbox via `shell.worldOption`).
+- `?weapon=0..5` starts with that weapon in hand; the tour logs `YEET_MARK_kick` mid kick-out (`hold=kick`); `?tumble` trips a tumble 1 s in (`YEET_MARK_tumble`, `hold=tumble`).
 - `?aim` holds right-click aim during autoplay (stills of aimed fire, e.g. `play&autoplay&aim&hold=spin` for the scope).
 - `?debug`: log channels `yeet` (sim events) and `fps` (pointer lock).
 - R respawns the player.

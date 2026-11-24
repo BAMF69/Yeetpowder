@@ -2,6 +2,8 @@
 
 > Markdown export of the living design doc (last updated 2026-11-21). Newer than `Yeetpowder Game Design Doc.pdf`
 > beside it: adds the Lore and Future systems sections and the hot-pink muzzle-flash direction.
+> Updated 2026-11-22 where the game had moved on (Elaina approved): the art direction now follows the keyframes,
+> the controls match the game (right click aims, F slashes, 1-6 switch), and the triangle budgets were raised.
 > Author: Elaina the Great
 
 ## Overview
@@ -63,10 +65,12 @@ You keep control while airborne. Your character visibly tumbles, flails and spin
 | --- | --- | --- | --- |
 | Move | WASD | Left stick | Left virtual stick |
 | Aim | Mouse | Right stick | Drag right half of screen |
+| Aim down the sights (braced: same push, less twist) | Right click (hold) | Left trigger | |
 | Fire / recoil | Left click | Right trigger | Fire button (right thumb) |
 | Jump | Space | A | Jump button |
-| Melee / gunblade slash | Right click | Right bumper | Slash button |
-| Switch weapon | 1–4 / wheel | Y | Tap weapon icon |
+| Melee / gunblade slash (hold for the gunblade moves) | F | Right bumper | Slash button |
+| Switch weapon | 1–6 / wheel | Y | Tap weapon icon |
+| Sprint / reload | Shift / R | | |
 | Killstreak | Q | Left bumper | Glowing streak button |
 
 Touch players get light aim assist and a slightly larger hit radius on gunblade slashes. Inputs are balanced so phones can compete in mixed lobbies, and an optional "touch-only" lobby filter is available.
@@ -153,9 +157,9 @@ After each match: a 10-second "Yeet of the Match" replay of the funniest launch,
 
 ## Art and audio direction
 
-The look is "N64 spy movie meets Saturday-morning cartoon": chunky low-poly shapes, bright flat colors and big readable silhouettes. Low-poly keeps the game fast on phones and nods to GoldenEye without copying it.
+The look is N64-inspired spy action, set by the keyframes in `docs/concept/keyframes/`: angular low-poly people and guns with painted textures, industrial bunkers and warehouses, muted navy, olive, concrete and rust under restrained lighting, with hot-pink yeetpowder flashes as the loud accent. Low-poly keeps the game fast on phones and nods to GoldenEye without copying it.
 
-- **Characters:** stubby, big-headed figures in color-coded jumpsuits with goggles and helmets. They're easy to spot mid-air and their tumbling looks funny.
+- **Characters:** human-proportioned operatives with strong angular faces, chunky fingerless gloves and boots, simple hair and tactical vests (the navy operative and olive guards in the keyframes). Suit colors and shapes keep players easy to tell apart mid-air, and their tumbling still looks funny.
 - **Effects:** oversized hot-pink muzzle flashes, pink explosions and pink smoke (yeetpowder's signature color; see Lore), comic-book "BLAM!" and "YEET!" text pops, speed lines on launches, cartoon stars on wall bonks.
 - **Camera:** first person by default. On a big launch, the camera briefly kicks out to a dramatic angle, then snaps back. This can be turned off for motion-sensitive players.
 - **UI:** chunky, thumb-sized buttons; a kill feed with funny verbs ("YEETED", "BONKED", "REAPED").
@@ -181,7 +185,7 @@ The game is a web app built on WebGL with a server-authoritative multiplayer set
 - Other players are shown slightly in the past (about 100 ms) and smoothed between updates.
 - Ragdolls on death are client-side only, since they don't affect gameplay.
 
-**Performance budget:** 60 fps on a 3-year-old mid-range phone; under 15 MB to first match; under 2,000 triangles per character.
+**Performance budget:** 60 fps on a 3-year-old mid-range phone; under 15 MB to first match; under 6,000 triangles per character and 300–2,500 per held weapon (raised 2026-11-22: the keyframes are N64-inspired, not N64-limited).
 
 ## Future systems
 

@@ -1,0 +1,12 @@
+{
+ "version": 1,
+ "sample_rate": 22050,
+ "start": "theme",
+ "tracks": {
+  "theme": {
+   "bpm": 168,
+   "bars": 24,
+   "stems": { "band": "music/theme.wav" }
+  }
+ }
+}

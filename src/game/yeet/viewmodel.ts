@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // viewmodel.ts
-// Purpose : What you see of yourself in first person: two arms in the jumpsuit with white cartoon gloves holding
-//           the current gun (placeholder models built from shapes), legs that only show when you are thrown, and the
+// Purpose : What you see of yourself in first person: the operative's navy sleeves and black tactical gloves holding
+//           the current gun (low-poly models from gunModels.ts), legs that only show when you are thrown, and the
 //           recoil poses that sell each gun's kick:
 //             Pea Pistol  -> the wrist snaps, then the gun hand whips up and back over your head, swings back
 //             Boomstick   -> both arms and both legs fling forward into view as you are thrown backward
@@ -17,16 +17,52 @@
 //           Presentation numbers only: gameplay recoil lives in src/core/yeet/tuning.ts.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // Updated : 2026-11-21 with Claude (Opus 5.5, claude-opus-5-5): arms, legs and per-gun recoil poses (playtest)
+//           2026-11-22 with Claude (Opus 5.5, claude-opus-5-5): art pass 2 (navy sleeves, gloves, gun models)
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
-import type { WeaponId } from "../../core/yeet/tuning";
+import { TUNING, type WeaponId } from "../../core/yeet/tuning";
+
+const TUNING_ORDER = TUNING.weaponOrder;
+import { buildGlove } from "./glove";
+import { buildWeapon } from "./gunModels";
+import { MaterialBank } from "./materials";
+import { buildMuzzleFlash } from "./muzzleFlash";
 
 // ---- Tunables (presentation) --------------------------------------------------
-const SUIT = "#26a69a"; // the player's jumpsuit (teal: no dummy wears it)
-const GLOVE = "#f5f5f5";
-const BOOT = "#3a3a44";
-const GUN_SCALE = 0.62;
-const SLEEVE = 0.036; // sleeve radius: thin enough not to hide the room
+/** Sleeve radius at the wrist and at the shoulder (a tapered six-sided tube: the GDD's faceted N64 look). */
+const SLEEVE = { wrist: 0.032, shoulder: 0.046, sides: 6 };
+/**
+ * How each gun is held (the grip, foregrip and muzzle come from its model, gunModels.ts): the gun hand's offset
+ * from HAND_R and the gun's tilt about the grip (sizes come from the models). The Gatling is held low by its rear
+ * D-handle with the left hand on the carry handle (playtest); the scythe is tilted up and right so its crescent
+ * stays clear of the crosshair. `aim` replaces the usual aimed pose (barrel under the crosshair): the Gatling slides
+ * to the middle but stays at hip height and straightens, so it never covers what you shoot at (playtest).
+ */
+interface Hold {
+  hand: THREE.Vector3;
+  tilt: THREE.Euler;
+  aim?: { hand: THREE.Vector3; tilt: THREE.Euler };
+}
+const HOLD: Partial<Record<WeaponId, Hold>> = {
+  copter: {
+    hand: new THREE.Vector3(0.1, -0.2, 0.12),
+    tilt: new THREE.Euler(0.1, 0.18, 0),
+    aim: { hand: new THREE.Vector3(0, -0.43, -0.3), tilt: new THREE.Euler(0.08, 0, 0) },
+  },
+  reaper: { hand: new THREE.Vector3(0.02, -0.05, 0.06), tilt: new THREE.Euler(0.12, -0.22, 0) },
+  // Rocket Axe (playtests 2026-11-24): from the hip the knobbed butt points down at your feet, the blade forward and
+  // the block up by your hand; aimed it is up above your right shoulder, butt forward, blade on top
+  axe: {
+    hand: new THREE.Vector3(-0.04, 0.1, -0.14), // held up high, a little in and out from the eye (playtest: "should be up higher")
+    tilt: new THREE.Euler(-Math.PI / 2 + 0.12, -0.18, 0.12),
+    aim: { hand: new THREE.Vector3(0.24, -0.04, -0.14), tilt: new THREE.Euler(-0.04, 0.03, 0) },
+  },
+};
+/** Glove size: chunky, but small enough that the Pea Pistol still shows in the fist. */
+const GLOVE_SCALE = 0.85;
+const SOLE = "#2b2d32";
+/** The right glove's turn in the hand (rad): fingers forward, the cuff angled back toward the sleeve. */
+const GLOVE_R_TILT = new THREE.Euler(0.45, Math.PI - 0.25, 0);
 const SHOULDER_R = new THREE.Vector3(0.32, -0.42, 0.12);
 const SHOULDER_L = new THREE.Vector3(-0.26, -0.48, 0.02);
 const HAND_R = new THREE.Vector3(0.2, -0.21, -0.38); // rest position of the gun hand
@@ -40,7 +76,8 @@ const BLOW = { angle: 1.95, twist: -0.5, rise: 0.36, hold: 0.12, back: 4, aimedA
 /** First half of the blowback: the hand jerks this far up across the screen (m) before flipping over the head. */
 const BLOW_UP = 0.32;
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
-const FLIP = { angle: 1.0, rise: 0.05, hold: 0.06, back: 7 };
+/** The wrist snap that throws the barrel up. Aimed shots keep most of it (playtest: the aimed pistol felt dead). */
+const FLIP = { angle: 1.0, rise: 0.05, hold: 0.06, back: 7, aimed: 0.75 };
 /** Boomstick fling: arms up, legs swing forward into view. Aimed: half as much. */
 const FLING = { arm: 0.22, leg: 2.0, rise: 0.09, hold: 0.32, back: 3.2, wiggle: 0.22, aimed: 0.5 };
 /** Where the gun hand goes when aiming: centred, a little below the eye (the barrel lines up with the crosshair). */
@@ -48,6 +85,15 @@ const AIM_Z = -0.42;
 const AIM_BELOW = 0.1;
 /** Above this much aim the Spin Doctor's scope covers the view and the gun hides. */
 const SCOPE_AT = 0.85;
+/** Gunblade slash swing: seconds of the cut, how far the arm sweeps (rad), and how far the blade tilts flat. */
+const SWING = { time: 0.2, back: 0.14, reaper: 1.5, sakura: 1.1, axe: 1.7, tilt: 1.0 };
+/** A grenade throw (playtest: "should look like a throw"): s winding the arm up overhead, swinging it through, and
+ *  settling back; the arm's turn at the top of the wind-up and at the end of the swing (rad, + raises it). */
+const THROW = { wind: 0.12, swing: 0.1, settle: 0.28, up: 1.3, through: -0.6 };
+/** Rocket Axe with F held: raised this much (m) and turned 20 degrees clockwise as you see it. */
+const RAISE = { up: 0.14, roll: -(20 * Math.PI) / 180 };
+/** Reaper's Kick hooking: the gunblade rolls this far counter-clockwise (as you look down it), blade to the left. */
+const HOOK_ROLL = Math.PI / 2;
 
 interface GunModel {
   group: THREE.Group;
@@ -55,13 +101,12 @@ interface GunModel {
   grip: THREE.Vector3;
   fore: THREE.Vector3 | null;
   muzzle: THREE.Vector3;
+  /** At the hand: carries the gun's tilt (HOLD), eased toward the aimed tilt while aiming. */
+  pivot: THREE.Group;
+  /** Model units to metres (from the model). */
+  scale: number;
   spinner?: THREE.Object3D;
 }
-
-type Part =
-  | ["box", number, number, number, string, number, number, number]
-  | ["cyl", number, number, string, number, number, number]
-  | ["sph", number, string, number, number, number];
 
 /** 0 -> 1 (ease-out, or smoothstep when smooth), hold, then ease back to 0: a recoil pose over time t (s). */
 function envelope(t: number, rise: number, hold: number, back: number, smooth = false): number {
@@ -81,51 +126,70 @@ export class Viewmodel {
   private readonly armR = new THREE.Group(); // pivot at the right shoulder
   private readonly mount = new THREE.Group(); // at the right hand: the gun hangs here
   private readonly sleeveR: THREE.Mesh;
-  private readonly gloveR: THREE.Mesh;
+  private readonly gloveR: THREE.Group;
   private readonly hand = new THREE.Vector3(); // the right hand, relative to the shoulder pivot
   private readonly dir = new THREE.Vector3();
   private readonly armL = new THREE.Group(); // at the left shoulder, aimed at the foregrip
   private readonly sleeveL: THREE.Mesh;
-  private readonly gloveL: THREE.Mesh;
+  private readonly gloveL: THREE.Group;
+  /** Shared materials and the geometry they are built on (materials.ts). */
+  private readonly bank = new MaterialBank();
   private readonly hips = new THREE.Group();
   private readonly legs: THREE.Group[] = [];
-  private readonly flash: THREE.Mesh;
-  private readonly geos: THREE.BufferGeometry[] = [];
-  private readonly mats: THREE.Material[] = [];
+  private readonly flash: THREE.Group;
+  private readonly flashMats: THREE.Material[];
   private kickAmt = 0;
   private flashT = 0;
   private blowT = 99;
   private flingT = 99;
   private blowAmp = BLOW.angle;
   private flingAmp = 1;
+  private flipAmp = 1;
   private aim = 0;
+  /** Reload progress 0..1 (0 = not reloading): the gun dips and tilts. */
+  private reloadP = 0;
+  private swingT = 99;
+  private swingDir = 1;
+  private swingAmp = SWING.sakura;
+  /** Hold-move poses, eased 0..1: the Sakura's reversed blade (dash stance) and the scythe pulled in (hook). */
+  private stancePose = 0;
+  private hookPose = 0;
+  private holdKind: "none" | "stance" | "hook" | "raise" = "none";
+  /** 0..1: the Rocket Axe raised with F held. */
+  private raisePose = 0;
+  /** s since a grenade throw (99 = none). */
+  private throwT = 99;
   /** True while the Spin Doctor's scope covers the view (the HUD draws the scope). */
   scoped = false;
   private spin = 0;
   private time = 0;
   private readonly tmp = new THREE.Vector3();
+  private readonly tmp2 = new THREE.Vector3();
+  private readonly qRest = new THREE.Quaternion();
+  private readonly qAim = new THREE.Quaternion();
 
   constructor() {
-    const suit = this.mat(SUIT);
-    const glove = this.mat(GLOVE);
+    const suit = this.bank.paint("navy");
 
     // right arm: a pivot at the shoulder (it swings the whole arm); inside it the hand moves (aim, the pistol's
-    // jerk) and the sleeve is re-stretched from the shoulder to the hand every frame, so the shoulder never moves
+    // jerk) and the sleeve is re-stretched from the shoulder to the hand every frame, so the shoulder never moves.
+    // The glove rides in the mount with the gun, so wrist flicks and slashes turn the fist with the grip.
     this.armR.position.copy(SHOULDER_R);
     this.root.add(this.armR);
-    this.sleeveR = this.limb(1, SLEEVE, suit);
+    this.sleeveR = this.limb(suit);
     this.armR.add(this.sleeveR);
-    this.gloveR = new THREE.Mesh(this.geo(new THREE.SphereGeometry(0.045, 10, 8)), glove);
-    this.armR.add(this.gloveR);
     this.armR.add(this.mount);
+    this.gloveR = this.glove(1);
+    this.gloveR.rotation.copy(GLOVE_R_TILT);
+    this.mount.add(this.gloveR);
     this.placeHand(HAND_R.clone().sub(SHOULDER_R));
 
-    // left arm: a unit sleeve stretched to reach the foregrip
+    // left arm: a unit sleeve stretched to reach the foregrip; the glove turns with the forearm each frame
     this.armL.position.copy(SHOULDER_L);
     this.root.add(this.armL);
-    this.sleeveL = this.limb(1, SLEEVE, suit);
+    this.sleeveL = this.limb(suit);
     this.armL.add(this.sleeveL);
-    this.gloveL = new THREE.Mesh(this.geo(new THREE.SphereGeometry(0.045, 10, 8)), glove);
+    this.gloveL = this.glove(-1);
     this.root.add(this.gloveL);
 
     // legs: hidden below the view until a Boomstick shot throws them forward
@@ -134,61 +198,25 @@ export class Viewmodel {
     for (const x of [-0.14, 0.14]) {
       const leg = new THREE.Group();
       leg.position.x = x;
-      const thigh = new THREE.Mesh(this.geo(new THREE.CapsuleGeometry(0.075, 0.62, 3, 8)), suit);
+      const thigh = new THREE.Mesh(this.geo(new THREE.CylinderGeometry(0.068, 0.085, 0.76, 6)), suit);
       thigh.position.y = -0.38;
-      const boot = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.15, 0.11, 0.26)), this.mat(BOOT));
+      const boot = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.15, 0.13, 0.27)), this.bank.paint("leather"));
       boot.position.set(0, -0.8, -0.05);
-      leg.add(thigh, boot);
+      const sole = new THREE.Mesh(this.geo(new THREE.BoxGeometry(0.16, 0.035, 0.29)), this.bank.plain(SOLE));
+      sole.position.set(0, -0.875, -0.05);
+      leg.add(thigh, boot, sole);
       this.hips.add(leg);
       this.legs.push(leg);
     }
     this.hips.visible = false;
 
-    // the guns (unchanged shapes, now held by the hand at their grip)
-    this.addGun("pistol", [
-      ["box", 0.07, 0.09, 0.22, "#3fbf5a", 0, 0, 0],
-      ["cyl", 0.025, 0.12, "#2b8a3e", 0, 0.015, -0.16],
-      ["box", 0.05, 0.12, 0.06, "#6b4a2b", 0, -0.08, 0.06],
-      ["sph", 0.035, "#b6f5c1", 0, 0.015, -0.23],
-    ], new THREE.Vector3(0, -0.08, 0.06), null, new THREE.Vector3(0, 0.015, -0.25));
-    this.addGun("shotgun", [
-      ["cyl", 0.032, 0.62, "#3a3a44", -0.032, 0.02, -0.3],
-      ["cyl", 0.032, 0.62, "#3a3a44", 0.032, 0.02, -0.3],
-      ["box", 0.12, 0.1, 0.22, "#8b5a2b", 0, -0.02, 0.05],
-      ["box", 0.09, 0.14, 0.2, "#6b4a2b", 0, -0.07, 0.2],
-    ], new THREE.Vector3(0, -0.05, 0.1), new THREE.Vector3(0, -0.01, -0.32), new THREE.Vector3(0, 0.02, -0.62));
-    this.addGun("sniper", [
-      ["cyl", 0.022, 0.8, "#2a2f3a", 0, 0.01, -0.42],
-      ["box", 0.08, 0.1, 0.36, "#7a4fd1", 0, -0.02, 0.0],
-      ["cyl", 0.04, 0.24, "#1d1f26", 0, 0.1, -0.02],
-      ["box", 0.07, 0.12, 0.18, "#5a3a9e", 0, -0.06, 0.22],
-    ], new THREE.Vector3(0, -0.06, 0.12), new THREE.Vector3(0, -0.03, -0.22), new THREE.Vector3(0, 0.01, -0.84));
-    const copter = this.addGun("copter", [
-      ["box", 0.16, 0.14, 0.26, "#f28c28", 0, -0.02, 0.06],
-      ["box", 0.05, 0.12, 0.08, "#3a3a44", 0, -0.12, 0.12],
-      ["box", 0.04, 0.06, 0.12, "#3a3a44", 0, 0.08, -0.02],
-    ], new THREE.Vector3(0, -0.12, 0.12), new THREE.Vector3(0, 0.1, -0.02), new THREE.Vector3(0, 0, -0.5));
-    const spinner = new THREE.Group();
-    spinner.position.set(0, 0, -0.25);
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      spinner.add(this.part(["cyl", 0.018, 0.4, "#3a3a44", Math.cos(a) * 0.045, Math.sin(a) * 0.045, 0]));
-    }
-    copter.group.add(spinner);
-    copter.spinner = spinner;
+    // the guns: low-poly models (gunModels.ts) held by the hand at their grip
+    for (const id of TUNING_ORDER) this.addGun(id);
 
-    // muzzle flash: a flat yellow star at the barrel's end
-    const s = new THREE.Shape();
-    for (let i = 0; i < 16; i++) {
-      const r = i % 2 ? 0.025 : 0.07;
-      const a = (i / 16) * Math.PI * 2;
-      if (i === 0) s.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      else s.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    }
-    const fm = new THREE.MeshBasicMaterial({ color: "#ffe066", depthTest: false, transparent: true, side: THREE.DoubleSide });
-    this.mats.push(fm);
-    this.flash = new THREE.Mesh(this.geo(new THREE.ShapeGeometry(s)), fm);
-    this.flash.renderOrder = 1001;
+    // muzzle flash: yeetpowder's pink star at the barrel's end, over everything (muzzleFlash.ts)
+    const flash = buildMuzzleFlash(this.bank, { overlay: true });
+    this.flash = flash.group;
+    this.flashMats = flash.materials;
     this.mount.add(this.flash);
     this.show("pistol");
   }
@@ -198,24 +226,77 @@ export class Viewmodel {
     this.current = id;
     const g = this.guns.get(id)!;
     g.group.visible = true;
-    this.flash.position.copy(g.muzzle).sub(g.grip).multiplyScalar(GUN_SCALE);
+    this.flash.position.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale);
+    const tilt = HOLD[id]?.tilt;
+    if (tilt) this.flash.position.applyEuler(tilt); // the gun is tilted about the grip
     this.kickAmt = -0.4; // a little dip as the new gun comes up
     this.blowT = this.flingT = 99;
   }
 
   /** A shot of weapon: the general kick plus that gun's pose (smaller when aimed). trauma ~0..1. */
   fired(weapon: WeaponId, trauma: number, aimed = false): void {
+    if (weapon === "grenade") {
+      this.throwT = 0; // a throw: no kick, no muzzle flash
+      return;
+    }
     this.kickAmt = Math.min(1.2, this.kickAmt + (trauma * 1.6 + 0.15) * (aimed ? 0.5 : 1));
     this.flashT = 0.05;
     this.flash.rotation.z = Math.random() * Math.PI; // purely cosmetic randomness: not part of the sim
     if (weapon === "pistol") {
       this.blowT = 0;
       this.blowAmp = aimed ? BLOW.aimedAngle : BLOW.angle;
+      this.flipAmp = aimed ? FLIP.aimed : 1;
     }
-    if (weapon === "shotgun") {
+    if (weapon === "shotgun" || weapon === "rocket" || weapon === "axe") {
       this.flingT = 0;
       this.flingAmp = aimed ? FLING.aimed : 1;
     }
+  }
+
+  /** The grenade has left the hand and the next is not up yet: the hand shows empty (grenades only). */
+  setEmpty(on: boolean): void {
+    const g = this.guns.get(this.current);
+    if (g) g.group.visible = !(on && this.current === "grenade" && this.throwT > THROW.wind);
+  }
+
+  /** The arm's extra turn for a grenade throw this frame: up overhead, through, back. */
+  private throwTurn(dt: number): number {
+    this.throwT += dt;
+    const t = this.throwT;
+    const { wind, swing, settle, up, through } = THROW;
+    if (t < wind) return up * (t / wind);
+    if (t < wind + swing) return up + (through - up) * ((t - wind) / swing);
+    if (t < wind + swing + settle) return through * (1 - (t - wind - swing) / settle);
+    return 0;
+  }
+
+  /** Debug (?flash): keeps the muzzle flash showing, for stills. */
+  holdFlash(): void {
+    this.flashT = Math.max(this.flashT, 0.05);
+  }
+
+  /** A gunblade slash: the arm sweeps across (Sakura cuts alternate direction through a combo). */
+  slashed(weapon: WeaponId, combo: number): void {
+    this.swingT = 0;
+    this.swingAmp = weapon === "reaper" ? SWING.reaper : weapon === "axe" ? SWING.axe : SWING.sakura;
+    this.swingDir = weapon === "sakura" && combo % 2 === 0 ? -1 : 1;
+  }
+
+  /** The hold move's pose: "stance" (blade held backwards), "hook" (scythe wrapped round an enemy) or "none". */
+  setHold(kind: "none" | "stance" | "hook" | "raise"): void {
+    this.holdKind = kind;
+  }
+
+  /** A bigger, slower sweep (the ULTRASLASH). */
+  ultra(): void {
+    this.swingT = 0;
+    this.swingAmp = SWING.reaper * 1.3;
+    this.swingDir = 1;
+  }
+
+  /** Reload progress 0..1 (0 when not reloading). */
+  setReload(p: number): void {
+    this.reloadP = Math.max(0, Math.min(1, p));
   }
 
   /** How far the gun is raised to the sights, 0 (hip) .. 1 (aimed). */
@@ -226,14 +307,16 @@ export class Viewmodel {
   /** The gun hand's aimed position for the current gun (centred so the barrel sits under the crosshair). */
   private aimHand(out: THREE.Vector3): THREE.Vector3 {
     const g = this.guns.get(this.current)!;
-    return out.set(0, -(g.muzzle.y - g.grip.y) * GUN_SCALE - AIM_BELOW, AIM_Z);
+    const own = HOLD[this.current]?.aim;
+    if (own) return out.copy(own.hand);
+    return out.set(0, -(g.muzzle.y - g.grip.y) * g.scale - AIM_BELOW, AIM_Z);
   }
 
   /** Where tracers start, in world space: the gun's muzzle at its rest (or aimed) pose, never the animated one. */
   muzzleWorld(out: THREE.Vector3): THREE.Vector3 {
     const g = this.guns.get(this.current)!;
-    const hand = this.aimHand(new THREE.Vector3()).lerp(HAND_R, 1 - this.aim);
-    out.copy(g.muzzle).sub(g.grip).multiplyScalar(GUN_SCALE).add(hand);
+    const hand = this.aimHand(new THREE.Vector3()).lerp(this.restHand(this.tmp2), 1 - this.aim);
+    out.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale).applyQuaternion(g.pivot.quaternion).add(hand);
     return this.root.localToWorld(out);
   }
 
@@ -245,7 +328,8 @@ export class Viewmodel {
     const k = this.kickAmt;
     const blow = envelope(this.blowT, BLOW.rise, BLOW.hold, BLOW.back, true) * (this.blowAmp / BLOW.angle);
     const flip = this.current === "pistol" ? envelope(this.blowT, FLIP.rise, FLIP.hold, FLIP.back) : 0;
-    const fling = envelope(this.flingT, FLING.rise, FLING.hold, FLING.back) * this.flingAmp;
+    const flung = envelope(this.flingT, FLING.rise, FLING.hold, FLING.back);
+    const fling = flung * this.flingAmp; // the arms: half as much when aimed (braced)
     const wig = Math.sin(this.time * 24) * FLING.wiggle * fling;
     const judder = copterFiring ? Math.sin(this.time * 70) * 0.025 : 0;
 
@@ -255,17 +339,41 @@ export class Viewmodel {
     // right arm: general kick + blowback + Boomstick fling (up and forward)
     // (the general kick is muted while flung, or it would carry the gun up out of view)
     const kick = Math.max(0, k) * 0.3 * (1 - fling);
-    this.armR.rotation.set(kick + over * BLOW.angle + fling * FLING.arm + wig + judder, 0, over * BLOW.twist - fling * 0.25);
+    this.armR.rotation.set(kick + over * BLOW.angle + fling * FLING.arm + wig + judder + this.throwTurn(dt), 0, over * BLOW.twist - fling * 0.25);
     this.armR.position.set(SHOULDER_R.x, SHOULDER_R.y - Math.max(0, -k) * 0.12, SHOULDER_R.z + Math.max(0, k) * 0.06 * (1 - fling));
     this.armR.position.addScaledVector(ARM_FLUNG_SHIFT, fling);
     // the hand: rest -> aimed (centre) as the right mouse is held, plus the blowback's upward jerk
     const aimNow = this.aim * (1 - fling); // a Boomstick fling knocks you off your sights
-    const hand = this.aimHand(this.tmp).lerp(HAND_R, 1 - aimNow).sub(SHOULDER_R);
-    hand.y += up * BLOW_UP;
+    const hand = this.aimHand(this.tmp).lerp(this.restHand(this.tmp2), 1 - aimNow).sub(SHOULDER_R);
+    hand.y += up * BLOW_UP + this.raisePose * RAISE.up;
     hand.z -= up * 0.05;
     this.placeHand(hand);
+    this.tiltGun(aimNow);
+    // reloading: the gun dips down and rolls over, then comes back up (a placeholder reload)
+    const dip = this.reloadP > 0 ? Math.sin(Math.PI * this.reloadP) : 0;
+    this.armR.rotation.x -= dip * 0.55;
     // the wrist snaps the barrel up before the arm follows (pistol)
-    this.mount.rotation.x = flip * FLIP.angle * (this.blowAmp / BLOW.angle);
+    this.mount.rotation.x = flip * FLIP.angle * this.flipAmp;
+    this.mount.rotation.z = dip * 0.9;
+    // hold moves: the Sakura's blade turns to point behind you; the scythe is pulled in tight around its catch
+    const ease = 1 - Math.exp(-14 * dt);
+    this.stancePose += ((this.holdKind === "stance" ? 1 : 0) - this.stancePose) * ease;
+    this.hookPose += ((this.holdKind === "hook" ? 1 : 0) - this.hookPose) * ease;
+    this.raisePose += ((this.holdKind === "raise" ? 1 : 0) - this.raisePose) * ease;
+    this.mount.rotation.y = this.stancePose * Math.PI * 0.85; // set, never add: "+=" spun the blade every frame (playtest)
+    this.armR.rotation.x -= this.stancePose * 0.25;
+    this.armR.rotation.x += this.hookPose * 0.35;
+    this.armR.rotation.y += this.hookPose * 0.45;
+    this.mount.rotation.z += this.hookPose * HOOK_ROLL; // + about the view axis (toward you) turns it counter-clockwise
+    this.mount.rotation.z += this.raisePose * RAISE.roll; // the Rocket Axe with F held: clockwise
+    // a slash: sweep from right to left (or back), the blade laid flat for the cut, then settle
+    this.swingT += dt;
+    if (this.swingT < SWING.time + SWING.back) {
+      const k = Math.min(1, this.swingT / SWING.time);
+      const sweep = this.swingT < SWING.time ? 1 - 2 * (k * k * (3 - 2 * k)) : -1 + (this.swingT - SWING.time) / SWING.back;
+      this.armR.rotation.y += this.swingDir * sweep * this.swingAmp * 0.6;
+      this.mount.rotation.z += this.swingDir * SWING.tilt * Math.sin(Math.PI * Math.min(1, this.swingT / (SWING.time + SWING.back)));
+    }
     this.scoped = this.current === "sniper" && this.aim > SCOPE_AT;
     this.armR.visible = !this.scoped;
 
@@ -285,27 +393,31 @@ export class Viewmodel {
       this.sleeveL.scale.z = reach.length();
       this.armL.lookAt(this.root.localToWorld(target.clone()));
       this.gloveL.position.copy(target);
+      this.gloveL.quaternion.copy(this.armL.quaternion); // the fist points along the forearm
     }
 
-    // legs: swing forward into view while flung, kicking a little out of step
-    this.hips.visible = fling > 0.02;
+    // legs: swing forward into view while flung, kicking a little out of step (always in full, aimed or not:
+    // the legs are what sells a Boomstick launch)
+    this.hips.visible = flung > 0.02;
     if (this.hips.visible) {
-      this.hips.position.lerpVectors(HIPS_REST, HIPS_FLUNG, fling);
+      this.hips.position.lerpVectors(HIPS_REST, HIPS_FLUNG, flung);
       this.legs.forEach((leg, i) => {
-        leg.rotation.x = fling * FLING.leg + (i ? 1 : -1) * Math.sin(this.time * 18) * 0.25 * fling;
+        leg.rotation.x = flung * FLING.leg + (i ? 1 : -1) * Math.sin(this.time * 18) * 0.25 * flung;
       });
     }
 
-    this.flashT = Math.max(0, this.flashT - dt);
+    // visible first, then count down: a shot always shows for at least one drawn frame, even when a frame takes
+    // longer than the flash (slow devices, the headless smoke browser)
     this.flash.visible = this.flashT > 0;
+    this.flashT = Math.max(0, this.flashT - dt);
     this.flash.scale.setScalar(this.current === "shotgun" ? 2.2 : this.current === "sniper" ? 1.8 : 1);
     this.spin += (copterFiring ? 30 : 0) * dt;
     if (g.spinner) g.spinner.rotation.z = this.spin;
   }
 
   dispose(): void {
-    for (const g of this.geos) g.dispose();
-    for (const m of this.mats) m.dispose();
+    this.bank.dispose();
+    for (const m of this.flashMats) m.dispose();
   }
 
   /** Puts the gun hand at h (relative to the shoulder pivot) and stretches the sleeve to it. */
@@ -314,65 +426,71 @@ export class Viewmodel {
     // (the "second arm sticking out of the gun", playtest 3)
     this.hand.copy(h);
     this.mount.position.copy(this.hand);
-    this.gloveR.position.copy(this.hand);
     this.sleeveR.scale.z = this.hand.length();
     this.sleeveR.quaternion.setFromUnitVectors(Z_AXIS, this.dir.copy(this.hand).normalize());
   }
 
   // ---- building --------------------------------------------------------------
   private geo<T extends THREE.BufferGeometry>(g: T): T {
-    this.geos.push(g);
+    return this.bank.geo(g);
+  }
+
+  /** A sleeve from the group's origin along +Z, 1 m long (scale.z stretches it), tapering to the wrist. */
+  private limb(mat: THREE.Material): THREE.Mesh {
+    const g = this.geo(new THREE.CylinderGeometry(SLEEVE.wrist, SLEEVE.shoulder, 1, SLEEVE.sides));
+    g.rotateX(Math.PI / 2); // +Y (the wrist end) -> +Z
+    g.translate(0, 0, 0.5);
+    return new THREE.Mesh(g, mat);
+  }
+
+  /** The operative's fingerless glove (glove.ts), a little smaller in first person so the Pea Pistol shows. */
+  private glove(thumbSide: number): THREE.Group {
+    const g = buildGlove(this.bank, thumbSide, this.bank.paint("navy"));
+    g.scale.setScalar(GLOVE_SCALE);
     return g;
   }
 
-  private mat(color: string): THREE.MeshStandardMaterial {
-    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
-    this.mats.push(m);
-    return m;
+  /** The gun hand's rest position for the current gun (HAND_R plus its HOLD offset). */
+  private restHand(out: THREE.Vector3): THREE.Vector3 {
+    out.copy(HAND_R);
+    const h = HOLD[this.current];
+    return h ? out.add(h.hand) : out;
   }
 
-  /** A sleeve from the group's origin along +Z, `length` long. */
-  private limb(length: number, radius: number, mat: THREE.Material): THREE.Mesh {
-    const g = this.geo(new THREE.CylinderGeometry(radius, radius * 1.15, 1, 10));
-    g.rotateX(Math.PI / 2);
-    g.translate(0, 0, 0.5);
-    const m = new THREE.Mesh(g, mat);
-    m.scale.z = length;
-    return m;
+  /**
+   * Builds a gun again (an art model registered after the view was made: meshyArt.ts). The old one's meshes stay
+   * with the bank until it is disposed; it only leaves the view.
+   */
+  rebuildGun(id: WeaponId): void {
+    const old = this.guns.get(id);
+    if (old) this.mount.remove(old.pivot);
+    this.addGun(id);
+    if (this.current === id) this.show(id);
   }
 
-  private addGun(id: WeaponId, parts: Part[], grip: THREE.Vector3, fore: THREE.Vector3 | null, muzzle: THREE.Vector3): GunModel {
-    const group = new THREE.Group();
-    for (const p of parts) group.add(this.part(p));
-    group.scale.setScalar(GUN_SCALE);
-    group.position.copy(grip).multiplyScalar(-GUN_SCALE); // the grip sits in the hand
+  private addGun(id: WeaponId): void {
+    const model = buildWeapon(id, this.bank.gunKit(id));
+    const { group, grip, fore, muzzle } = model;
+    // a pivot at the hand carries the gun's tilt, so a tilted gun still sits in the hand by its grip
+    const pivot = new THREE.Group();
+    const tilt = HOLD[id]?.tilt;
+    if (tilt) pivot.rotation.copy(tilt);
+    const scale = model.scale;
+    group.scale.setScalar(scale);
+    group.position.copy(grip).multiplyScalar(-scale); // the grip sits in the hand
     group.visible = false;
-    this.mount.add(group);
-    const gun: GunModel = { group, grip, fore, muzzle };
-    this.guns.set(id, gun);
-    return gun;
+    pivot.add(group);
+    this.mount.add(pivot);
+    this.guns.set(id, { group, grip, fore, muzzle, pivot, scale, spinner: model.spinner });
   }
 
-  private part(p: Part): THREE.Mesh {
-    let geo: THREE.BufferGeometry;
-    let color: string;
-    let pos: [number, number, number];
-    if (p[0] === "box") {
-      geo = new THREE.BoxGeometry(p[1], p[2], p[3]);
-      color = p[4];
-      pos = [p[5], p[6], p[7]];
-    } else if (p[0] === "cyl") {
-      geo = new THREE.CylinderGeometry(p[1], p[1], p[2], 10);
-      geo.rotateX(Math.PI / 2);
-      color = p[3];
-      pos = [p[4], p[5], p[6]];
-    } else {
-      geo = new THREE.SphereGeometry(p[1], 10, 8);
-      color = p[2];
-      pos = [p[3], p[4], p[5]];
-    }
-    const m = new THREE.Mesh(this.geo(geo), this.mat(color));
-    m.position.set(...pos);
-    return m;
+  /** Eases the current gun's tilt from its rest hold to its aimed hold (only guns with HOLD.aim change). */
+  private tiltGun(aim: number): void {
+    const h = HOLD[this.current];
+    if (!h?.aim) return;
+    const g = this.guns.get(this.current)!;
+    this.qRest.setFromEuler(h.tilt);
+    this.qAim.setFromEuler(h.aim.tilt);
+    g.pivot.quaternion.slerpQuaternions(this.qRest, this.qAim, aim);
   }
 }

@@ -1,0 +1,17 @@
+{
+ "tool": "sfx_synth",
+ "name": "fizz_2",
+ "params": {
+  "wave": "noise",
+  "freq": 2860.0,
+  "slide": -0.5,
+  "vibrato_depth": 4,
+  "vibrato_rate": 38,
+  "attack": 0.004,
+  "sustain": 0.05,
+  "decay": 0.28,
+  "highpass": 2200,
+  "lowpass": 9000,
+  "volume": 0.32
+ }
+}

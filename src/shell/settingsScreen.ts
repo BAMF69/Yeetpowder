@@ -91,6 +91,9 @@ const times = (v: number) => `${v.toFixed(2)}x`;
 
 function controls(c: Ctx): void {
   const { shell } = c;
+  // touch players look here for look speed: the game's own touch panel holds it (and the touch stick's deadzone)
+  const openTouch = shell.touchSettings;
+  if (openTouch) c.list.append(c.menu.add(buttonItem(shell.i18n, "controls.touch", () => openTouch())).el);
   choiceRow(c, "input.glyphs", GLYPH_SETS, (s) => s.input.glyphs, (s, v) => (s.input.glyphs = v), (v) => `opt.glyphs.${v}`, () => drawActions());
   numRow(c, "input.deadzone", (s) => s.input.deadzone, (s, v) => (s.input.deadzone = v), 0, 0.9, 0.05, pct);
   boolRow(c, "input.invert_y", (s) => s.input.invert_y, (s, v) => (s.input.invert_y = v));

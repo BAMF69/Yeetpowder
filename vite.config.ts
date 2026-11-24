@@ -9,13 +9,22 @@
 //           fails smoke). Restart `dev.py run` after adding files there.
 //           The "dotwork-manifests" plugin lists public/assets/dotwork/*.assets.json the same way, as
 //           `virtual:dotwork-manifests` (URLs like "assets/dotwork/town.assets.json"; src/game/dotwork/boot.ts).
+//           YEET_HTTPS=1 (set by `npm run duel`, ADR 0003): served over https with a self-signed certificate
+//           (@vitejs/plugin-basic-ssl; browsers only give the gyro to secure pages), and /duel-ws passes the duel's
+//           WebSocket through to the duel server on DUEL_PORT (a secure page may not open a plain ws:// socket).
+//           Every other run (dev.py run, smoke, build) stays plain http, as before.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 /// <reference types="node" />
 import { existsSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig, type Plugin } from "vite";
+
+/** `npm run duel` on the home network: https for the gyro, the duel socket through the page's own port. */
+const HTTPS = process.env.YEET_HTTPS === "1";
+const DUEL_PORT = 7357; // src/net/protocol.ts DUEL_PORT (the config does not import game code)
 
 const UI_DIR = fileURLToPath(new URL("./public/assets/ui/", import.meta.url));
 const VIRTUAL_ID = "virtual:ui-assets";
@@ -60,11 +69,17 @@ function dotworkManifests(): Plugin {
 
 export default defineConfig({
   base: "./",
-  plugins: [uiAssets(), dotworkManifests()],
+  plugins: [uiAssets(), dotworkManifests(), ...(HTTPS ? [basicSsl({ name: "yeetpowder-duel" })] : [])],
   build: {
     outDir: "dist",
     assetsInlineLimit: 0, // keep game assets as files (easier to cache and to audit)
     chunkSizeWarningLimit: 2000, // Three.js alone is over the 500 kB default
   },
-  server: { port: 5173, open: false },
+  server: {
+    port: 5173,
+    open: false,
+    proxy: HTTPS ? { "/duel-ws": { target: `ws://localhost:${DUEL_PORT}`, ws: true } } : undefined,
+    // behind duel.mjs's front door the page is on another port than Vite: hot reload connects to the page's port
+    hmr: process.env.YEET_PUBLIC_PORT ? { clientPort: Number(process.env.YEET_PUBLIC_PORT) } : undefined,
+  },
 });
