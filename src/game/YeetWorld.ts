@@ -16,7 +16,9 @@
 //           (reduce motion keeps first person). Sound: src/game/yeet/sound.ts; audio starts on the first click.
 //           DEBUG: ?debug logs sim events on the "yeet" channel; ?weapon=0..3 starts with that gun in hand;
 //           ?tumble trips a tumble 1 s in (logs YEET_MARK_tumble 0.4 s later, ?hold=tumble freezes there).
-//           ?yeetreap (in a bot duel) hooks the bot 1 s in and YEETREAPs it (YEET_MARK_yeetreap; a crash fails smoke).
+//           ?yeetreap (in a bot duel) hooks the bot 1 s in and YEETREAPs it (YEET_MARK_hook, YEET_MARK_yeetreap; a
+//           crash fails smoke; ?hold=hook freezes on the hook).
+//           ?shake=left|right|up|down plays one touch shake move 1 s in (YEET_MARK_shake; ?hold=shake freezes there).
 //           ?hero fires Reaper's Kick straight down 1 s in (YEET_MARK_hero mid hero landing, ?hold=hero freezes).
 //           ?showcase holds the camera in front of your third-person operative (art review);
 //           ?flash holds the muzzle flash on (stills). &pose=kneel|fling|
@@ -34,7 +36,8 @@ import { levelById } from "../core/yeet/levels";
 import { NO_INPUT, PLAYER_CODE, YeetSim, type PlayerState, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
 import { len, normalize, vec, type Vec3 } from "../core/yeet/vec";
-import { aimAssist } from "../core/yeet/aimAssist";
+import { aimAssist, anglesTo, pickTarget, turnToward } from "../core/yeet/aimAssist";
+import { planShakeMove, ShakeRunner, type LookGoal, type ShakeDir } from "../core/yeet/shake";
 import { shell } from "../shell/app";
 import { FpsInput, type FpsFrame } from "./fpsInput";
 import { TouchControls, type TouchFrame } from "./touchControls";
@@ -52,6 +55,7 @@ import { YeetSound } from "./yeet/sound";
 import { buildRoom } from "./yeet/room";
 import { Viewmodel } from "./yeet/viewmodel";
 import { fovForAspect } from "../core/yeet/view";
+import { ART_WEAPONS, loadMeshyArt, operativeArt } from "./yeet/meshyArt";
 
 // ---- Tunables (presentation only; gameplay numbers are in tuning.ts) ----------
 const SUITS: Array<[string, string]> = [
@@ -162,6 +166,8 @@ export class YeetWorld implements World {
   private aim = 0;
   /** The zoom's fov (degrees) before the screen-shape widening (view.ts); hip fire is TUNING.aim.hipFov. */
   private aimFov: number = TUNING.aim.hipFov;
+  /** Touch shake moves (shake.ts): the move playing, then its lock-on. */
+  private readonly shakeRun = new ShakeRunner();
   /** > 0: a shot knocked you out of zoom for this many more seconds. */
   private aimKnock = 0;
   /** One-shot presses from a frame that ran no sim step (fast monitors): used by the next step. */
@@ -172,6 +178,9 @@ export class YeetWorld implements World {
   private readonly debugHero = shell.params.has("hero");
   /** ?yeetreap (with ?bot=): 1 s in, hook the bot with Reaper's Kick and YEETREAP it (logs YEET_MARK_yeetreap). */
   private readonly debugReap = shell.params.has("yeetreap");
+  /** ?shake=left|right|up|down: one shake 1 s in (no phone needed), YEET_MARK_shake 0.35 s later (?hold=shake). */
+  private readonly debugShake = (["left", "right", "up", "down"] as const).find((d) => d === shell.params.get("shake")) ?? null;
+  private shakeFired = false;
   private reapStart = -1;
   private heroFired = false;
   /** ?showcase: the camera stays in front of your operative; ?pose=...: force a pose (art review stills). */
@@ -296,7 +305,13 @@ export class YeetWorld implements World {
 
   /** Loads the sounds while the loading screen shows. */
   async load(progress: (v: number) => void): Promise<void> {
-    await this.sound.load((v) => progress(shell.params.has("operative") ? v * 0.5 : v));
+    await this.sound.load((v) => progress(v * 0.6));
+    // Elaina's Meshy models (the scythe); ?noart keeps the code-built ones
+    await loadMeshyArt((v) => progress(0.6 + v * 0.2), shell.params.has("noart"));
+    for (const id of ART_WEAPONS) this.vm.rebuildGun(id); // the first-person guns were built before the art loaded
+    const skin = operativeArt();
+    if (skin) for (const op of [this.body, ...this.others]) op.useSkin(skin);
+    progress(0.8);
     if (shell.params.has("operative")) {
       // the dummies only: your body is the code-built operative (operative.ts) since art pass 3
       await Promise.all(this.views.map((view) => view.fig.loadOperative?.()));
@@ -353,6 +368,17 @@ export class YeetWorld implements World {
     this.touch?.holdMove(pl.stance || pl.hook >= 0);
     this.touch?.setZoneFires(pl.weapon === "copter"); // Gatling: hold anywhere on the right to fire, drag to aim
     this.mergeTouch(f);
+    if (this.tf?.shake) this.startShake(this.tf.shake);
+    if (this.debugShake && !this.shakeFired && this.sim.time >= 1) {
+      this.shakeFired = true;
+      this.startShake(this.debugShake);
+      this.marks.push([this.sim.time + 0.35, "shake"]);
+      this.marks.sort((a, b) => a[0] - b[0]);
+    }
+    if (this.sim.helpless || pl.dead > 0) this.shakeRun.stop();
+    this.shakeRun.update(dt);
+    // your own shot ends the lock-on (it was for that one easy shot; the look this frame still has it)
+    const endLock = f.firePressed && !this.shakeRun.active && this.shakeRun.locking > 0;
     if (this.forceAim) f.aimHeld = true;
     this.aimKnock = Math.max(0, this.aimKnock - dt);
     const aiming = f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless;
@@ -407,6 +433,8 @@ export class YeetWorld implements World {
         input = { ...input, firePressed: true };
       }
       if (this.debugReap && this.brain) input = this.reapScript(input);
+      const shaken = this.shakeRun.step(TUNING.step, pl);
+      if (shaken) input = { ...input, ...shaken }; // a shake move's controls over yours
       if (this.link) {
         for (const e of this.link.stepLocal(input, this.lookYaw, this.lookPitch)) this.onEvent(e);
         this.lookYaw = this.lookPitch = 0;
@@ -425,6 +453,7 @@ export class YeetWorld implements World {
       this.stats.top = Math.max(this.stats.top, pl.pos.y);
     }
     if (!stepped) this.carry = first; // nothing simulated this frame: keep its clicks for the next one
+    if (endLock) this.shakeRun.cancelLock();
     this.crowdAirtime(pl, dt);
     // ?tumble: trip a tumble 1 s in and mark it 0.4 s later (stills of the third-person camera)
     if (this.debugTumble && this.sim.time >= 1 && !this.tumbled) {
@@ -436,7 +465,7 @@ export class YeetWorld implements World {
       this.marks.sort((a, b) => a[0] - b[0]);
     }
     // smoke can stop at these to screenshot a moment: --until YEET_MARK_launch (spin, copter)
-    while ((this.autoplay || this.debugTumble || this.debugHero || (this.debugReap && this.reapStart >= 0)) && this.marks.length && this.sim.time >= this.marks[0][0]) {
+    while ((this.autoplay || this.debugTumble || this.debugHero || this.debugShake || (this.debugReap && this.reapStart >= 0)) && this.marks.length && this.sim.time >= this.marks[0][0]) {
       const mark = this.marks.shift()![1];
       Log.info("yeet", `YEET_MARK_${mark}`);
       if (shell.params.get("hold") === mark) this.held = true; // ?hold=<mark>: freeze here for a screenshot
@@ -583,8 +612,30 @@ export class YeetWorld implements World {
     const zoom = this.zoomFactor();
     dYaw += t.gyroYaw * zoom;
     dPitch += t.gyroPitch * zoom;
-    if (!this.touch!.assist || this.third >= 0.5 || this.sim.helpless) return [dYaw, dPitch];
+    if (this.third >= 0.5 || this.sim.helpless) return [dYaw, dPitch];
+    // a shake move's look (homing in, the lock-on, the down shake's dip) comes before aim assist
+    const goal = this.shakeRun.look();
+    if (goal) {
+      const turn = this.shakeTurn(goal, dt);
+      if (turn) return [dYaw + turn[0], dPitch + turn[1]];
+    }
+    if (!this.touch!.assist) return [dYaw, dPitch];
     const pl = this.sim.player;
+    const { targets, visible } = this.enemiesInView();
+    if (!targets.length) return [dYaw, dPitch];
+    const eye = this.sim.eye();
+    const moving = Math.abs(t.moveX) + Math.abs(t.moveZ) > 0.1;
+    const out = aimAssist(
+      { eye, yaw: pl.yaw, pitch: pl.pitch, dYaw, dPitch, active: firing || moving || dYaw !== 0 || dPitch !== 0, dt },
+      targets,
+      visible,
+      TUNING.touch.assist,
+    );
+    return [out.dYaw, out.dPitch];
+  }
+
+  /** The enemies as drawn (what you see: duel players, the bot, standing dummies), and a clear-line check per one. */
+  private enemiesInView(): { targets: Vec3[]; visible: (i: number) => boolean } {
     const targets: Vec3[] = [];
     this.others.forEach((fig, j) => {
       if (fig.root.visible && j !== (this.link?.slot ?? 0) && this.sim.players[j]?.dead === 0) targets.push(fig.root.position);
@@ -592,21 +643,53 @@ export class YeetWorld implements World {
     this.views.forEach((v, i) => {
       if (this.sim.dummies[i]?.down === 0 && v.fig.root.visible) targets.push(v.fig.root.position);
     });
-    if (!targets.length) return [dYaw, dPitch];
     const eye = this.sim.eye();
-    const moving = Math.abs(t.moveX) + Math.abs(t.moveZ) > 0.1;
-    const out = aimAssist(
-      { eye, yaw: pl.yaw, pitch: pl.pitch, dYaw, dPitch, active: firing || moving || dYaw !== 0 || dPitch !== 0, dt },
-      targets,
-      (i) => {
-        const p = targets[i];
-        const d = vec(p.x - eye.x, p.y - eye.y, p.z - eye.z);
-        const dist = len(d);
-        return rayArena(this.sim.arena, eye, normalize(d), dist) >= dist - 0.4;
-      },
-      TUNING.touch.assist,
-    );
-    return [out.dYaw, out.dPitch];
+    const visible = (i: number) => {
+      const p = targets[i];
+      const d = vec(p.x - eye.x, p.y - eye.y, p.z - eye.z);
+      const dist = len(d);
+      return rayArena(this.sim.arena, eye, normalize(d), dist) >= dist - 0.4;
+    };
+    return { targets, visible };
+  }
+
+  /**
+   * A shake: the move it makes with the gun in hand (shake.ts), started if none is playing. Reaper's Kick checks
+   * for an enemy in hook range first (then any shake is a YEETREAP).
+   */
+  private startShake(dir: ShakeDir): void {
+    if (this.shakeRun.active || this.sim.helpless || this.third >= 0.5) return;
+    const pl = this.sim.player;
+    let reapInRange = false;
+    if (pl.weapon === "reaper") {
+      const h = TUNING.reaper.hook;
+      const { targets, visible } = this.enemiesInView();
+      reapInRange = targets.some((p, i) => {
+        const flat = Math.hypot(p.x - pl.pos.x, p.z - pl.pos.z);
+        return flat <= h.range + TUNING.player.halfWidth && Math.abs(p.y - (pl.pos.y + PIVOT)) < 1.9 && visible(i);
+      });
+    }
+    const move = planShakeMove(pl.weapon, dir, { reapInRange }, TUNING);
+    if (!move) return;
+    this.shakeRun.start(move);
+    Log.debug("touch", `shake ${dir}: ${move.name}`);
+  }
+
+  /** The turn this frame toward a shake move's look goal, or null when there is nothing to turn to. */
+  private shakeTurn(goal: LookGoal, dt: number): [number, number] | null {
+    const pl = this.sim.player;
+    const s = TUNING.touch.shake;
+    if (goal.kind === "pitch") {
+      const t = turnToward(pl.yaw, pl.pitch, { yaw: pl.yaw, pitch: goal.pitch }, s.homeRate * dt);
+      return [t.dYaw, t.dPitch];
+    }
+    const { targets, visible } = this.enemiesInView();
+    const eye = this.sim.eye();
+    const i = pickTarget(eye, pl.yaw, pl.pitch, targets, visible, s.homeCone, s.homeRange);
+    if (i < 0) return null;
+    const rate = this.shakeRun.active ? s.homeRate : s.lockRate;
+    const t = turnToward(pl.yaw, pl.pitch, anglesTo(eye, targets[i]), rate * dt);
+    return [t.dYaw, t.dPitch];
   }
 
   // ---- events -> effects -------------------------------------------------------
@@ -764,6 +847,8 @@ export class YeetWorld implements World {
         this.hud.pop("HOOKED!");
         this.sound.play("shing");
         this.vm.setHold("hook");
+        if (this.debugReap) this.marks.push([this.sim.time + 0.25, "hook"]); // ?hold=hook: the hook pose eased in
+        this.marks.sort((x, y) => x[0] - y[0]);
         break;
       case "unhook":
         this.vm.setHold("none");

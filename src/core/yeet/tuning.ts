@@ -297,6 +297,28 @@ export const TUNING = {
     recoil: { wobble: 0.35, copterTurn: 0.6 },
     assist: { cone: 0.16, range: 45, friction: 0.45, pull: 0.9 },
     gyro: 1,
+    /**
+     * Shake moves (src/core/yeet/shake.ts; Elaina 2026-11-24: touch should be silly and able to beat PC players).
+     * A jolt along the screen's left/right or up/down axis (m/s2, gravity removed) above `threshold` (divided by the
+     * player's Shake strength setting), reversed within `window` s by at least `reverse` of it, `dominance` x the
+     * other axis, at most one per `cooldown` s. The gyro's aiming pauses for `quiet` s after a jolt.
+     *   strafe     s of sideways run before a shake cartwheel's shot (the cartwheel needs side speed >= 2 m/s)
+     *   dipPitch   rad: a down shake tips the aim this far for Reaper's big backflip (it needs 30 degrees down)
+     *   flipToSlash s from the flip shot to its slash (a slash within reapWindow of a shot is a REAP)
+     *   lockOn     s the view stays locked onto the nearest enemy after a shake flip; lockRate rad/s it turns
+     *   homeTime   s a Sakura shake move turns toward its target first; homeRate rad/s; homeCone rad; homeRange m
+     *   slashToFire s from a Sakura shake slash to its lunge shot; ultraHold s of dash before letting go (ULTRASLASH)
+     */
+    shake: {
+      threshold: 13, reverse: 0.5, window: 0.3, dominance: 1.5, cooldown: 0.6, quiet: 0.35,
+      strafe: 0.22, dipPitch: -0.62, dipTime: 0.06, flipToSlash: 0.06,
+      lockOn: 1.2, lockRate: 9,
+      homeTime: 0.1, homeRate: 16, homeCone: 2.4, homeRange: 25,
+      slashToFire: 0.1, ultraHold: 0.12,
+    },
+    /** Touch Gatling: bullets bend onto an enemy within `cone` rad of the crosshair and `range` m (the aim, and so
+     *  the flight, is left alone: Elaina, "if it autoaims at players its harder to control the movement"). */
+    copterBend: { cone: 0.1, range: 60 },
   },
 
   /**

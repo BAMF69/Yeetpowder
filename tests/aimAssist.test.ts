@@ -4,7 +4,7 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import { describe, expect, it } from "vitest";
-import { aimAssist, anglesTo } from "../src/core/yeet/aimAssist";
+import { aimAssist, anglesTo, pickTarget, turnToward } from "../src/core/yeet/aimAssist";
 import { gyroToLook } from "../src/core/yeet/touch";
 import { TUNING } from "../src/core/yeet/tuning";
 
@@ -62,5 +62,21 @@ describe("gyro to look", () => {
     expect(gyroToLook({ beta: 90, gamma: 0 }, 270).yaw).toBeCloseTo(-Math.PI / 2);
     expect(gyroToLook({ beta: 0, gamma: 90 }, 90).pitch).toBeCloseTo(-Math.PI / 2);
     expect(gyroToLook({ beta: 0, gamma: 90 }, -90).pitch).toBeCloseTo(Math.PI / 2);
+  });
+});
+
+describe("shake move aim (pickTarget, turnToward)", () => {
+  const eye = { x: 0, y: 1.6, z: 0 };
+  it("picks the target nearest the crosshair inside the cone, and skips hidden ones", () => {
+    const targets = [{ x: 5, y: 1.6, z: -10 }, { x: -1, y: 1.6, z: -10 }, { x: 0, y: 1.6, z: 10 }];
+    expect(pickTarget(eye, 0, 0, targets, () => true, 2.4, 25)).toBe(1);
+    expect(pickTarget(eye, 0, 0, targets, (i) => i !== 1, 2.4, 25)).toBe(0);
+    expect(pickTarget(eye, 0, 0, [{ x: 0, y: 1.6, z: 10 }], () => true, 2.4, 25)).toBe(-1); // right behind you
+  });
+
+  it("turns the short way round and never past the target", () => {
+    const t = turnToward(3, 0, { yaw: -3, pitch: 0 }, 0.1);
+    expect(t.dYaw).toBeCloseTo(0.1); // 3 -> -3 is 0.28 rad the other way round, not 6
+    expect(turnToward(0, 0, { yaw: 0.05, pitch: -0.02 }, 1)).toEqual({ dYaw: 0.05, dPitch: -0.02 });
   });
 });

@@ -713,7 +713,9 @@ export class YeetSim {
     const tracers: Tracer[] = [];
     const spread = w.spread * (aimed ? b.spread : 1);
     for (let i = 0; i < w.pellets; i++) {
-      const dir = this.pelletDir(w, i, spread);
+      let dir = this.pelletDir(w, i, spread);
+      // touch Gatling: the bullet bends onto an enemy near the crosshair; the aim (your flight) is left alone
+      if (input.touch && pl.weapon === "copter") dir = this.bendOnto(from, dir, t.touch.copterBend);
       tracers.push(this.castPellet(from, dir, w, ev));
     }
     ev.push({ type: "fire", weapon: pl.weapon, tracers, aimed });
@@ -943,6 +945,27 @@ export class YeetSim {
   }
 
   /** The nearest standing target in front within range and the arc (a target code), or -1. */
+  /**
+   * A shot's direction bent onto the standing target whose middle is nearest it, if one is within `cone` rad and
+   * `range` m (touch players' Gatling, TUNING.touch.copterBend); else the direction as it was. Walls still stop it.
+   */
+  private bendOnto(from: Vec3, dir: Vec3, bend: { cone: number; range: number }): Vec3 {
+    let best: Vec3 | null = null;
+    let bestAngle = bend.cone;
+    const mid = this.t.player.height * 0.55;
+    this.eachTarget((_code, pos) => {
+      const to = vec(pos.x - from.x, pos.y + mid - from.y, pos.z - from.z);
+      const dist = len(to);
+      if (dist < 0.5 || dist > bend.range) return;
+      const cos = (to.x * dir.x + to.y * dir.y + to.z * dir.z) / dist;
+      const angle = Math.acos(Math.max(-1, Math.min(1, cos)));
+      if (angle >= bestAngle) return;
+      bestAngle = angle;
+      best = normalize(to);
+    });
+    return best ?? dir;
+  }
+
   private nearestInFront(range: number, arc: number): number {
     const pl = this.player;
     const face = aimDir(pl.yaw, 0);

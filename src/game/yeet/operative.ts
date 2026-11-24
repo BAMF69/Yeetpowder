@@ -19,10 +19,11 @@ import type { WeaponId } from "../../core/yeet/tuning";
 import type { DummyFigure } from "./figures";
 import { PIVOT } from "./figures";
 import { buildGlove } from "./glove";
-import { buildWeapon } from "./gunModels";
+import { buildWeapon, hasWeaponArt } from "./gunModels";
 import { MaterialBank } from "./materials";
 import { buildMuzzleFlash } from "./muzzleFlash";
 import { POSE, targetPose, type PoseInput, type PoseTargets, type V3 } from "./operativePose";
+import { attachSkin, type Skin } from "./operativeSkin";
 
 // ---- Proportions (metres before BODY_SCALE) ------------------------------------
 const BODY_SCALE = 0.93; // about 1.73 m tall: the sim's player is 1.7 m
@@ -35,6 +36,8 @@ const THIGH = 0.44;
 const SHIN = 0.4;
 const HEAD_Y = 0.6;
 const GLOVE_SIZE = 1.25;
+/** A worn skin's height in body units (the code figure's top of the head; x BODY_SCALE = about 1.75 m). */
+const SKIN_HEIGHT = 1.86;
 /** How fast joints ease toward their pose (1/s). */
 const EASE = 16;
 const BOOT_DARK = "#1c1c1f";
@@ -47,17 +50,25 @@ export interface Operative extends DummyFigure {
   setPose(input: PoseInput): void;
   /** A shot: the pink muzzle flash at the held gun's barrel for a moment. */
   fire(weapon: WeaponId): void;
+  /**
+   * Wears a rigged model (a loaded glTF scene, Mixamo bones: the Meshy operative) instead of the code-built parts,
+   * which stay as its invisible skeleton (operativeSkin.ts). The gun and the muzzle flash stay as they are.
+   */
+  useSkin(source: THREE.Object3D): void;
 }
 
 export interface Arm {
   shoulder: THREE.Group;
   elbow: THREE.Group;
-  side: number;
+  wrist: THREE.Group;
+  side: 1 | -1;
 }
 
 interface Leg {
   hip: THREE.Group;
   knee: THREE.Group;
+  ankle: THREE.Group;
+  side: 1 | -1;
 }
 
 interface HeldGun {
@@ -68,6 +79,8 @@ interface HeldGun {
   fore: THREE.Vector3 | null;
   muzzle: THREE.Vector3;
   scale: number;
+  /** Built from an art model (meshyArt.ts): when that changes (the art loaded later), the gun is built again. */
+  art: boolean;
 }
 
 /** A tapered prism (a limb or torso segment): `sides` facets, radius rTop/rBot, depth squashed by `depth`. */
@@ -96,8 +109,10 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
   const hair = bank.paint("hair");
   const dark = bank.plain(BOOT_DARK);
 
+  const parts: THREE.Object3D[] = []; // the code-built body (hidden when a skin is worn)
   const mesh = (geo: THREE.BufferGeometry, mat: THREE.Material | THREE.Material[], parent: THREE.Object3D, x = 0, y = 0, z = 0) => {
     const m = new THREE.Mesh(bank.geo(geo), mat);
+    parts.push(m);
     m.position.set(x, y, z);
     m.castShadow = true;
     parent.add(m);
@@ -141,7 +156,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
   mesh(new THREE.BoxGeometry(0.2, 0.15, 0.03), hair, head, 0, 0.18, -0.105); // back of the head
 
   // arms: sleeve segments with a shoulder cap; the fingerless glove at the wrist
-  const arm = (side: number): Arm => {
+  const arm = (side: 1 | -1): Arm => {
     const shoulder = joint(torso, side * SHOULDER.x, SHOULDER.y, 0);
     mesh(new THREE.IcosahedronGeometry(0.09, 0), cloth, shoulder, 0, -0.02, 0);
     mesh(prism(0.078, 0.066, UPPER_ARM, 6, 1, true), cloth, shoulder);
@@ -152,14 +167,15 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     glove.rotation.set(Math.PI / 2, 0, 0); // knuckles along the forearm
     glove.scale.setScalar(GLOVE_SIZE);
     wrist.add(glove);
-    return { shoulder, elbow, side };
+    parts.push(glove);
+    return { shoulder, elbow, wrist, side };
   };
   // facing +Z, the figure's left is +X
   const armL = arm(1);
   const armR = arm(-1);
 
   // legs: trouser segments, knee pads, boots with soles
-  const leg = (side: number): Leg => {
+  const leg = (side: 1 | -1): Leg => {
     const hip = joint(hips, side * 0.11, -0.02, 0);
     mesh(prism(0.108, 0.085, THIGH, 6, 1, true), cloth, hip);
     const knee = joint(hip, 0, -THIGH, 0);
@@ -169,7 +185,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     mesh(prism(0.078, 0.082, 0.11, 6), leather, ankle, 0, 0.025, 0); // boot cuff
     mesh(new THREE.BoxGeometry(0.135, 0.11, 0.28), leather, ankle, 0, -0.01, 0.05);
     mesh(new THREE.BoxGeometry(0.145, 0.035, 0.295), dark, ankle, 0, -0.065, 0.05);
-    return { hip, knee };
+    return { hip, knee, ankle, side };
   };
   const legs = [leg(1), leg(-1)]; // left, right
 
@@ -177,6 +193,11 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
   const guns = new Map<WeaponId, HeldGun>();
   const gunFor = (id: WeaponId): HeldGun => {
     let g = guns.get(id);
+    if (g && g.art !== hasWeaponArt(id)) {
+      g.holder.removeFromParent(); // its art arrived after it was built (the world poses while it loads)
+      guns.delete(id);
+      g = undefined;
+    }
     if (!g) {
       const m = buildWeapon(id, bank.gunKit(id));
       const holder = joint(torso, 0, 0, 0);
@@ -186,7 +207,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       m.group.position.copy(m.grip).multiplyScalar(-m.scale); // the grip at the holder's origin
       m.group.traverse((o) => (o.castShadow = true));
       mount.add(m.group);
-      g = { holder, mount, grip: m.grip, fore: m.fore, muzzle: m.muzzle, scale: m.scale };
+      g = { holder, mount, grip: m.grip, fore: m.fore, muzzle: m.muzzle, scale: m.scale, art: hasWeaponArt(id) };
       guns.set(id, g);
     }
     return g;
@@ -219,6 +240,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
   let alert = 0;
   let pulse = 0;
   let first = true;
+  let worn: Skin | null = null;
   const tmpA = new THREE.Vector3();
   const tmpB = new THREE.Vector3();
 
@@ -265,6 +287,17 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     setPose(p) {
       input = p;
     },
+    useSkin(source) {
+      if (worn) return;
+      // the skin binds to the code figure at rest: its joints as built (no pose has run, or put them back)
+      for (const j of [hips, torso, head, ...[armL, armR].flatMap((a) => [a.shoulder, a.elbow, a.wrist]), ...legs.flatMap((l) => [l.hip, l.knee, l.ankle])]) {
+        j.quaternion.identity();
+      }
+      const posed = !first;
+      worn = attachSkin(body, { hips, torso, head, arms: [armL, armR], legs }, source, SKIN_HEIGHT);
+      for (const p of parts) p.visible = false;
+      if (posed) first = true; // snap back into the current pose on the next update
+    },
     fire(weapon) {
       const g = gunFor(weapon);
       g.mount.add(muzzle.group);
@@ -291,6 +324,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       stride += input.speed * POSE.runRate * dt;
       apply(targetPose(input, time, stride), first ? 1 : 1 - Math.exp(-EASE * dt));
       first = false;
+      worn?.update();
       flashT = Math.max(0, flashT - dt);
       muzzle.group.visible = muzzleT > 0 && input.weapon !== null && !input.dead; // shown before the countdown:
       muzzleT = Math.max(0, muzzleT - dt); // a shot always gets at least one drawn frame
@@ -298,9 +332,11 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       const e = flashT > 0 ? 0.9 : 0;
       const red = alert > 0 ? (0.45 + 0.35 * Math.sin(pulse)) * alert : 0;
       cloth.emissive.setRGB(Math.max(e, red), e, e);
+      if (worn) for (const m of worn.materials) m.emissive.copy(cloth.emissive);
       barRoot.quaternion.copy(root.quaternion).invert().multiply(camera.quaternion);
     },
     dispose() {
+      worn?.dispose();
       bank.dispose();
       for (const m of extraMats) m.dispose();
     },

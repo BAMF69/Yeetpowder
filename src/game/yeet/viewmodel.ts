@@ -78,6 +78,8 @@ const AIM_BELOW = 0.1;
 const SCOPE_AT = 0.85;
 /** Gunblade slash swing: seconds of the cut, how far the arm sweeps (rad), and how far the blade tilts flat. */
 const SWING = { time: 0.2, back: 0.14, reaper: 1.5, sakura: 1.1, tilt: 1.0 };
+/** Reaper's Kick hooking: the gunblade rolls this far counter-clockwise (as you look down it), blade to the left. */
+const HOOK_ROLL = Math.PI / 2;
 
 interface GunModel {
   group: THREE.Group;
@@ -322,6 +324,7 @@ export class Viewmodel {
     this.armR.rotation.x -= this.stancePose * 0.25;
     this.armR.rotation.x += this.hookPose * 0.35;
     this.armR.rotation.y += this.hookPose * 0.45;
+    this.mount.rotation.z += this.hookPose * HOOK_ROLL; // + about the view axis (toward you) turns it counter-clockwise
     // a slash: sweep from right to left (or back), the blade laid flat for the cut, then settle
     this.swingT += dt;
     if (this.swingT < SWING.time + SWING.back) {
@@ -411,6 +414,17 @@ export class Viewmodel {
     out.copy(HAND_R);
     const h = HOLD[this.current];
     return h ? out.add(h.hand) : out;
+  }
+
+  /**
+   * Builds a gun again (an art model registered after the view was made: meshyArt.ts). The old one's meshes stay
+   * with the bank until it is disposed; it only leaves the view.
+   */
+  rebuildGun(id: WeaponId): void {
+    const old = this.guns.get(id);
+    if (old) this.mount.remove(old.pivot);
+    this.addGun(id);
+    if (this.current === id) this.show(id);
   }
 
   private addGun(id: WeaponId): void {

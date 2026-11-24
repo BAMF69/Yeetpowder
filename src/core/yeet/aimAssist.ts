@@ -83,3 +83,31 @@ export function aimAssist(a: AssistIn, targets: Vec3[], visible: (i: number) => 
   }
   return { dYaw, dPitch, target: best };
 }
+
+/**
+ * The target a shake move homes in on or locks onto (shake.ts): the one nearest the crosshair by angle, within
+ * `cone` rad and `range` m, and in sight; -1 if none.
+ */
+export function pickTarget(eye: Vec3, yaw: number, pitch: number, targets: Vec3[], visible: (i: number) => boolean, cone: number, range: number): number {
+  let best = -1;
+  let bestErr = cone;
+  targets.forEach((p, i) => {
+    const dist = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z);
+    if (dist > range || dist < 0.3) return;
+    const want = anglesTo(eye, p);
+    const err = Math.hypot(wrap(want.yaw - yaw) * Math.cos(pitch), want.pitch - pitch);
+    if (err >= bestErr || !visible(i)) return;
+    best = i;
+    bestErr = err;
+  });
+  return best;
+}
+
+/** A turn of at most `maxStep` rad from (yaw, pitch) toward `want` (the shortest way round in yaw). */
+export function turnToward(yaw: number, pitch: number, want: { yaw: number; pitch: number }, maxStep: number): { dYaw: number; dPitch: number } {
+  const dy = wrap(want.yaw - yaw);
+  const dp = want.pitch - pitch;
+  const err = Math.hypot(dy, dp);
+  if (err <= maxStep || err < 1e-9) return { dYaw: dy, dPitch: dp };
+  return { dYaw: (dy / err) * maxStep, dPitch: (dp / err) * maxStep };
+}
