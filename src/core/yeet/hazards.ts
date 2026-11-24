@@ -15,7 +15,8 @@ import type { TUNING as TuningValue } from "./tuning";
 import { vec, type Vec3 } from "./vec";
 
 type Tuning = typeof TuningValue;
-export type BlastSpec = Tuning["explosive"]["truck"];
+/** What a blast does at its centre (an explosive vehicle's, a rocket's, a grenade's). */
+export type BlastSpec = Pick<Tuning["explosive"]["truck"], "radius" | "force" | "lift" | "damage">;
 
 export interface ExplosiveState {
   /** Index of its box in arena.boxes. */

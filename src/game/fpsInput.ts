@@ -39,7 +39,9 @@ export interface FpsFrame {
   hintToggle: boolean;
 }
 
-const WEAPON_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 };
+const WEAPON_KEYS: Record<string, number> = {
+  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
+};
 
 export class FpsInput {
   private dx = 0;

@@ -20,7 +20,9 @@
 //           2026-11-22 with Claude (Opus 5.5, claude-opus-5-5): art pass 2 (navy sleeves, gloves, gun models)
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
-import type { WeaponId } from "../../core/yeet/tuning";
+import { TUNING, type WeaponId } from "../../core/yeet/tuning";
+
+const TUNING_ORDER = TUNING.weaponOrder;
 import { buildGlove } from "./glove";
 import { buildWeapon } from "./gunModels";
 import { MaterialBank } from "./materials";
@@ -48,6 +50,13 @@ const HOLD: Partial<Record<WeaponId, Hold>> = {
     aim: { hand: new THREE.Vector3(0, -0.43, -0.3), tilt: new THREE.Euler(0.08, 0, 0) },
   },
   reaper: { hand: new THREE.Vector3(0.02, -0.05, 0.06), tilt: new THREE.Euler(0.12, -0.22, 0) },
+  // Rocket Axe (playtests 2026-11-24): from the hip the knobbed butt points down at your feet, the blade forward and
+  // the block up by your hand; aimed it is up above your right shoulder, butt forward, blade on top
+  axe: {
+    hand: new THREE.Vector3(-0.04, 0.1, -0.14), // held up high, a little in and out from the eye (playtest: "should be up higher")
+    tilt: new THREE.Euler(-Math.PI / 2 + 0.12, -0.18, 0.12),
+    aim: { hand: new THREE.Vector3(0.24, -0.04, -0.14), tilt: new THREE.Euler(-0.04, 0.03, 0) },
+  },
 };
 /** Glove size: chunky, but small enough that the Pea Pistol still shows in the fist. */
 const GLOVE_SCALE = 0.85;
@@ -77,7 +86,7 @@ const AIM_BELOW = 0.1;
 /** Above this much aim the Spin Doctor's scope covers the view and the gun hides. */
 const SCOPE_AT = 0.85;
 /** Gunblade slash swing: seconds of the cut, how far the arm sweeps (rad), and how far the blade tilts flat. */
-const SWING = { time: 0.2, back: 0.14, reaper: 1.5, sakura: 1.1, tilt: 1.0 };
+const SWING = { time: 0.2, back: 0.14, reaper: 1.5, sakura: 1.1, axe: 1.7, tilt: 1.0 };
 /** Reaper's Kick hooking: the gunblade rolls this far counter-clockwise (as you look down it), blade to the left. */
 const HOOK_ROLL = Math.PI / 2;
 
@@ -193,7 +202,7 @@ export class Viewmodel {
     this.hips.visible = false;
 
     // the guns: low-poly models (gunModels.ts) held by the hand at their grip
-    for (const id of ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura"] as WeaponId[]) this.addGun(id);
+    for (const id of TUNING_ORDER) this.addGun(id);
 
     // muzzle flash: yeetpowder's pink star at the barrel's end, over everything (muzzleFlash.ts)
     const flash = buildMuzzleFlash(this.bank, { overlay: true });
@@ -225,7 +234,7 @@ export class Viewmodel {
       this.blowAmp = aimed ? BLOW.aimedAngle : BLOW.angle;
       this.flipAmp = aimed ? FLIP.aimed : 1;
     }
-    if (weapon === "shotgun") {
+    if (weapon === "shotgun" || weapon === "rocket" || weapon === "axe") {
       this.flingT = 0;
       this.flingAmp = aimed ? FLING.aimed : 1;
     }
@@ -239,7 +248,7 @@ export class Viewmodel {
   /** A gunblade slash: the arm sweeps across (Sakura cuts alternate direction through a combo). */
   slashed(weapon: WeaponId, combo: number): void {
     this.swingT = 0;
-    this.swingAmp = weapon === "reaper" ? SWING.reaper : SWING.sakura;
+    this.swingAmp = weapon === "reaper" ? SWING.reaper : weapon === "axe" ? SWING.axe : SWING.sakura;
     this.swingDir = weapon === "sakura" && combo % 2 === 0 ? -1 : 1;
   }
 

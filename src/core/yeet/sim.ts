@@ -33,7 +33,7 @@ import type { Level } from "./levels";
 import { GUNBLADES, type Tuning, type WeaponId, type WeaponTuning } from "./tuning";
 import { addScaled, aimDir, copy, len, lenXZ, normalize, spreadDir, vec, type Vec3 } from "./vec";
 import type { ExplosiveKind } from "./arena";
-import { blast, centerOf, makeExplosives, tickWrecks, wreck, type ExplosiveState } from "./hazards";
+import { blast, centerOf, makeExplosives, tickWrecks, wreck, type BlastSpec, type ExplosiveState } from "./hazards";
 
 export interface YeetInput {
   /** -1..1: strafe right is +x, forward is +z (WASD / stick). */
@@ -115,6 +115,9 @@ export type YeetEvent =
   | { type: "pvpDown"; by: number; target: number }
   | { type: "heroLanding" }
   | { type: "explode"; index: number; kind: ExplosiveKind; at: Vec3 }
+  | { type: "blast"; kind: "rocket" | "grenade"; at: Vec3; radius: number }
+  | { type: "bounce"; at: Vec3 }
+  | { type: "grenadeSlash" }
   | { type: "explosiveBack"; index: number }
   | { type: "eaten"; who: "player" | number; by: number; at: Vec3 };
 
@@ -161,6 +164,8 @@ export interface PlayerState {
   /** Gunblades: sim time of the last gun shot (Reap window), slash cooldown, the Sakura's swing recovery (a revolver
    * shot during it cancels it and lunges), the combo count and when the last slash landed. */
   lastShotAt: number;
+  /** s until the Rocket Axe's grenade slash can be used again. */
+  grenadeCd: number;
   /** The player who last hurt this one (-1 = none) and when (s): a knockout by water or blast credits them. */
   lastHitBy: number;
   lastHitAt: number;
@@ -222,6 +227,17 @@ export interface SimState {
   pickups: PickupState[];
   kos: number[];
   explosives: ExplosiveState[];
+  projectiles: Projectile[];
+}
+
+/** A rocket or grenade in flight (TUNING.projectile). */
+export interface Projectile {
+  kind: "rocket" | "grenade";
+  pos: Vec3;
+  vel: Vec3;
+  /** Player index who fired it (credited for its knockouts; its own blast hurts them less). */
+  owner: number;
+  age: number;
 }
 
 export interface PickupState {
@@ -248,6 +264,8 @@ export class YeetSim {
   readonly pickups: PickupState[];
   /** The level's trucks, tanks and drums (hazards.ts): their health and wreck timers. */
   readonly explosives: ExplosiveState[];
+  /** Rockets and grenades in flight. */
+  readonly projectiles: Projectile[] = [];
   /** Simulated seconds since start. */
   time = 0;
   private seed: number;
@@ -279,7 +297,7 @@ export class YeetSim {
   exportState(): SimState {
     return structuredClone({
       time: this.time, seed: this.seed, players: this.players, dummies: this.dummies, balls: this.balls,
-      pickups: this.pickups, kos: this.kos, explosives: this.explosives,
+      pickups: this.pickups, kos: this.kos, explosives: this.explosives, projectiles: this.projectiles,
     });
   }
 
@@ -294,6 +312,7 @@ export class YeetSim {
     this.pickups.splice(0, this.pickups.length, ...c.pickups);
     this.kos.splice(0, this.kos.length, ...c.kos);
     this.explosives.splice(0, this.explosives.length, ...(c.explosives ?? []));
+    this.projectiles.splice(0, this.projectiles.length, ...(c.projectiles ?? []));
     // the boxes follow: a wreck is low, a whole one full height
     for (const ex of this.explosives) {
       const b = this.arena.boxes[ex.box];
@@ -317,7 +336,7 @@ export class YeetSim {
       overheated: false, yeeted: false, hp: t.player.hp, dead: 0, tumbling: 0, tumbleAge: 0, tumbleRoll: 0,
       stamina: t.sprint.stamina, sprinting: false, winded: false, sprintRest: 0,
       mag: this.fullMags(), reloading: 0,
-      lastShotAt: -99, lastHitBy: -1, lastHitAt: -99, slashCd: 0, slashRecover: 0, combo: 0, lastSlashAt: -99,
+      lastShotAt: -99, lastHitBy: -1, lastHitAt: -99, grenadeCd: 0, slashCd: 0, slashRecover: 0, combo: 0, lastSlashAt: -99,
       holdT: 0, holdUsed: false, hook: -1, hookT: 0, stance: false, slashHit: -1,
       stanceDashed: false, ultraLeft: 0, ultraT: 0, ultraRound: 0,
       backflipAir: false, heroLand: 0,
@@ -386,6 +405,7 @@ export class YeetSim {
     this.cur = this.localIndex;
     this.dummies.forEach((d, i) => this.stepDummy(d, i, dt, ev));
     this.stepBalls(dt, ev);
+    this.stepProjectiles(dt, ev);
     for (const ex of tickWrecks(this.explosives, this.arena, dt, (box, top) => this.someoneIn(box, top), this.t)) {
       ev.push({ type: "explosiveBack", index: this.explosives.indexOf(ex) });
     }
@@ -411,6 +431,7 @@ export class YeetSim {
 
   /** A shot or a blast wears an explosive down; at 0 it blows up. */
   private damageExplosive(i: number, damage: number, ev: YeetEvent[]): void {
+    this.blastEvents = ev;
     const ex = this.explosives[i];
     if (!ex || ex.wreckT > 0 || ex.hp <= 0) return;
     ex.hp -= damage;
@@ -420,27 +441,38 @@ export class YeetSim {
   /** The blast: everyone in reach is pushed away and up and hurt; other explosives in reach take the hit too. */
   private explode(i: number, ev: YeetEvent[]): void {
     const ex = this.explosives[i];
-    const spec = this.t.explosive[ex.kind];
     const at = centerOf(ex, this.arena);
     wreck(ex, this.arena, this.t);
     ev.push({ type: "explode", index: i, kind: ex.kind, at });
+    this.blastAt(at, this.t.explosive[ex.kind], this.cur, null, i);
+  }
+
+  /**
+   * A blast at `at`: everyone in reach is pushed away and up and hurt, explosives in reach take the hit (a chain).
+   * `by` is the player credited (whoever shot the drum, fired the rocket); `self` scales what the blast does to
+   * them (a rocket jump: less damage, more push; null = full, as for a vehicle they shot). `skip`: an explosive
+   * that is the blast itself.
+   */
+  private blastAt(at: Vec3, spec: BlastSpec, by: number, self: { damage: number; force: number } | null, skip = -1): void {
+    const ev = this.blastEvents;
     const mid = this.t.player.height * 0.55;
     this.players.forEach((v, j) => {
       if (v.dead > 0) return;
       const r = blast(at, vec(v.pos.x, v.pos.y + mid, v.pos.z), spec);
       if (r.damage <= 0) return;
-      addScaled(v.vel, r.push, 1);
+      const mine = j === by;
+      addScaled(v.vel, r.push, mine && self ? self.force : 1);
       v.onGround = false;
-      v.hp -= r.damage;
-      if (j !== this.cur) {
-        v.lastHitBy = this.cur; // whoever set it off gets the knockout (and a later fall in the water)
+      v.hp -= r.damage * (mine && self ? self.damage : 1);
+      if (!mine) {
+        v.lastHitBy = by; // whoever set it off gets the knockout (and a later fall in the water)
         v.lastHitAt = this.time;
       }
       if (v.hp <= 0) {
         this.knockOut(v);
-        if (j !== this.cur) {
-          this.kos[this.cur]++;
-          ev.push({ type: "pvpDown", by: this.cur, target: j });
+        if (!mine && by >= 0) {
+          this.kos[by]++;
+          ev.push({ type: "pvpDown", by, target: j });
         }
       }
     });
@@ -450,10 +482,93 @@ export class YeetSim {
       if (r.damage > 0) this.hitDummy(k, normalize(r.push), r.damage, len(r.push), copy(d.pos), ev);
     });
     this.explosives.forEach((other, k) => {
-      if (k === i || other.wreckT > 0) return;
+      if (k === skip || other.wreckT > 0) return;
       const r = blast(at, centerOf(other, this.arena), spec);
       if (r.damage > 0) this.damageExplosive(k, r.damage, ev); // a chain reaction
     });
+  }
+
+  /** Where blastAt writes its events (the step's event list). */
+  private blastEvents: YeetEvent[] = [];
+
+  // ---- projectiles: rockets and grenades ----------------------------------------------
+  /** Fires a projectile from `from` along `dir` (unit), owned by the current player. */
+  private launch(kind: Projectile["kind"], from: Vec3, dir: Vec3, speed: number, up = 0): void {
+    this.projectiles.push({ kind, pos: copy(from), vel: vec(dir.x * speed, dir.y * speed + up, dir.z * speed), owner: this.cur, age: 0 });
+  }
+
+  /** Moves rockets (straight) and grenades (falling, bouncing); a hit, a body or the fuse sets them off. */
+  private stepProjectiles(dt: number, ev: YeetEvent[]): void {
+    this.blastEvents = ev;
+    const t = this.t;
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      p.age += dt;
+      const spec = t.projectile[p.kind];
+      let boom: Vec3 | null = null;
+      if (p.kind === "rocket") {
+        const speed = len(p.vel);
+        const dir = normalize(copy(p.vel));
+        const reach = speed * dt + spec.radius;
+        // rayArena answers its max when nothing is in the way: ask a little past the reach
+        const wall = rayArena(this.arena, p.pos, dir, reach + 1);
+        const body = this.bodyAlong(p.pos, dir, reach, p.owner, p.age);
+        const hit = Math.min(wall, body);
+        if (hit <= reach) boom = addScaled(copy(p.pos), dir, Math.max(0, hit - 0.05));
+        else addScaled(p.pos, p.vel, dt);
+        if (!boom && p.age >= t.projectile.rocket.life) boom = copy(p.pos);
+      } else {
+        const g = t.projectile.grenade;
+        p.vel.y -= t.gravity * g.gravity * dt;
+        const before = copy(p.vel);
+        const res = moveBody(this.arena, p.pos, p.vel, dt, g.radius, g.radius * 2);
+        // bounce: what the collision stopped comes back, weaker
+        if (res.onGround && before.y < -1) {
+          p.vel.y = -before.y * g.bounce;
+          p.vel.x *= 0.7;
+          p.vel.z *= 0.7;
+          ev.push({ type: "bounce", at: copy(p.pos) });
+        } else if (res.onGround) {
+          p.vel.x *= Math.exp(-4 * dt); // rolling to a stop
+          p.vel.z *= Math.exp(-4 * dt);
+        }
+        if (res.wallNormal && res.wallNormal.y === 0) {
+          if (res.wallNormal.x !== 0) p.vel.x = -before.x * g.bounce;
+          if (res.wallNormal.z !== 0) p.vel.z = -before.z * g.bounce;
+        }
+        const mid = vec(p.pos.x, p.pos.y + g.radius, p.pos.z);
+        if (p.age >= g.fuse || this.bodyNear(mid, g.radius, p.owner, p.age)) boom = mid;
+      }
+      if (!boom) continue;
+      this.projectiles.splice(i, 1);
+      ev.push({ type: "blast", kind: p.kind, at: boom, radius: spec.blast.radius, p: p.owner } as YeetEvent);
+      this.blastAt(boom, spec.blast, p.owner, spec.self);
+    }
+  }
+
+  /** Distance along a ray to the first standing body (players, dummies), or Infinity. The owner is skipped early on. */
+  private bodyAlong(from: Vec3, dir: Vec3, max: number, owner: number, age: number): number {
+    const t = this.t;
+    const hw = t.player.halfWidth;
+    let best = Infinity;
+    const test = (pos: Vec3) => {
+      const d = rayBox(from, dir, vec(pos.x - hw, pos.y, pos.z - hw), vec(pos.x + hw, pos.y + t.player.height, pos.z + hw));
+      if (d < best && d <= max) best = d;
+    };
+    this.players.forEach((p, j) => {
+      if (p.dead === 0 && !(j === owner && age < 0.25)) test(p.pos);
+    });
+    this.dummies.forEach((d) => d.down === 0 && test(d.pos));
+    return best;
+  }
+
+  /** True if the point is within `r` m of a standing body's box (not the owner early on): a grenade touching someone. */
+  private bodyNear(at: Vec3, r: number, owner: number, age: number): boolean {
+    const hw = this.t.player.halfWidth + r;
+    const h = this.t.player.height;
+    const near = (pos: Vec3) => Math.abs(at.x - pos.x) <= hw && Math.abs(at.z - pos.z) <= hw && at.y >= pos.y - r && at.y <= pos.y + h + r;
+    return this.players.some((p, j) => p.dead === 0 && !(j === owner && age < 0.4) && near(p.pos)) ||
+      this.dummies.some((d) => d.down === 0 && near(d.pos));
   }
 
   /** In the water: eaten (a knockout, credited to whoever hit you lately), and held under until you respawn. */
@@ -737,6 +852,7 @@ export class YeetSim {
     const pl = this.player;
     const w = this.weaponTuning;
     pl.cooldown = Math.max(0, pl.cooldown - dt);
+    if (pl.weapon === "axe" && input.slashHeld && input.firePressed) input = { ...input, firePressed: false }; // the grenade slash (melee)
     // reloading: count down, then a full magazine (reserve ammo is infinite for now)
     if (pl.reloading > 0) {
       pl.reloading = Math.max(0, pl.reloading - dt);
@@ -813,6 +929,12 @@ export class YeetSim {
     const dash = pl.weapon === "sakura" && pl.stance;
     const lunge = pl.weapon === "sakura" && pl.slashRecover > 0 && !dash;
     const kick = addScaled(vec(), aim, lunge || dash ? 0 : -w.recoil * (aimed ? b.recoil : 1) * (grounded ? 1 : w.airRecoil));
+    // Rocket Axe from the hip: the nozzle points at your feet, so the kick is straight up (aimed: as any gun, back)
+    if (pl.weapon === "axe" && !aimed) {
+      kick.x = 0;
+      kick.z = 0;
+      kick.y = t.axe.hipRecoil * (grounded ? 1 : w.airRecoil);
+    }
     const bigFlip = pl.weapon === "reaper" && this.bigBackflip(aim);
     if (bigFlip && kick.y > 0) kick.y *= t.reaper.backflipLift;
     // mid-air, a small gun can slow your fall but not lift you past airLiftCap (no pistol jetpack)
@@ -837,6 +959,15 @@ export class YeetSim {
       // touch Gatling: the bullet bends onto an enemy near the crosshair; the aim (your flight) is left alone
       if (input.touch && pl.weapon === "copter") dir = this.bendOnto(from, dir, t.touch.copterBend);
       tracers.push(this.castPellet(from, dir, w, ev));
+    }
+    if (w.projectile === "rocket") {
+      // the launcher's rocket goes where you look; the axe's from the hip goes into your feet
+      const down = pl.weapon === "axe" && !aimed;
+      if (down) this.launch("rocket", vec(pl.pos.x, pl.pos.y + 0.7, pl.pos.z), vec(0, -1, 0), t.projectile.rocket.speed);
+      else this.launch("rocket", addScaled(copy(from), aim, 0.6), aim, t.projectile.rocket.speed);
+    } else if (w.projectile === "grenade") {
+      const g = t.projectile.grenade;
+      this.launch("grenade", addScaled(copy(from), aim, 0.5), aim, g.speed, g.up);
     }
     ev.push({ type: "fire", weapon: pl.weapon, tracers, aimed });
     pl.lastShotAt = this.time;
@@ -910,12 +1041,24 @@ export class YeetSim {
     const t = this.t;
     const pl = this.player;
     pl.slashCd = Math.max(0, pl.slashCd - dt);
+    pl.grenadeCd = Math.max(0, (pl.grenadeCd ?? 0) - dt);
     pl.slashRecover = Math.max(0, pl.slashRecover - dt);
     this.ultraFlurry(dt, ev);
     this.holdMoves(input, dt, ev);
     if (pl.stance || pl.hook >= 0) return; // a hold move owns F until it is released
+    if (pl.weapon === "axe" && input.slashHeld && input.firePressed && pl.grenadeCd <= 0 && pl.reloading === 0) {
+      this.grenadeSlash(ev);
+      return;
+    }
     if (!input.slash || !GUNBLADES.includes(pl.weapon) || pl.slashCd > 0) return;
     if (pl.weapon === "sakura" && pl.reloading > 0) return; // the spin-reload leaves you open
+    if (pl.weapon === "axe") {
+      const a = t.axe;
+      const hits = this.meleeHits(a.slash.range, a.slash.arc, a.slash.damage, a.slash.knockback, a.slash.lift, ev);
+      pl.slashCd = a.slash.cooldown;
+      ev.push({ type: "slash", weapon: "axe", hits, reap: false, combo: 1 });
+      return;
+    }
     if (pl.weapon === "reaper") {
       const s = t.reaper.slash;
       const reap = this.time - pl.lastShotAt <= t.reaper.reapWindow;
@@ -932,6 +1075,28 @@ export class YeetSim {
     pl.slashRecover = s.recovery;
     pl.slashCd = pl.combo === t.sakura.comboMax ? s.recovery * 1.6 : s.recovery; // the last cut of a full combo lingers
     ev.push({ type: "slash", weapon: "sakura", hits, reap: false, combo: pl.combo });
+  }
+
+  /**
+   * Rocket Axe, F held + Fire: the grenade slash. A cleave, a leap forward in a front flip, and a grenade fired out
+   * of the back of the blade behind you (TUNING.axe).
+   */
+  private grenadeSlash(ev: YeetEvent[]): void {
+    const t = this.t;
+    const a = t.axe;
+    const pl = this.player;
+    const hits = this.meleeHits(a.slash.range, a.slash.arc, a.slash.damage, a.slash.knockback, a.slash.lift, ev);
+    const f = aimDir(pl.yaw, 0);
+    pl.vel.x = f.x * a.leap;
+    pl.vel.z = f.z * a.leap;
+    pl.vel.y = Math.max(pl.vel.y, 0) + a.leapUp;
+    pl.onGround = false;
+    this.launch("grenade", addScaled(this.eye(), f, -0.7), vec(-f.x, 0.35, -f.z), a.grenadeSpeed);
+    pl.slashCd = a.slash.cooldown;
+    pl.grenadeCd = a.grenadeCooldown;
+    ev.push({ type: "slash", weapon: "axe", hits, reap: false, combo: 1 });
+    ev.push({ type: "flip", kind: "frontflip", side: 0, big: false });
+    ev.push({ type: "grenadeSlash" });
   }
 
   /** Hold F: past holdTime the scythe hooks an enemy / the katana goes into its dash stance; release ends it. */

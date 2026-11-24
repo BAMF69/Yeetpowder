@@ -8,7 +8,10 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { MaterialBank } from "../src/game/yeet/materials";
 import { bodyTriangles, FOREARM, makeOperative, solveArm, UPPER_ARM, type Arm } from "../src/game/yeet/operative";
-import { targetPose, type PoseInput } from "../src/game/yeet/operativePose";
+import { inputFromPlayer, targetPose, type PoseInput } from "../src/game/yeet/operativePose";
+import { sandboxLevel } from "../src/core/yeet/levels";
+import { YeetSim } from "../src/core/yeet/sim";
+import { TUNING } from "../src/core/yeet/tuning";
 
 /** Materials without painted textures (Node has no canvas). */
 class PlainBank extends MaterialBank {
@@ -32,6 +35,20 @@ describe("operative poses", () => {
     expect(targetPose({ ...base, weapon: "copter" }, 0, 0).leftArm).toBe("fore");
     expect(targetPose({ ...base, weapon: "pistol" }, 0, 0).leftArm).not.toBe("fore");
     expect(targetPose({ ...base, weapon: "sakura" }, 0, 0).leftArm).not.toBe("fore");
+  });
+
+  it("a Rocket Launcher or Rocket Axe shot swings the legs up like a Boomstick launch; a Pea Pistol shot does not", () => {
+    const fling = (weapon: "rocket" | "axe" | "shotgun" | "pistol") => {
+      const sim = new YeetSim(structuredClone(TUNING), sandboxLevel());
+      const pl = sim.player;
+      pl.weapon = weapon;
+      pl.lastShotAt = sim.time - 0.1; // just fired
+      return inputFromPlayer(pl, sim.time, 0, 0).fling;
+    };
+    expect(fling("rocket")).toBeGreaterThan(0.9);
+    expect(fling("axe")).toBeGreaterThan(0.9);
+    expect(fling("shotgun")).toBeGreaterThan(0.9);
+    expect(fling("pistol")).toBe(0);
   });
 
   it("Reaper's Kick hooking turns the gunblade a quarter turn counter-clockwise (only the scythe)", () => {

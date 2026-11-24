@@ -80,6 +80,8 @@ export function islandLevel(): Level {
       { weapon: "reaper", pos: v(-24, 0.5, 1.5) },
       { weapon: "sakura", pos: v(24, 0.5, -1.5) },
       { weapon: "copter", pos: v(1.5, 0.5, -24) }, // the Gatling over the water: risky
+      { weapon: "grenade", pos: v(-1.5, 0.5, 24) }, // grenades: bounce them onto the platforms
+      { weapon: "axe", pos: v(-7, 0, -7) },
     ],
     dummiesFight: true, dummyRespawn: 5, seed: 11,
     outdoor: true, water: { y: ISLAND_WATER }, decor,
@@ -142,6 +144,8 @@ export function industrialLevel(): Level {
       { weapon: "copter", pos: v(30, 0, 18) },
       { weapon: "reaper", pos: v(-28, 0, 16) },
       { weapon: "sakura", pos: v(16, 0, 17) },
+      { weapon: "rocket", pos: v(-16, 0, -12) }, // rockets in the hall: blow up the yard from the doorway
+      { weapon: "grenade", pos: v(9, 0, -3) },
     ],
     dummiesFight: true, dummyRespawn: 6, seed: 13,
     outdoor: true,
@@ -194,6 +198,8 @@ export function junkyardLevel(): Level {
       { weapon: "reaper", pos: v(-6, 6, -13.6) }, // on the tallest north stack
       { weapon: "sniper", pos: v(15, 6, -0.6) },
       { weapon: "sakura", pos: v(-22, 0, -14) },
+      { weapon: "axe", pos: v(-10, 4.5, 14.3) }, // on a stack: the Rocket Axe flies you between them
+      { weapon: "rocket", pos: v(13, 0, 21) },
     ],
     dummiesFight: true, dummyRespawn: 6, seed: 17,
     outdoor: true,
