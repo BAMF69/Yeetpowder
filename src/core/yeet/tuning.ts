@@ -213,19 +213,22 @@ export const TUNING = {
     // ---- explosives (Elaina, 2026-11-24): projectiles that blow up (TUNING.projectile); your own blast launches you ----
     rocket: {
       name: "Rocket Launcher", auto: false, cooldown: 0.85, recoil: 28, airRecoil: 2, airTwist: 2, airLiftCap: 999,
-      mag: 3, reload: 1.7, twist: 0.5, aimedTwist: 0.15, hop: 0, damage: 0, pellets: 0, // the blast does the damage
+      // one rocket, reload after each shot (playtest 2026-11-24); the blast does the damage
+      mag: 1, reload: 1.6, twist: 0.5, aimedTwist: 0.15, hop: 0, damage: 0, pellets: 0,
       spread: 0, knockback: 0, range: 0, trauma: 0.4, projectile: "rocket",
     },
     grenade: {
-      name: "Grenades", auto: false, cooldown: 0.5, recoil: 3, airRecoil: 2, airTwist: 2, airLiftCap: 999,
-      mag: 3, reload: 1.5, twist: 0.3, aimedTwist: 0.1, hop: 0, damage: 0, pellets: 0,
+      // a throw, not a shot: no kick, no twist, no tumble (playtest 2026-11-24); one grenade, then the next comes up
+      name: "Grenades", auto: false, cooldown: 0.5, recoil: 0, airRecoil: 2, airTwist: 2, airLiftCap: 999,
+      mag: 1, reload: 0.9, twist: 0, aimedTwist: 0, hop: 0, damage: 0, pellets: 0,
       spread: 0, knockback: 0, range: 0, trauma: 0.15, projectile: "grenade",
     },
     // the third gunblade (TUNING.axe): from the hip the nozzle points at your feet (the rocket launches you up);
     // aimed it is held like a bazooka (the rocket goes forward, the kick throws you back like the Boomstick)
     axe: {
       name: "Rocket Axe", auto: false, cooldown: 0.8, recoil: 28, airRecoil: 2, airTwist: 2, airLiftCap: 999,
-      mag: 3, reload: 1.8, twist: 0, aimedTwist: 0, hop: 0, damage: 0, pellets: 0,
+      // the rocket: reload after each shot; its grenade launcher is TUNING.axe.grenadeMag
+      mag: 1, reload: 1.6, twist: 0, aimedTwist: 0, hop: 0, damage: 0, pellets: 0,
       spread: 0, knockback: 0, range: 0, trauma: 0.45, projectile: "rocket",
     },
   } satisfies Record<WeaponId, WeaponTuning>,
@@ -258,7 +261,10 @@ export const TUNING = {
     leap: 14,
     leapUp: 7,
     grenadeSpeed: 10,
-    grenadeCooldown: 0.9,
+    /** The axe's grenade launcher: its own magazine, reloaded on its own when empty (s). */
+    grenadeMag: 4,
+    grenadeReload: 1.6,
+    grenadeCooldown: 0.35,
     camera: 0.9,
   },
 

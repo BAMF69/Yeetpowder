@@ -166,6 +166,9 @@ export interface PlayerState {
   lastShotAt: number;
   /** s until the Rocket Axe's grenade slash can be used again. */
   grenadeCd: number;
+  /** The Rocket Axe's grenade launcher: grenades left, and s until its reload is done (0 = not reloading). */
+  axeGrenades: number;
+  axeGrenadeReload: number;
   /** The player who last hurt this one (-1 = none) and when (s): a knockout by water or blast credits them. */
   lastHitBy: number;
   lastHitAt: number;
@@ -336,7 +339,7 @@ export class YeetSim {
       overheated: false, yeeted: false, hp: t.player.hp, dead: 0, tumbling: 0, tumbleAge: 0, tumbleRoll: 0,
       stamina: t.sprint.stamina, sprinting: false, winded: false, sprintRest: 0,
       mag: this.fullMags(), reloading: 0,
-      lastShotAt: -99, lastHitBy: -1, lastHitAt: -99, grenadeCd: 0, slashCd: 0, slashRecover: 0, combo: 0, lastSlashAt: -99,
+      lastShotAt: -99, lastHitBy: -1, lastHitAt: -99, grenadeCd: 0, axeGrenades: t.axe.grenadeMag, axeGrenadeReload: 0, slashCd: 0, slashRecover: 0, combo: 0, lastSlashAt: -99,
       holdT: 0, holdUsed: false, hook: -1, hookT: 0, stance: false, slashHit: -1,
       stanceDashed: false, ultraLeft: 0, ultraT: 0, ultraRound: 0,
       backflipAir: false, heroLand: 0,
@@ -1003,7 +1006,7 @@ export class YeetSim {
     // run-and-gun: firing while moving may send you tumbling (not the copter: it kicks you out of zoom instead)
     const moving = speedBefore >= t.tumble.minSpeed && Math.abs(input.moveX) + Math.abs(input.moveZ) > 0.1;
     // (the copter and the gunblades never tumble you: they are made to be used on the move)
-    if (moving && pl.weapon !== "copter" && !GUNBLADES.includes(pl.weapon) && pl.tumbling === 0) {
+    if (moving && pl.weapon !== "copter" && pl.weapon !== "grenade" && !GUNBLADES.includes(pl.weapon) && pl.tumbling === 0) {
       const chance = this.tumbleChance(w, speedBefore, aimed, pl.sprinting);
       if (this.rand() < chance) this.startTumble(ev);
     }
@@ -1042,11 +1045,16 @@ export class YeetSim {
     const pl = this.player;
     pl.slashCd = Math.max(0, pl.slashCd - dt);
     pl.grenadeCd = Math.max(0, (pl.grenadeCd ?? 0) - dt);
+    // the axe's grenade launcher reloads on its own once empty, whichever weapon is in hand
+    if (pl.axeGrenadeReload > 0) {
+      pl.axeGrenadeReload = Math.max(0, pl.axeGrenadeReload - dt);
+      if (pl.axeGrenadeReload === 0) pl.axeGrenades = t.axe.grenadeMag;
+    }
     pl.slashRecover = Math.max(0, pl.slashRecover - dt);
     this.ultraFlurry(dt, ev);
     this.holdMoves(input, dt, ev);
     if (pl.stance || pl.hook >= 0) return; // a hold move owns F until it is released
-    if (pl.weapon === "axe" && input.slashHeld && input.firePressed && pl.grenadeCd <= 0 && pl.reloading === 0) {
+    if (pl.weapon === "axe" && input.slashHeld && input.firePressed && pl.grenadeCd <= 0 && pl.axeGrenades > 0) {
       this.grenadeSlash(ev);
       return;
     }
@@ -1094,6 +1102,8 @@ export class YeetSim {
     this.launch("grenade", addScaled(this.eye(), f, -0.7), vec(-f.x, 0.35, -f.z), a.grenadeSpeed);
     pl.slashCd = a.slash.cooldown;
     pl.grenadeCd = a.grenadeCooldown;
+    pl.axeGrenades--;
+    if (pl.axeGrenades === 0) pl.axeGrenadeReload = a.grenadeReload;
     ev.push({ type: "slash", weapon: "axe", hits, reap: false, combo: 1 });
     ev.push({ type: "flip", kind: "frontflip", side: 0, big: false });
     ev.push({ type: "grenadeSlash" });
@@ -1464,6 +1474,8 @@ export class YeetSim {
     pl.winded = false;
     pl.reloading = 0;
     pl.mag = this.fullMags();
+    pl.axeGrenades = this.t.axe.grenadeMag; // the axe's grenade launcher refills too
+    pl.axeGrenadeReload = 0;
     pl.slashCd = pl.slashRecover = 0;
     pl.combo = 0;
     pl.hook = -1;
