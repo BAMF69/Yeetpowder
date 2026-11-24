@@ -16,6 +16,7 @@
 //           (reduce motion keeps first person). Sound: src/game/yeet/sound.ts; audio starts on the first click.
 //           DEBUG: ?debug logs sim events on the "yeet" channel; ?weapon=0..3 starts with that gun in hand;
 //           ?tumble trips a tumble 1 s in (logs YEET_MARK_tumble 0.4 s later, ?hold=tumble freezes there).
+//           ?yeetreap (in a bot duel) hooks the bot 1 s in and YEETREAPs it (YEET_MARK_yeetreap; a crash fails smoke).
 //           ?hero fires Reaper's Kick straight down 1 s in (YEET_MARK_hero mid hero landing, ?hold=hero freezes).
 //           ?showcase holds the camera in front of your third-person operative (art review);
 //           ?flash holds the muzzle flash on (stills). &pose=kneel|fling|
@@ -30,12 +31,15 @@ import { Shake } from "../core/shake";
 import { rayArena } from "../core/yeet/arena";
 import { AUTOPLAY_SECONDS, autoplayStep } from "../core/yeet/autoplay";
 import { levelById } from "../core/yeet/levels";
-import { NO_INPUT, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
+import { NO_INPUT, PLAYER_CODE, YeetSim, type PlayerState, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
-import { len, normalize, vec } from "../core/yeet/vec";
+import { len, normalize, vec, type Vec3 } from "../core/yeet/vec";
+import { aimAssist } from "../core/yeet/aimAssist";
 import { shell } from "../shell/app";
 import { FpsInput, type FpsFrame } from "./fpsInput";
+import { TouchControls, type TouchFrame } from "./touchControls";
 import { DuelLink } from "./net/duelLink";
+import { BOT_SKILLS, BotBrain, type BotSkill } from "../core/yeet/bot";
 import { INTERP_MS } from "./net/remote";
 import type { World } from "./threeHost";
 import { makeDummy, makeStars, PIVOT, type DummyFigure, type Stars } from "./yeet/figures";
@@ -94,18 +98,40 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const LYING = new THREE.Quaternion().setFromAxisAngle(X_AXIS, -Math.PI / 2);
 /** A figure faces +Z; to face the sim's yaw it turns by yaw + PI. */
 const facing = (yaw: number, out = new THREE.Quaternion()) => out.setFromAxisAngle(Y_AXIS, yaw + Math.PI);
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+/** Seconds a third-person slash sweep takes (presentation only). */
+const SLASH_ANIM = 0.28;
+/** A remote player's or the bot's current flip and slash (seconds since each began). */
+interface OtherAnim {
+  flipT: number;
+  kind: keyof typeof FLIP_AXIS;
+  side: number;
+  slashT: number;
+}
 
 export class YeetWorld implements World {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   private readonly autoplay = shell.params.has("autoplay");
-  private readonly levelId = this.autoplay ? "sandbox" : shell.params.get("level") ?? shell.worldOption;
-  /** Online duel: the connection, prediction and lobby (null in single player). */
-  private readonly link = this.levelId === "duel" ? new DuelLink(shell.params) : null;
-  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, levelById(this.levelId));
+  /** Duel vs bot (menu "Duel vs bot", or ?level=duel&bot=easy|medium|hard): offline, the bot is player 2. */
+  private readonly botSkill = this.autoplay ? null : YeetWorld.botFrom(shell.params.get("bot"), shell.params.get("level") ?? shell.worldOption);
+  private readonly levelId = this.autoplay ? "sandbox" : this.botSkill ? "duel" : shell.params.get("level") ?? shell.worldOption;
+  /** Online duel: the connection, prediction and lobby (null in single player and against a bot). */
+  private readonly link = this.levelId === "duel" && !this.botSkill ? new DuelLink(shell.params) : null;
+  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, levelById(this.levelId), this.botSkill ? 2 : 1);
+  /** The bot's brain (src/core/yeet/bot.ts). Its seed only varies matches (?botseed=N replays one). */
+  private readonly brain = this.botSkill
+    ? new BotBrain(TUNING, 1, this.botSkill, Number(shell.params.get("botseed") ?? Math.floor(Math.random() * 1e6)))
+    : null;
+  /** ?debug against a bot: its aim and goal lines (the label is in the HUD). */
+  private readonly botLines = this.brain && shell.params.has("debug") ? YeetWorld.makeBotLines() : null;
   /** Duel: every player's figure (yours is hidden), and their tumble angles. */
   private readonly others: Operative[] = [];
   private readonly otherRoll: number[] = [];
+  /** Other players' (and the bot's) flips and slashes, from their events, acted out by their figures. */
+  private readonly otherAnim: OtherAnim[] = [];
+  /** The bot's right mouse this step (its figure raises the gun). */
+  private botAiming = false;
   /** Duel: look changes waiting for the next sim step (they travel with the input). */
   private lookYaw = 0;
   private lookPitch = 0;
@@ -121,6 +147,12 @@ export class YeetWorld implements World {
   private readonly sound = new YeetSound();
   private readonly hud: YeetHud;
   private readonly fps: FpsInput;
+  /** Phones and tablets (or ?touch): the on-screen stick and buttons, else null. */
+  private readonly touch: TouchControls | null;
+  /** This frame's touch input (move, jump, sprint go into frameInput). */
+  private tf: TouchFrame | null = null;
+  /** A weapon slot tapped on the HUD since the last frame, or -1. */
+  private slotTap = -1;
   private readonly shake = new Shake({ maxOffset: 10, maxAngle: 0.04 });
   private readonly canvas: HTMLElement;
   private acc = 0;
@@ -135,6 +167,9 @@ export class YeetWorld implements World {
   private readonly debugTumble = shell.params.has("tumble");
   /** ?hero: 1 s in, fire Reaper's Kick straight down (a backflip, then a hero landing; logs YEET_MARK_hero). */
   private readonly debugHero = shell.params.has("hero");
+  /** ?yeetreap (with ?bot=): 1 s in, hook the bot with Reaper's Kick and YEETREAP it (logs YEET_MARK_yeetreap). */
+  private readonly debugReap = shell.params.has("yeetreap");
+  private reapStart = -1;
   private heroFired = false;
   /** ?showcase: the camera stays in front of your operative; ?pose=...: force a pose (art review stills). */
   private readonly showcase = shell.params.has("showcase");
@@ -213,13 +248,14 @@ export class YeetWorld implements World {
       this.scene.add(fig.root);
       this.views.push({ fig, stars, quat: facing(0), name: `${name} Dummy`, lastWeapon: "pistol" });
     });
-    if (this.link) {
+    if (this.link || this.brain) {
       this.sim.players.forEach((_p, j) => {
         const fig = makeOperative(DUEL_SUITS[j % DUEL_SUITS.length]);
         fig.root.visible = false;
         this.scene.add(fig.root);
         this.others.push(fig);
         this.otherRoll.push(0);
+        this.otherAnim.push({ flipT: 99, kind: "backflip", side: 1, slashT: 99 });
       });
     }
     this.body = makeOperative(PLAYER_SUIT);
@@ -233,6 +269,13 @@ export class YeetWorld implements World {
     this.canvas = host.querySelector("canvas") ?? host;
     this.hud = new YeetHud(host, TUNING.weaponOrder.map((w) => TUNING.weapons[w].name));
     this.fps = new FpsInput(this.canvas);
+    this.touch = TouchControls.wanted(shell.params) && !this.autoplay
+      ? new TouchControls(host, () => this.sound.resume(), shell.params.has("debug"))
+      : null;
+    if (this.touch) {
+      this.hud.setTouch((i) => (this.slotTap = i));
+      Log.info("yeet", "touch controls on");
+    }
     this.canvas.addEventListener("mousedown", this.onCanvasDown);
     document.addEventListener("pointerlockchange", this.onLockChange);
     // ?weapon=0..3 starts with that gun in hand (stills of each gun at rest)
@@ -263,6 +306,7 @@ export class YeetWorld implements World {
     document.removeEventListener("pointerlockchange", this.onLockChange);
     this.canvas.removeEventListener("mousedown", this.onCanvasDown);
     this.fps.dispose();
+    this.touch?.dispose();
     this.hud.dispose();
     this.fx.dispose();
     this.vm.dispose();
@@ -294,6 +338,9 @@ export class YeetWorld implements World {
 
     // input that happens once per frame goes into the first fixed step only
     const f = this.fps.take();
+    this.touch?.holdMove(pl.stance || pl.hook >= 0);
+    this.touch?.setZoneFires(pl.weapon === "copter"); // Gatling: hold anywhere on the right to fire, drag to aim
+    this.mergeTouch(f);
     if (this.forceAim) f.aimHeld = true;
     this.aimKnock = Math.max(0, this.aimKnock - dt);
     const aiming = f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless;
@@ -303,6 +350,7 @@ export class YeetWorld implements World {
       this.body.fire(pl.weapon);
     }
     if (f.cameraToggle) this.toggleKick();
+    if (f.hintToggle) this.hud.toggleHint();
     let first = this.frameInput(f, aiming);
     if (this.carry) {
       const c = this.carry;
@@ -314,8 +362,9 @@ export class YeetWorld implements World {
     let stepped = false;
     // mouse speed follows the zoom, so aimed look feels the same on screen; no look while tumbling or knocked out
     const sens = TUNING.mouseSensitivity * this.zoomFactor();
-    const dYaw = -f.dx * sens;
-    const dPitch = -f.dy * sens * (shell.settings.input.invert_y ? -1 : 1);
+    let dYaw = -f.dx * sens;
+    let dPitch = -f.dy * sens * (shell.settings.input.invert_y ? -1 : 1);
+    if (this.touch && this.tf) [dYaw, dPitch] = this.touchLook(dYaw, dPitch, f.fireHeld, dt);
     if (this.link) {
       // online, looking travels with the input so the server turns you exactly as your screen did
       if (this.third < 0.5 && this.link.ready) {
@@ -345,9 +394,17 @@ export class YeetWorld implements World {
         pl.pitch = -1.4; // straight down: the backflip
         input = { ...input, firePressed: true };
       }
+      if (this.debugReap && this.brain) input = this.reapScript(input);
       if (this.link) {
         for (const e of this.link.stepLocal(input, this.lookYaw, this.lookPitch)) this.onEvent(e);
         this.lookYaw = this.lookPitch = 0;
+      } else if (this.brain) {
+        // the bot plays through the same controls as you: a look turn, then its keys and buttons
+        // (?yeetreap holds the bot still while the script hooks it: the check is the YEETREAP, not the fight)
+        const out = this.reapHolding() ? { input: { ...NO_INPUT }, dYaw: 0, dPitch: 0 } : this.brain.think(this.sim);
+        this.botAiming = out.input.aiming;
+        this.sim.look(out.dYaw, out.dPitch, 1);
+        for (const e of this.sim.step([input, out.input])) this.routeBotMatch(e);
       } else {
         for (const e of this.sim.step(input)) this.onEvent(e);
       }
@@ -367,7 +424,7 @@ export class YeetWorld implements World {
       this.marks.sort((a, b) => a[0] - b[0]);
     }
     // smoke can stop at these to screenshot a moment: --until YEET_MARK_launch (spin, copter)
-    while ((this.autoplay || this.debugTumble || this.debugHero) && this.marks.length && this.sim.time >= this.marks[0][0]) {
+    while ((this.autoplay || this.debugTumble || this.debugHero || (this.debugReap && this.reapStart >= 0)) && this.marks.length && this.sim.time >= this.marks[0][0]) {
       const mark = this.marks.shift()![1];
       Log.info("yeet", `YEET_MARK_${mark}`);
       if (shell.params.get("hold") === mark) this.held = true; // ?hold=<mark>: freeze here for a screenshot
@@ -386,7 +443,9 @@ export class YeetWorld implements World {
     this.drawOthers(dt);
     this.drawBalls();
     this.pickups.update(dt, this.sim.pickups);
-    const copterFiring = pl.weapon === "copter" && f.fireHeld && !pl.overheated && !this.sim.helpless;
+    // the barrels and the chop only while it really fires (not on an empty or reloading gun)
+    const copterFiring = pl.weapon === "copter" && f.fireHeld && !pl.overheated && !this.sim.helpless &&
+      pl.mag.copter > 0 && pl.reloading === 0;
     if (copterFiring) this.sound.play("wup"); // its cooldown in the events file sets the chop rate
     this.sound.update(shell.settings.audio);
     this.vm.setReload(pl.reloading > 0 ? 1 - pl.reloading / TUNING.weapons[pl.weapon].reload : 0);
@@ -396,6 +455,7 @@ export class YeetWorld implements World {
     const fight = this.sim.level.dummiesFight;
     const duel = this.link;
     const other = duel ? (duel.slot === 0 ? 1 : 0) : 0;
+    const vsBot = this.botSkill;
     this.hud.update(dt, {
       weapon: TUNING.weaponOrder.indexOf(pl.weapon),
       heat: pl.heat / TUNING.copter.heatMax,
@@ -403,18 +463,18 @@ export class YeetWorld implements World {
       showHeat: pl.weapon === "copter" || pl.heat > 0,
       speed,
       stunned: pl.stun > 0 && this.third < 0.5,
-      locked: this.fps.locked,
+      locked: this.fps.locked || this.touch !== null,
       autoplay: this.autoplay,
       rush: this.third > 0.5 ? 0 : Math.max(0, (speed - 10) / 14),
       reduceMotion: shell.settings.access.reduce_motion,
       scoped: this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
-      hp: fight || duel ? pl.hp / TUNING.player.hp : null,
+      hp: fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
       banner: pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
       kos: fight ? this.kos : null,
       level: duel && duel.ready
         ? `Duel · room ${duel.code} · You ${this.sim.kos[duel.slot]} – ${this.sim.kos[other]} Player ${other + 1}`
-        : this.sim.level.name,
+        : vsBot ? `Duel vs ${this.playerName(1)} · You ${this.sim.kos[0]} – ${this.sim.kos[1]}` : this.sim.level.name,
       stamina: pl.stamina / TUNING.sprint.stamina,
       winded: pl.winded,
       tumbling: pl.tumbling > 0 && pl.dead === 0,
@@ -444,6 +504,33 @@ export class YeetWorld implements World {
   }
 
   // ---- input -----------------------------------------------------------------
+  /**
+   * Touch input folded into the mouse/keyboard frame, so everything after reads one frame whichever the device.
+   * Move and jump wait in this.tf for frameInput; Pause opens the menu and lets go of every finger.
+   */
+  private mergeTouch(f: FpsFrame): void {
+    if (this.slotTap >= 0) {
+      f.select = this.slotTap;
+      this.slotTap = -1;
+    }
+    if (!this.touch) return;
+    const t = (this.tf = this.touch.take());
+    f.dx += t.dx;
+    f.dy += t.dy;
+    f.firePressed ||= t.firePressed;
+    f.fireHeld ||= t.fireHeld;
+    f.aimHeld ||= t.aimHeld;
+    f.sprintHeld ||= t.sprint;
+    f.reset ||= t.reset;
+    f.reload ||= t.reload;
+    f.slash ||= t.slash;
+    f.slashHeld ||= t.slashHeld;
+    if (t.pause && shell.top?.gameplay) {
+      this.touch.letGo();
+      shell.pauseGame();
+    }
+  }
+
   private frameInput(f: FpsFrame, aiming: boolean): YeetInput {
     const inp = shell.input;
     const st = inp.stick();
@@ -458,9 +545,9 @@ export class YeetWorld implements World {
     }
     return {
       ...NO_INPUT,
-      moveX: clamp((inp.isDown("move_right") ? 1 : 0) - (inp.isDown("move_left") ? 1 : 0) + st.x),
-      moveZ: clamp((inp.isDown("move_up") ? 1 : 0) - (inp.isDown("move_down") ? 1 : 0) - st.y),
-      jump: inp.takePress("jump"),
+      moveX: clamp((inp.isDown("move_right") ? 1 : 0) - (inp.isDown("move_left") ? 1 : 0) + st.x + (this.tf?.moveX ?? 0)),
+      moveZ: clamp((inp.isDown("move_up") ? 1 : 0) - (inp.isDown("move_down") ? 1 : 0) - st.y + (this.tf?.moveZ ?? 0)),
+      jump: inp.takePress("jump") || (this.tf?.jump ?? false),
       firePressed: f.firePressed,
       fireHeld: f.fireHeld,
       select,
@@ -470,7 +557,44 @@ export class YeetWorld implements World {
       reload: f.reload,
       slash: f.slash,
       slashHeld: f.slashHeld,
+      ...(this.touch ? { touch: true } : {}), // gentler Gatling wobble for thumbs (the server sees it too)
     };
+  }
+
+  /**
+   * A touch player's look this frame: the thumb's drag (already scaled), plus the gyro (scaled down with the zoom,
+   * like the drag), then aim assist if it is on: slower over a target, easing onto it while you play. The targets
+   * are the figures as drawn (what you see), each checked for a clear line from your eye.
+   */
+  private touchLook(dYaw: number, dPitch: number, firing: boolean, dt: number): [number, number] {
+    const t = this.tf!;
+    const zoom = this.zoomFactor();
+    dYaw += t.gyroYaw * zoom;
+    dPitch += t.gyroPitch * zoom;
+    if (!this.touch!.assist || this.third >= 0.5 || this.sim.helpless) return [dYaw, dPitch];
+    const pl = this.sim.player;
+    const targets: Vec3[] = [];
+    this.others.forEach((fig, j) => {
+      if (fig.root.visible && j !== (this.link?.slot ?? 0) && this.sim.players[j]?.dead === 0) targets.push(fig.root.position);
+    });
+    this.views.forEach((v, i) => {
+      if (this.sim.dummies[i]?.down === 0 && v.fig.root.visible) targets.push(v.fig.root.position);
+    });
+    if (!targets.length) return [dYaw, dPitch];
+    const eye = this.sim.eye();
+    const moving = Math.abs(t.moveX) + Math.abs(t.moveZ) > 0.1;
+    const out = aimAssist(
+      { eye, yaw: pl.yaw, pitch: pl.pitch, dYaw, dPitch, active: firing || moving || dYaw !== 0 || dPitch !== 0, dt },
+      targets,
+      (i) => {
+        const p = targets[i];
+        const d = vec(p.x - eye.x, p.y - eye.y, p.z - eye.z);
+        const dist = len(d);
+        return rayArena(this.sim.arena, eye, normalize(d), dist) >= dist - 0.4;
+      },
+      TUNING.touch.assist,
+    );
+    return [out.dYaw, out.dPitch];
   }
 
   // ---- events -> effects -------------------------------------------------------
@@ -633,7 +757,13 @@ export class YeetWorld implements World {
         this.vm.setHold("none");
         break;
       case "yeetreap":
-        this.views[e.dummy].lastWeapon = "yeetreap";
+        if (this.debugReap) {
+          this.marks.push([this.sim.time + 0.3, "yeetreap"]);
+          this.marks.sort((a, b) => a[0] - b[0]);
+        }
+        // e.dummy is a target code: a dummy's index, or PLAYER_CODE + a player (a duel or a bot match). Only dummies
+        // have a view to note the kill weapon on (a YEETREAP on the bot crashed here, 2026-11-22)
+        if (e.dummy < PLAYER_CODE) this.views[e.dummy].lastWeapon = "yeetreap";
         this.hud.pop("YEETREAP!", true);
         this.sound.play("kaboom");
         this.sound.play("crowd_cheer");
@@ -753,6 +883,9 @@ export class YeetWorld implements World {
       case "run": return { ...p, speed: 6 };
       case "aim": return { ...p, aim: 1 };
       case "ko": return { ...p, dead: true };
+      case "look": return { ...p, pitch: 0.6, aim: 0.35 }; // looking up, gun following
+      case "flip": return { ...p, flip: 0.5, onGround: false }; // mid-flip tuck (the spin itself is the world's)
+      case "slash": return { ...p, weapon: "reaper", slash: 0.4 }; // the scythe mid-sweep
       default: return p;
     }
   }
@@ -780,6 +913,104 @@ export class YeetWorld implements World {
       this.sound.play("crowd_ooh");
       this.announce("big_air");
     }
+  }
+
+  // ---- duel vs bot ------------------------------------------------------------------
+  /** The bot difficulty from ?bot= or the menu's world option "duel-bot-<skill>", or null. */
+  private static botFrom(param: string | null, world: string | null): BotSkill | null {
+    const s = param ?? (world?.startsWith("duel-bot-") ? world.slice("duel-bot-".length) : null);
+    return BOT_SKILLS.includes(s as BotSkill) ? (s as BotSkill) : null;
+  }
+
+  /**
+   * ?yeetreap: the steps a player takes to YEETREAP the bot (the crash of 2026-11-22): Reaper's Kick in hand, the
+   * bot held 1.8 m in front, F pressed and held to hook it, then Fire. Returns this step's input for player 1 (you).
+   */
+  private reapScript(input: YeetInput): YeetInput {
+    const pl = this.sim.player;
+    const t = this.sim.time;
+    if (t < 1) return input;
+    if (this.reapStart < 0) {
+      this.reapStart = t;
+      pl.hp = TUNING.player.hp;
+      if (!pl.owned.includes("reaper")) pl.owned.push("reaper");
+      pl.weapon = "reaper";
+      pl.pitch = 0;
+      this.vm.show("reaper");
+    }
+    const since = t - this.reapStart;
+    if (since > 1.2) return input;
+    const bot = this.sim.players[1];
+    if (since < 0.5) {
+      // keep the bot in reach in front of you until the hook has it
+      bot.pos = { x: pl.pos.x - Math.sin(pl.yaw) * 1.8, y: pl.pos.y, z: pl.pos.z - Math.cos(pl.yaw) * 1.8 };
+      bot.vel = { x: 0, y: 0, z: 0 };
+    }
+    const first = since < TUNING.step;
+    const fire = since >= 0.5 && since < 0.5 + TUNING.step;
+    return { ...input, slash: first, slashHeld: since < 0.5 + TUNING.step * 2, firePressed: fire };
+  }
+
+  /** True while the ?yeetreap script runs (the bot stands still for it). */
+  private reapHolding(): boolean {
+    return this.debugReap && this.sim.time >= 1 && (this.reapStart < 0 || this.sim.time - this.reapStart < 1.2);
+  }
+
+  /** "Player 2", or "Hard bot" for the bot. */
+  private playerName(j: number): string {
+    if (this.botSkill && j === 1) return `${this.botSkill[0].toUpperCase()}${this.botSkill.slice(1)} bot`;
+    return `Player ${j + 1}`;
+  }
+
+  /** A bot match's events: yours play as always; the bot's and the hits between you go the way a remote player's do. */
+  private routeBotMatch(e: TaggedEvent): void {
+    if (e.type === "pvpHit" || e.type === "pvpDown" || e.p === 1) this.onServerEvent(e);
+    else this.onEvent(e);
+  }
+
+  /** The bot's figure, straight from the sim (no network smoothing), and the ?debug view. */
+  private drawBot(dt: number): void {
+    const st = this.sim.players[1];
+    this.others.forEach((fig, j) => (fig.root.visible = j === 1));
+    const fig = this.others[1];
+    if (!fig || !st) return;
+    const kneel = this.sim.kneelDepth(st);
+    fig.root.position.set(st.pos.x, st.pos.y + PIVOT - kneel * 0.6, st.pos.z);
+    this.otherRoll[1] = st.tumbling > 0 || st.dead > 0 ? this.otherRoll[1] + (st.tumbleRoll || 8) * dt : 0;
+    facing(st.yaw, fig.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.otherRoll[1]));
+    fig.setPose(this.otherPose(1, st, this.botAiming, kneel, dt, fig.root.quaternion));
+    fig.setHp(st.hp / TUNING.player.hp);
+    fig.update(dt, this.camera);
+    if (!this.botLines || !this.brain) return;
+    // ?debug: pink aim line (grey while it cannot see you), cyan line to where it is going, a state label
+    const d = this.brain.debug;
+    const eye = this.tmpA.set(st.pos.x, st.pos.y + TUNING.player.eyeHeight, st.pos.z);
+    const dir = this.tmpB.set(-Math.sin(st.yaw) * Math.cos(st.pitch), Math.sin(st.pitch), -Math.cos(st.yaw) * Math.cos(st.pitch));
+    const aim = this.botLines.aim.geometry.getAttribute("position") as THREE.BufferAttribute;
+    aim.setXYZ(0, eye.x, eye.y, eye.z);
+    aim.setXYZ(1, eye.x + dir.x * 8, eye.y + dir.y * 8, eye.z + dir.z * 8);
+    aim.needsUpdate = true;
+    const goal = this.botLines.goal.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const g = d.goal ?? st.pos;
+    goal.setXYZ(0, st.pos.x, st.pos.y + 0.1, st.pos.z);
+    goal.setXYZ(1, g.x, g.y + 0.1, g.z);
+    goal.needsUpdate = true;
+    (this.botLines.aim.material as THREE.LineBasicMaterial).color.set(d.visible ? "#ff3fa4" : "#888888");
+    if (!this.botLines.aim.parent) this.scene.add(this.botLines.aim, this.botLines.goal);
+    const head = this.tmpA.set(st.pos.x, st.pos.y + 2.2, st.pos.z).project(this.camera);
+    const label = `${this.botSkill} · ${d.state}${d.launching ? " · LAUNCH" : ""} · aim ${(d.aimError * 57.3).toFixed(0)}°`;
+    this.hud.debugTag(head.z < 1 ? label : null, head.x, head.y);
+  }
+
+  private static makeBotLines(): { aim: THREE.Line; goal: THREE.Line } {
+    const line = (color: string) => {
+      const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color, depthTest: false }));
+      l.renderOrder = 20;
+      l.frustumCulled = false;
+      return l;
+    };
+    return { aim: line("#ff3fa4"), goal: line("#4dd0e1") };
   }
 
   // ---- launch camera kick-out ----------------------------------------------------
@@ -861,21 +1092,63 @@ export class YeetWorld implements World {
 
   /** Duel: the other player, drawn from the server's snapshots ~100 ms behind, smoothed (src/game/net/remote.ts). */
   private drawOthers(dt: number): void {
+    if (this.brain) {
+      this.drawBot(dt);
+      return;
+    }
     if (!this.link) return;
     const link = this.link;
     const now = performance.now();
     this.others.forEach((fig, j) => {
-      const v = j === link.slot ? null : link.remote.sample(j, now - INTERP_MS);
+      let v = j === link.slot ? null : link.remote.sample(j, now - INTERP_MS);
+      // on your scythe hook they move with you: draw them from your prediction (at the blade's end, no lag),
+      // not from the snapshot buffer ~100 ms behind, which left them trailing behind the scythe
+      const mine = this.sim.players[link.slot];
+      if (v && mine && mine.hook === PLAYER_CODE + j) {
+        const st = this.sim.players[j];
+        v = { ...v, pos: st.pos, yaw: st.yaw, state: st };
+      }
       fig.root.visible = !!v && link.present[j];
       if (!v) return;
       const st = v.state;
       fig.root.position.set(v.pos.x, v.pos.y + PIVOT - this.sim.kneelDepth(st) * 0.6, v.pos.z);
       this.otherRoll[j] = st.tumbling > 0 || st.dead > 0 ? this.otherRoll[j] + (st.tumbleRoll || 8) * dt : 0;
       facing(v.yaw, fig.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.otherRoll[j]));
-      fig.setPose(inputFromPlayer(st, this.sim.time, 0, this.sim.kneelDepth(st) / TUNING.reaper.heroLanding.kneel));
+      const aiming = link.predictor.heldBy(j)?.aiming ?? false;
+      fig.setPose(this.otherPose(j, st, aiming, this.sim.kneelDepth(st), dt, fig.root.quaternion));
       fig.setHp(st.hp / TUNING.player.hp);
       fig.update(dt, this.camera);
     });
+  }
+
+  /**
+   * Another player's pose (the bot's or a remote one's): their state, plus what only their events tell, acted
+   * out so you can read them. They look where they look (head, body, gun); the gun comes up to the shoulder while they
+   * aim or just after a shot; a Reaper's Kick flip turns the whole figure once (backflip, front-flip, or a cartwheel
+   * toward the side they moved) with the knees tucked; a gunblade slash sweeps the blade across. Turns `q` (the
+   * figure's facing) by the flip.
+   */
+  private otherPose(j: number, st: PlayerState, aiming: boolean, kneel: number, dt: number, q: THREE.Quaternion): PoseInput {
+    const a = this.otherAnim[j];
+    const base = inputFromPlayer(st, this.sim.time, 0, kneel / TUNING.reaper.heroLanding.kneel);
+    if (!a) return base;
+    a.flipT += dt;
+    a.slashT += dt;
+    const shotAgo = this.sim.time - st.lastShotAt;
+    const aim = aiming || (shotAgo >= 0 && shotAgo < 0.8) ? 1 : 0.35; // ready, gun following the look
+    const flipK = a.flipT / TUNING.reaper.flipTime;
+    let flip = 0;
+    if (flipK >= 0 && flipK < 1 && !shell.settings.access.reduce_motion) {
+      flip = flipK;
+      const turn = Math.PI * 2 * (flipK * flipK * (3 - 2 * flipK));
+      const [p, r] = FLIP_AXIS[a.kind];
+      // the figure faces its +Z: a backflip turns the head back (-X turn), a front-flip forward; a cartwheel turns
+      // about the facing, the head toward the side moved (+Z turn sends the head to -X, the figure's right)
+      if (p !== 0) q.multiply(this.qA.setFromAxisAngle(X_AXIS, -p * turn));
+      if (r !== 0) q.multiply(this.qA.setFromAxisAngle(Z_AXIS, r * turn * a.side));
+    }
+    const slash = a.slashT >= 0 && a.slashT < SLASH_ANIM ? a.slashT / SLASH_ANIM : 0;
+    return { ...base, aim, flip, slash };
   }
 
   /** Duel: the server's events. Your own moves already played from prediction; the hits and knockouts are the
@@ -895,18 +1168,28 @@ export class YeetWorld implements World {
     }
     if (e.type === "pvpDown") {
       if (e.target === me) {
-        this.killer = `Player ${e.by + 1}`;
+        this.killer = this.playerName(e.by);
         this.hud.feedLine("WAS KNOCKED OUT BY", this.killer);
         this.sound.play("ko");
         this.sound.play("crowd_aww");
       } else if (e.by === me) {
-        this.hud.feedLine("YEETED", `Player ${e.target + 1}`);
+        this.hud.feedLine("YEETED", this.playerName(e.target));
         this.sound.play("boing");
         this.sound.play("crowd_cheer");
       }
       return;
     }
     if (e.p === undefined || e.p === me) return; // your own moves were predicted (and already played)
+    // their figure acts out their flips and slashes
+    // (online their figure is drawn INTERP_MS behind the snapshot that carried the event: start the move that late)
+    const anim = this.otherAnim[e.p];
+    const start = this.link ? -INTERP_MS / 1000 : 0;
+    if (anim && e.type === "flip") {
+      anim.flipT = start;
+      anim.kind = e.kind;
+      anim.side = e.side || 1;
+    }
+    if (anim && (e.type === "slash" || e.type === "ultraslash")) anim.slashT = start;
     switch (e.type) {
       case "fire":
         this.sound.play(FIRE_SOUND[e.weapon]);

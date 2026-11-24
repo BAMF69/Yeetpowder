@@ -3,6 +3,9 @@
 // Purpose : The third-person operative's poses as numbers, from what the player is doing: standing ready, running,
 //           aiming, airborne, the Boomstick fling (legs thrown up as you fly), tumbling (limbs flailing), the hero
 //           landing (one knee down, a fist on the ground) and knocked out (limp starfish). operative.ts applies them.
+//           Also (2026-11-22, so you can read other players): the head and body follow the look up and down, the
+//           legs tuck through a Reaper's Kick flip (the world spins the whole figure), and a gunblade slash sweeps
+//           the blade across the body.
 // Usage   : const t = targetPose(input, timeSeconds)   // joint angles (rad) and where the gun is held (m)
 //           inputFromPlayer(pl, simTime, aim, kneel01) // PlayerState -> PoseInput
 // Notes   : No three.js: pure maths, unit tested (tests/operativePose.test.ts). Angles follow the rig in
@@ -29,6 +32,10 @@ export interface PoseInput {
   dead: boolean;
   /** 0..1: how deep into the hero landing kneel. */
   kneel: number;
+  /** 0..1 through a Reaper's Kick flip (tucks the legs; the world turns the figure), 0 = none. */
+  flip?: number;
+  /** 0..1 through a gunblade slash (a forehand sweep, right to left), 0 = none. */
+  slash?: number;
 }
 
 export type V3 = [number, number, number];
@@ -37,6 +44,8 @@ export interface PoseTargets {
   /** Forward lean of the torso (rad, + leans forward) and its twist (rad). */
   lean: number;
   twist: number;
+  /** Head tilt (rad, + looks up). */
+  head: number;
   /** Left then right leg: hip angles and knee bend (+ bends the shin back). */
   legs: [{ hip: V3; knee: number }, { hip: V3; knee: number }];
   /** Where the gun is held (torso space) and its turn; null hides it (knocked out). */
@@ -59,6 +68,10 @@ export const POSE = {
   fling: { pos: [-0.1, 0.55, 0.32] as V3, pitch: 1.2, thigh: -1.35, knee: 0.35 },
   kneel: { lean: 0.45, back: 0.2, backKnee: 1.75, front: -1.45, frontKnee: 1.45 },
   flail: { rate: 9, arm: 0.9, leg: 0.7 },
+  look: { head: 0.7, headMax: 0.75, lean: 0.18 }, // share of the look pitch the head and torso follow
+  tuck: { thigh: -1.5, knee: 2.1, lean: 0.35 }, // knees to the chest through a flip
+  // a forehand sweep: from the right (-X, rot y < 0) across to the left (+X); the torso turns with it
+  slash: { from: -1.5, to: 1.5, x: [-0.42, 0.32], y: 0.36, z: 0.34, twist: 0.55, pitch: 0.15, roll: 1.35 }, // roll lays the blade flat
 };
 
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
@@ -69,7 +82,7 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
   if (p.dead) {
     // limp starfish: arms out, legs apart, the gun dropped
     return {
-      lean: -0.1, twist: 0,
+      lean: -0.1, twist: 0, head: 0,
       legs: [{ hip: [0, 0, 0.45], knee: 0.2 }, { hip: [0, 0, -0.45], knee: 0.25 }],
       gun: null,
       leftArm: { shoulder: [0, 0, 1.35], elbow: -0.2 },
@@ -103,6 +116,20 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
   } else {
     gunPos = lerp3(POSE.ready.pos, POSE.aimed.pos, p.aim);
   }
+  let gunYaw = 0;
+  let gunRoll = 0;
+  let twist = 0;
+  // a gunblade slash: the blade sweeps across, right to left, the shoulders turning with it
+  const sl = p.slash ?? 0;
+  if (sl > 0 && (p.weapon === "reaper" || p.weapon === "sakura")) {
+    const s = POSE.slash;
+    const e = sl * sl * (3 - 2 * sl);
+    gunYaw = lerp(s.from, s.to, e);
+    gunPos = [lerp(s.x[0], s.x[1], e), s.y, s.z];
+    pitch = s.pitch;
+    twist = lerp(-s.twist, s.twist, e);
+    gunRoll = s.roll;
+  }
   const oneHanded = p.weapon === "pistol" || p.weapon === "sakura";
   let leftArm: PoseTargets["leftArm"] = oneHanded ? { shoulder: [-0.15 - swing * 0.6, 0, 0.12], elbow: -0.35 } : "fore";
 
@@ -117,6 +144,22 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
     lean = lerp(lean, -0.2, p.fling);
   }
 
+  // a Reaper's Kick flip: knees to the chest and back out again
+  const fl = p.flip ?? 0;
+  if (fl > 0 && fl < 1) {
+    const k = Math.sin(Math.PI * fl);
+    const u = POSE.tuck;
+    legs = legs.map((l, i) => ({
+      hip: [lerp(l.hip[0], u.thigh, k), l.hip[1], i === 0 ? 0.12 : -0.12] as V3,
+      knee: lerp(l.knee, u.knee, k),
+    })) as PoseTargets["legs"];
+    lean = lerp(lean, u.lean, k);
+  }
+
+  // the look: the head tilts most of the way, the torso a little (not while flailing or down on a knee)
+  let head = Math.max(-POSE.look.headMax, Math.min(POSE.look.headMax, p.pitch * POSE.look.head));
+  lean -= p.pitch * POSE.look.lean;
+
   // tumbling: everything flails (the body's head-over-heels spin is the world's)
   if (p.tumbling) {
     const f = POSE.flail;
@@ -127,6 +170,7 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
     gunPos = [-0.25 + a * 0.08, 0.45 + b * 0.1, 0.2];
     pitch = 0.6 + a * 0.5;
     lean = -0.15;
+    head = 0;
   }
 
   // the hero landing: back knee down, front foot planted, the free fist on the ground
@@ -141,9 +185,10 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
     if (oneHanded) leftArm = { shoulder: [lerp(-0.15, -0.55, n), 0, 0.15], elbow: -0.1 };
     gunPos = lerp3(gunPos, [-0.22, 0.2, 0.32], n);
     pitch = lerp(pitch, -0.15, n); // barrel low but clear of the floor
+    head = lerp(head, 0, n);
   }
 
-  return { lean, twist: 0, legs, gun: { pos: gunPos, rot: [pitch, 0, 0] }, leftArm, rightArm: "grip" };
+  return { lean, twist, head, legs, gun: { pos: gunPos, rot: [pitch, gunYaw, gunRoll] }, leftArm, rightArm: "grip" };
 }
 
 /** Seconds a Boomstick fling pose lasts after the shot (rise, hold, fall). */

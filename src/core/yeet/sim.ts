@@ -56,6 +56,8 @@ export interface YeetInput {
   slash: boolean;
   /** F held: past a moment it becomes the hold move (scythe hook, katana dash stance). */
   slashHeld: boolean;
+  /** Playing on a touch screen: the Gatling's random wobble and turn are gentler (TUNING.touch.recoil). */
+  touch?: boolean;
 }
 
 export const NO_INPUT: YeetInput = {
@@ -98,7 +100,7 @@ export type YeetEvent =
   | { type: "dry"; weapon: WeaponId }
   | { type: "slash"; weapon: WeaponId; hits: number; reap: boolean; combo: number }
   /** side: which way you were moving across your aim, +1 right (D), -1 left (A), 0 for flips. */
-  | { type: "flip"; kind: FlipKind; side: number }
+  | { type: "flip"; kind: FlipKind; side: number; big: boolean }
   | { type: "lunge" }
   | { type: "finisher"; dummy: number }
   | { type: "hook"; dummy: number }
@@ -637,9 +639,10 @@ export class YeetSim {
       pl.vel.z *= k;
       // it fights you: turns you right and makes the aim wander (smooth, deterministic noise)
       const b = t.aim.braced;
-      pl.spin -= t.copter.torque * (input.aiming ? b.copterTurn : 1) * dt;
+      const tr = input.touch ? t.touch.recoil : null; // a thumb cannot fight it like a mouse hand
+      pl.spin -= t.copter.torque * (input.aiming ? b.copterTurn : 1) * (tr ? tr.copterTurn : 1) * dt;
       const n = this.time;
-      const wob = t.copter.wobble * (input.aiming ? b.copterWobble : 1) * dt;
+      const wob = t.copter.wobble * (input.aiming ? b.copterWobble : 1) * (tr ? tr.wobble : 1) * dt;
       this.look(Math.cos(n * 5.7 + 1) * wob, (Math.sin(n * 7.3) + Math.sin(n * 12.1) * 0.5) * wob, this.cur);
       pl.heat += t.copter.heatPerSecond * dt;
       if (pl.heat >= t.copter.heatMax) {
@@ -690,7 +693,8 @@ export class YeetSim {
     const dash = pl.weapon === "sakura" && pl.stance;
     const lunge = pl.weapon === "sakura" && pl.slashRecover > 0 && !dash;
     const kick = addScaled(vec(), aim, lunge || dash ? 0 : -w.recoil * (aimed ? b.recoil : 1) * (grounded ? 1 : w.airRecoil));
-    if (pl.weapon === "reaper" && aim.y < -t.reaper.downAim && kick.y > 0) kick.y *= t.reaper.backflipLift;
+    const bigFlip = pl.weapon === "reaper" && this.bigBackflip(aim);
+    if (bigFlip && kick.y > 0) kick.y *= t.reaper.backflipLift;
     // mid-air, a small gun can slow your fall but not lift you past airLiftCap (no pistol jetpack)
     if (!grounded && kick.y > 0) kick.y = Math.min(kick.y, Math.max(0, w.airLiftCap - pl.vel.y));
     addScaled(pl.vel, kick, 1);
@@ -715,9 +719,9 @@ export class YeetSim {
     ev.push({ type: "fire", weapon: pl.weapon, tracers, aimed });
     pl.lastShotAt = this.time;
     if (pl.weapon === "reaper") {
-      const kind = this.flipKind(aim, velBefore);
-      if (kind === "backflip") pl.backflipAir = true;
-      ev.push({ type: "flip", kind, side: kind === "cartwheel" ? this.moveSide(aim, velBefore) : 0 });
+      const kind = bigFlip ? "backflip" : this.flipKind(pl.yaw, velBefore, kick);
+      if (bigFlip) pl.backflipAir = true; // only the big one ends in a hero landing
+      ev.push({ type: "flip", kind, side: kind === "cartwheel" ? this.moveSide(pl.yaw, velBefore) : 0, big: bigFlip });
     }
     if (dash) {
       // the blade held backwards: the revolver fires behind you and throws you forward
@@ -752,23 +756,31 @@ export class YeetSim {
     }
   }
 
-  /** Which flip a Reaper's Kick shot gives: aimed down = backflip; pushing you along your run = front-flip;
-   * across it = cartwheel; against it or from a standstill = backflip. */
-  private flipKind(aim: Vec3, velBefore: Vec3): FlipKind {
-    if (aim.y < -this.t.reaper.downAim) return "backflip";
-    const push = normalize(vec(-aim.x, 0, -aim.z));
-    const speed = lenXZ(velBefore);
-    if (speed < 2) return "backflip";
-    const along = (push.x * velBefore.x + push.z * velBefore.z) / speed;
-    if (along > 0.5) return "frontflip";
-    if (along > -0.5) return "cartwheel";
-    return "backflip";
+  /** Aimed at least bigBackflipDeg below level: the big backflip (more lift, a hero landing). */
+  private bigBackflip(aim: Vec3): boolean {
+    return aim.y <= -Math.sin((this.t.reaper.bigBackflipDeg * Math.PI) / 180);
   }
 
-  /** +1 if you were moving to the right of where you aim, -1 to the left (picks the cartwheel's direction). */
-  private moveSide(aim: Vec3, vel: Vec3): number {
-    // right of a horizontal facing (fx, fz) with +Y up is (-fz, fx): facing -Z, right is +X
-    return -aim.z * vel.x + aim.x * vel.z >= 0 ? 1 : -1;
+  /**
+   * A Reaper's Kick flip that is not the big backflip: your main direction of travel as you see it. Faster sideways
+   * than forward or back = cartwheel; still going forward after the kick = front-flip; otherwise (moving back, or
+   * the kick stopped you, or standing) a backflip. (Playtest 2026-11-22: moving back and sideways gave a front-flip.)
+   */
+  private flipKind(yaw: number, velBefore: Vec3, kick: Vec3): FlipKind {
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    const fwd = velBefore.x * fx + velBefore.z * fz;
+    const side = velBefore.x * -fz + velBefore.z * fx; // right of the facing (fx, fz) with +Y up is (-fz, fx)
+    if (Math.hypot(fwd, side) >= 2 && Math.abs(side) > Math.abs(fwd)) return "cartwheel";
+    const fwdAfter = (velBefore.x + kick.x) * fx + (velBefore.z + kick.z) * fz;
+    return fwdAfter > 0.5 ? "frontflip" : "backflip";
+  }
+
+  /** +1 if you were moving to the right of where you look, -1 to the left (picks the cartwheel's direction). */
+  private moveSide(yaw: number, vel: Vec3): number {
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    return vel.x * -fz + vel.z * fx >= 0 ? 1 : -1;
   }
 
   // ---- gunblade melee (F) ---------------------------------------------------------

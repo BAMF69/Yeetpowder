@@ -4,11 +4,13 @@
 > Claude reads the **Now** section at session start.
 
 ## Now (max 3 items)
-- [ ] **Duel netcode** (2 players on the home network, server on this PC with `ws` (ADR 0002), room code + link, client prediction and interpolation; ADR 0001 toy physics) | Done when: two browser windows (then laptop + phone) join one room by link and play each other with every slice weapon, smooth on both | Timebox: 4 sessions
+- [ ] **Bots: easy / medium / hard** (full players driven by a brain that only presses player controls; offline Duel vs bot from the menu; guns only, gunblades next) | Done when: Elaina plays each difficulty and easy feels beatable, hard feels like a good player, none feel like cheats | First build 2026-11-22: `src/core/yeet/bot.ts`, TUNING.bot, 7 tests
+- [ ] **Duel netcode** (2 players, room code + link, client prediction and interpolation; ADR 0001 toy physics). Since 2026-11-23 the host's browser runs the room and the guest connects over WebRTC (ADR 0004, PeerJS broker); the home server (ADR 0002) stays behind `?net=server`. Still to do for play over the internet: a hosted build of the page, and a relay (TURN) for strict networks | Done when: two browser windows (then laptop + phone) join one room by link and play each other with every slice weapon, smooth on both | Timebox: 4 sessions
 
 ## Next
 - [ ] Duel modes: first to 5 knockouts, timed round, Ring Out; the duel room with a Gatling pickup
-- [ ] Minimal touch controls for the phone
+- [ ] Couch mode (Elaina, 2026-11-23; past the slice tier, her call): the TV or laptop browser draws 2 split-screen views (4 later) from the game state; phones join by QR code as controllers (the touch controls, gyro, vibration) over WebRTC (reuses ADR 0004); a gamepad on the TV can play too; no video streaming. Done when: two phones play a split-screen match on the TV
+- [ ] Touch controls (first build in, 2026-11-22): floating move stick (full push sprints), drag right half to look, Fire (drag it to look too), Aim toggle, Jump, Slash (hold), Reload, Pause, Respawn, tap weapon slots; tunables `TUNING.touch`. Slash latches once the stance or hook is on (lift, tap Fire to dash or YEETREAP, tap LET GO). Playtest 2026-11-22 ("hard to control, less satisfying"): Gatling fires while you hold anywhere on the right half; touch players get a gentler Gatling wobble and turn; faster look; ⚙ panel (Look speed, Aim assist on by default, Gyro aiming off by default, Gyro speed). `npm run duel` now serves https (ADR 0003) so the gyro can work; each device warns once about the certificate. Done when: Elaina plays a duel on the tablet and the phone and it feels playable
 - [ ] Announcer voices: Elaina records the 8 lines (`python tools/audio/announcer.py --list`) as WAV into `assets_src/voice/announcer/`, then `python tools/audio/announcer.py` (add `--pa --echo` for the stadium sound) imports, levels and wires them. The local voice tool does not fit this laptop (no NVIDIA GPU, 7.7 GB RAM)
 - [ ] Menu music and stingers
 - [ ] Art approval sample (GDD): one operative model and one separate shotgun in the painted room, compared with the shotgun keyframe; then figures and guns
@@ -24,7 +26,6 @@
 - Smith heavy guns: oversized versions of standard guns, ~25% recoil, walk only (design doc "Future systems")
 - Weapon durability, scavenging and Smith workbench repair, for Scrapyard / Junk Wars modes only (design doc "Future systems")
 - Armor and damage types (bullet, slash, blast, bonk): Modern vest, Medium brigandine, Chainmail, Plate; heavier armor cuts recoil and knockback, total recoil cut capped ~75% (design doc "Future systems")
-- Couch mode: TV/laptop browser renders up to 4 split-screen panes from game state; phones join by QR code as controllers (WebRTC on same Wi-Fi, gyro aim); no video streaming, too much delay (design doc "Future systems")
 - 
 
 ## Milestones

@@ -43,6 +43,11 @@ export interface Snapshot {
   events: TaggedEvent[];
   /** Which slots have a connected player. */
   present: boolean[];
+  /**
+   * What each player is holding down right now (their last input, one-shot presses cleared), so a client's
+   * prediction steps the other player the way the server does: still holding F keeps you on their hook.
+   */
+  held?: YeetInput[];
 }
 
 export type ServerMsg =

@@ -128,6 +128,7 @@ export function menu(shell: Shell): Screen {
       shell.worldOption = "duel"; // Yeetpowder: online duel on the home network (npm run duel)
       shell.startGame("main");
     });
+    add("menu.duel_bot", () => shell.push(botScreen(shell))); // Yeetpowder: offline duel against a bot
     add("menu.settings", () => shell.push(settingsScreen(shell)));
     add("menu.credits", () => shell.push(creditsScreen(shell)));
     if (shell.debugBuild) add("menu.juice", () => shell.startGame("juice"));
@@ -144,6 +145,24 @@ export function menu(shell: Shell): Screen {
     }
     root.append(p, tl(shell.i18n, "version", "corner", { v: GAME_VERSION }, "div"));
   }, { cancel: () => shell.reset(title(shell)) });
+}
+
+/** Yeetpowder: pick the bot's difficulty for an offline duel (src/core/yeet/bot.ts, TUNING.bot). */
+export function botScreen(shell: Shell): Screen {
+  return built("bots", "dim", (root, m) => {
+    const p = panel("narrow");
+    p.append(tl(shell.i18n, "bot.title", "heading", {}, "div"));
+    const list = el("div", "list");
+    for (const skill of ["easy", "medium", "hard"]) {
+      list.append(m.add(buttonItem(shell.i18n, `bot.${skill}`, () => {
+        shell.worldOption = `duel-bot-${skill}`;
+        shell.startGame("main");
+      })).el);
+    }
+    list.append(m.add(buttonItem(shell.i18n, "credits.back", () => shell.back())).el);
+    p.append(list);
+    root.append(p);
+  }, { cancel: () => shell.back() });
 }
 
 export function creditsScreen(shell: Shell): Screen {

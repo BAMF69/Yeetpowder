@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // fpsInput.ts
 // Purpose : The FPS controls the shell's action map does not cover: pointer-lock mouse look, mouse buttons
-//           (left fire, right aim), weapon keys 1-6, F to slash (gunblades), the wheel, Shift to sprint, R to reload and Backspace to respawn. WASD, Space and Esc stay with the
+//           (left fire, right aim), weapon keys 1-6, F to slash (gunblades), H for the controls list, the wheel, Shift to sprint, R to reload and Backspace to respawn. WASD, Space and Esc stay with the
 //           shell (shell.input), so rebinding and pause keep working.
 // Usage   : const fps = new FpsInput(canvas); each frame: const f = fps.take(); ... ; fps.dispose() when leaving
 // Notes   : Pointer lock needs a click (browser rule). Esc unlocks it; the game then shows "Click to play".
@@ -35,6 +35,8 @@ export interface FpsFrame {
   slashHeld: boolean;
   /** C pressed: toggle the launch camera kick-out. */
   cameraToggle: boolean;
+  /** H pressed: show or hide the controls list. */
+  hintToggle: boolean;
 }
 
 const WEAPON_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 };
@@ -53,6 +55,7 @@ export class FpsInput {
   private slash = false;
   private slashHeld = false;
   private cameraToggle = false;
+  private hintToggle = false;
   private readonly off: Array<() => void> = [];
 
   constructor(private readonly canvas: HTMLElement) {
@@ -100,6 +103,7 @@ export class FpsInput {
       if (k.code === "Backspace") this.reset = true;
       if (k.code === "KeyF") this.slash = this.slashHeld = true;
       if (k.code === "KeyC") this.cameraToggle = true;
+      if (k.code === "KeyH") this.hintToggle = true;
       if (k.code === "ShiftLeft" || k.code === "ShiftRight") this.sprintHeld = true;
     });
   }
@@ -132,6 +136,7 @@ export class FpsInput {
       select: this.select, cycle: this.cycle, reset: this.reset, reload: this.reload, slash: this.slash,
       slashHeld: this.slashHeld && this.locked,
       cameraToggle: this.cameraToggle,
+      hintToggle: this.hintToggle,
     };
     this.dx = this.dy = 0;
     this.firePressed = false;
@@ -141,6 +146,7 @@ export class FpsInput {
     this.reload = false;
     this.slash = false;
     this.cameraToggle = false;
+    this.hintToggle = false;
     return f;
   }
 

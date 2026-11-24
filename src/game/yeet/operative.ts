@@ -231,6 +231,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
   const apply = (t: PoseTargets, k: number) => {
     torso.rotation.x += (t.lean - torso.rotation.x) * k;
     torso.rotation.y += (t.twist - torso.rotation.y) * k;
+    head.rotation.x += (-t.head - head.rotation.x) * k; // + head looks up: x < 0 tips the face up
     legs.forEach((l, i) => {
       easeEuler(l.hip, t.legs[i].hip, k);
       l.knee.rotation.x += (t.legs[i].knee - l.knee.rotation.x) * k;

@@ -6,19 +6,24 @@
 // Usage   : const link = new DuelLink(shell.params); world.sim = link.predictor.sim;
 //           each fixed step: const events = link.stepLocal(input, dYaw, dPitch)
 //           each frame: link.flush(); for (const e of link.takeServerEvents()) ...; link.remote.sample(...)
-// Notes   : The server is the duel server on the page's own host (npm run duel serves both). ?room=ABCD joins at
-//           once; ?lag=ms simulates a slow link. Your own predicted pvpHit/pvpDown are dropped: the server's are the
+// Notes   : Who runs the room (ADR 0004): by default the player who makes it, in their own browser tab, and the
+//           other player connects to them over WebRTC (peerLink.ts) - no game server needed. ?net=server uses the
+//           home duel server instead (npm run duel, ADR 0002; ?lag=ms simulates a slow link there). ?room=ABCD joins
+//           at once. Your own predicted pvpHit/pvpDown are dropped: the server's are the
 //           real ones. ?debug shows ping, snapshot rate and prediction corrections.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import type { TaggedEvent, YeetInput } from "../../core/yeet/sim";
-import { cleanCode, DUEL_PORT, type ServerMsg, type Snapshot } from "../../net/protocol";
+import { cleanCode, DUEL_PORT, type ClientMsg, type ServerMsg, type Snapshot } from "../../net/protocol";
+import { PeerGuest, PeerHost } from "./peerLink";
+import type { Transport } from "./transport";
 import { Predictor } from "../../net/predict";
 import { NetClient } from "./netClient";
 import { RemoteBuffer } from "./remote";
+import { roomQrSvg } from "./roomQr";
 
 const CSS = `
-.yd { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center;
+.yd { position: fixed; inset: 0; z-index: 8; /* over the touch controls (6) and HUD (7): the lobby needs taps */ display: flex; align-items: center; justify-content: center;
   pointer-events: none; font-family: system-ui, "Segoe UI", sans-serif; color: #fff; }
 .yd-panel { pointer-events: auto; background: rgba(20, 24, 34, 0.92); border: 3px solid #ffd84a; border-radius: 18px;
   padding: 22px 26px; min-width: 300px; max-width: 90vw; text-align: center; }
@@ -29,10 +34,44 @@ const CSS = `
   padding: 8px; border-radius: 10px; border: 2px solid #fff5; background: #0008; color: #fff; }
 .yd-code { font-size: 44px; font-weight: 900; letter-spacing: 8px; color: #ffd84a; margin: 6px 0; }
 .yd-link { font-size: 14px; word-break: break-all; opacity: 0.9; user-select: all; }
+.yd-note { font-size: 13px; opacity: 0.8; margin-top: 4px; }
 .yd-err { color: #ff8a80; min-height: 1.3em; margin-top: 8px; }
+/* waiting for player 2: tucked in the top right (under the kill feed's row) so you can warm up with a clear view */
+.yd.corner { align-items: flex-start; justify-content: flex-end; padding: 56px 14px 0 0; box-sizing: border-box; }
+/* with touch controls the weapon slots fill the top middle: sit below them */
+body.yt-touch .yd.corner { padding-top: 120px; }
+.yd.corner .yd-panel { padding: 10px 14px; min-width: 0; max-width: min(320px, 46vw); text-align: left; }
+.yd.corner h2 { font-size: 16px; margin: 0 0 2px; }
+.yd.corner .yd-code { font-size: 28px; letter-spacing: 5px; margin: 0 0 4px; }
+.yd.corner .yd-link { font-size: 12px; }
+.yd.corner .yd-wait { font-size: 13px; margin-top: 6px; opacity: 0.85; }
+.yd.corner .yd-err { min-height: 0; }
+.yd-qr { width: 132px; height: 132px; margin: 6px 0 2px; border-radius: 4px; overflow: hidden; }
+.yd-qr svg { display: block; width: 100%; height: 100%; }
+body.yt-touch .yd-qr { width: 104px; height: 104px; }
 .yd-net { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 6; font: 12px monospace;
   background: rgba(0, 0, 0, 0.55); color: #cfd8dc; padding: 3px 8px; border-radius: 6px; pointer-events: none; }
 `;
+
+/**
+ * Where the duel server is. On an https page (`npm run duel` serves https for the gyro, ADR 0003) a plain ws://
+ * socket is refused, so it goes through the page's own host and port at /duel-ws (Vite passes it on); on http it is
+ * the duel server's own port on the same host, as before.
+ */
+function duelSocketUrl(): string {
+  if (location.protocol === "https:") return `wss://${location.host}/duel-ws`;
+  return `ws://${location.hostname || "localhost"}:${DUEL_PORT}`;
+}
+
+/**
+ * The origin to put in the room link. Opened on the PC as localhost, the link would point a phone at itself, so it
+ * swaps in the PC's home-network address that `npm run duel` hands Vite (VITE_LAN_HOST), keeping the port.
+ */
+function shareOrigin(): string {
+  const lan = import.meta.env.VITE_LAN_HOST as string | undefined;
+  const local = ["localhost", "127.0.0.1", "[::1]", ""].includes(location.hostname);
+  return local && lan ? `${location.protocol}//${lan}${location.port ? ":" + location.port : ""}` : location.origin;
+}
 
 export class DuelLink {
   readonly predictor = new Predictor(0);
@@ -40,7 +79,12 @@ export class DuelLink {
   slot = -1;
   code = "";
   present = [false, false];
-  private readonly net: NetClient;
+  /** The connection, made when you host or join (the home server's at once with ?net=server). */
+  private net: Transport | null = null;
+  private readonly serverMode: boolean;
+  private readonly lagMs: number;
+  /** Told the player the connection dropped (once). */
+  private lostShown = false;
   private serverEvents: TaggedEvent[] = [];
   private readonly root: HTMLDivElement;
   private readonly style: HTMLStyleElement;
@@ -50,8 +94,9 @@ export class DuelLink {
   private corrections: number[] = [];
 
   constructor(params: URLSearchParams) {
-    const host = location.hostname || "localhost";
-    this.net = new NetClient(`ws://${host}:${DUEL_PORT}`, Number(params.get("lag")) || 0, (m) => this.onMsg(m));
+    this.serverMode = params.get("net") === "server";
+    this.lagMs = Number(params.get("lag")) || 0;
+    if (this.serverMode) this.net = new NetClient(duelSocketUrl(), this.lagMs, (m) => this.onMsg(m));
     this.style = document.createElement("style");
     this.style.textContent = CSS;
     document.head.append(this.style);
@@ -65,7 +110,7 @@ export class DuelLink {
     const room = cleanCode(params.get("room") ?? "");
     if (room.length === 4) {
       this.showMessage("Joining room " + room + "...");
-      this.whenOpen(() => this.net.send({ t: "join", code: room }));
+      this.whenOpen("guest", { t: "join", code: room });
     } else {
       this.showLobby();
     }
@@ -85,18 +130,23 @@ export class DuelLink {
   stepLocal(input: YeetInput, dYaw: number, dPitch: number): TaggedEvent[] {
     if (!this.ready) return [];
     const { msg, events } = this.predictor.local(input, dYaw, dPitch);
-    this.net.queue(msg);
-    return events.filter((e) => e.type !== "pvpHit" && e.type !== "pvpDown");
+    this.net?.queue(msg);
+    // only your own moves: the other player's (their landing, pickups, bonks) come from the server, and hits are its call
+    return events.filter((e) => e.p === this.slot && e.type !== "pvpHit" && e.type !== "pvpDown");
   }
 
   /** Sends this frame's inputs and refreshes the debug line. */
   flush(): void {
-    this.net.flush();
+    this.net?.flush();
+    if (this.ready && this.net?.status === "closed" && !this.lostShown) {
+      this.lostShown = true; // the host left, or the connection dropped: say so instead of freezing silently
+      this.showMessage(this.net.failReason || "Connection lost.");
+    }
     if (this.netLine) {
       const now = performance.now();
       this.snapTimes = this.snapTimes.filter((t) => now - t < 1000);
       const worst = this.corrections.length ? Math.max(...this.corrections) : 0;
-      this.netLine.textContent = `room ${this.code || "-"} · slot ${this.slot + 1} · ping ${Math.round(this.net.rtt)} ms · ` +
+      this.netLine.textContent = `room ${this.code || "-"} · slot ${this.slot + 1} · ping ${Math.round(this.net?.rtt ?? 0)} ms · ` +
         `${this.snapTimes.length} snap/s · pending ${this.predictor.pending.length} · worst correction ${worst.toFixed(3)} m`;
       this.corrections = [];
     }
@@ -110,7 +160,7 @@ export class DuelLink {
   }
 
   dispose(): void {
-    this.net.close();
+    this.net?.close();
     this.root.remove();
     this.netLine?.remove();
     this.style.remove();
@@ -146,35 +196,49 @@ export class DuelLink {
   }
 
   // ---- lobby screens ------------------------------------------------------------
-  private whenOpen(fn: () => void): void {
+  /**
+   * Sends `msg` once the connection is up, making the connection first: you host the room in this tab, or join
+   * someone else's (ADR 0004); with ?net=server both go to the home duel server.
+   */
+  private whenOpen(role: "host" | "guest", msg: ClientMsg): void {
+    if (!this.serverMode) {
+      const want = role === "host" ? PeerHost : PeerGuest;
+      if (!(this.net instanceof want) || this.net.status === "closed") {
+        this.net?.close();
+        this.net = new want((m) => this.onMsg(m));
+      }
+    }
+    const net = this.net!;
     const t = window.setInterval(() => {
-      if (this.net.status === "open") {
+      if (net.status === "open") {
         window.clearInterval(t);
-        fn();
-      } else if (this.net.status === "closed") {
+        net.send(msg);
+      } else if (net.status === "closed") {
         window.clearInterval(t);
-        this.showLobby('Could not reach the duel server. Start it with "npm run duel" on the PC.');
+        this.showLobby(net.failReason || "Could not connect.");
       }
     }, 50);
   }
 
   private showLobby(error = ""): void {
     this.root.style.display = "flex";
+    this.root.classList.remove("corner");
     this.panel.innerHTML = `<h2>Duel</h2>
-      <div><button data-act="create">Make a room</button></div>
+      <div><button data-act="create">Host a room</button></div>
+      <div class="yd-note">${this.serverMode ? "On the home duel server." : "Your game hosts it: keep this tab open and in front."}</div>
       <div style="margin-top:10px">or join: <input maxlength="4" placeholder="CODE" data-act="code"> <button data-act="join">Join</button></div>
       <div class="yd-err"></div>`;
     (this.panel.querySelector(".yd-err") as HTMLDivElement).textContent = error;
     const input = this.panel.querySelector("input") as HTMLInputElement;
     this.panel.querySelector('[data-act="create"]')!.addEventListener("click", () => {
       this.showMessage("Making a room...");
-      this.whenOpen(() => this.net.send({ t: "create" }));
+      this.whenOpen("host", { t: "create" });
     });
     const join = () => {
       const code = cleanCode(input.value);
       if (code.length !== 4) return;
       this.showMessage("Joining room " + code + "...");
-      this.whenOpen(() => this.net.send({ t: "join", code }));
+      this.whenOpen("guest", { t: "join", code });
     };
     this.panel.querySelector('[data-act="join"]')!.addEventListener("click", join);
     input.addEventListener("keydown", (e) => {
@@ -185,6 +249,7 @@ export class DuelLink {
 
   private showMessage(text: string): void {
     this.root.style.display = "flex";
+    this.root.classList.remove("corner");
     this.panel.innerHTML = "";
     const h = document.createElement("h2");
     h.textContent = text;
@@ -193,12 +258,16 @@ export class DuelLink {
 
   private showWaiting(note = ""): void {
     this.root.style.display = "flex";
-    const link = `${location.origin}${location.pathname}?play&level=duel&room=${this.code}`;
+    this.root.classList.add("corner");
+    const link = `${shareOrigin()}${location.pathname}?play&level=duel&room=${this.code}`;
     this.panel.innerHTML = `<h2>Room</h2><div class="yd-code"></div>
-      <div class="yd-link"></div>
-      <div style="margin-top:12px">Waiting for player 2... (click the game to warm up meanwhile)</div><div class="yd-err"></div>`;
+      <div class="yd-qr" title="Scan to join"></div><div class="yd-link"></div>
+      <div class="yd-wait">Waiting for player 2... warm up meanwhile</div><div class="yd-err"></div>`;
     (this.panel.querySelector(".yd-code") as HTMLDivElement).textContent = this.code;
     (this.panel.querySelector(".yd-link") as HTMLDivElement).textContent = link;
+    const qr = this.panel.querySelector(".yd-qr") as HTMLDivElement;
+    qr.innerHTML = roomQrSvg(link); // made here from our own link text, never from a message
+    if (!qr.innerHTML) qr.remove();
     (this.panel.querySelector(".yd-err") as HTMLDivElement).textContent = note;
     this.root.style.pointerEvents = "none"; // you can click past it into the game while you wait
     this.panel.style.pointerEvents = "auto";
