@@ -21,4 +21,6 @@ export interface Transport {
   queue(input: NetInput): void;
   flush(): void;
   close(): void;
+  /** While joining (a peer guest only): is the matchmaker answering, and the direct connection's ICE state. */
+  joinProgress?(): { brokerOpen: boolean; ice?: string };
 }

@@ -58,6 +58,18 @@ export type Item = {
 /** Called with the focused item when focus moves or its value changes (the narrator, #165). */
 export const focusHooks: ((item: Item) => void)[] = [];
 
+/**
+ * Which half of a value row's "< value >" a tap landed in. The arrows alone are a finger-width target on a tablet
+ * (playtest 2026-11-24: the deadzone could only go up), so the left half of the value steps down and the right half
+ * up; a tap on the label (outside the value) is "right", as before (it steps a switch or a list forward).
+ */
+export function tapSide(target: HTMLElement, clientX: number): "left" | "right" {
+  const value = target.closest(".value");
+  if (!value) return "right";
+  const r = value.getBoundingClientRect();
+  return clientX < r.left + r.width / 2 ? "left" : "right";
+}
+
 /** A vertical list of focusable items. Up/down move (wrapping), left/right change values, accept activates. */
 export class Menu {
   readonly items: Item[] = [];
@@ -74,6 +86,7 @@ export class Menu {
       const target = ev.target as HTMLElement;
       if (target.closest("[data-dir='left']")) item.left?.();
       else if (item.accept) item.accept();
+      else if (item.left && tapSide(target, ev.clientX) === "left") item.left();
       else item.right?.();
     });
     this.items.push(item);

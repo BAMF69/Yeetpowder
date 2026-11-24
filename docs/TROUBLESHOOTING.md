@@ -16,6 +16,20 @@
 ```
 
 ## Entries
+### A guest on home Wi-Fi is stuck at "Joining room" (works on mobile data)
+- First seen: 2026-11-24 (Elaina's iPhone, Pages build; her tablet on the same Wi-Fi joined, and earlier the tablet
+  could not reach the laptop's dev server at all: ERR_ADDRESS_UNREACHABLE)
+- Environment: browser-hosted duel (ADR 0004), both devices on one home Wi-Fi
+- Symptom: "Joining room ABCD..." forever; with Wi-Fi off on the iPhone it joined at once
+- Root cause: most likely the router keeps Wi-Fi devices from reaching each other (client/AP isolation, or a
+  guest or mesh band with its own addresses: the laptop moved between 192.168.0.x and 192.168.1.x). Then no direct
+  path exists, and PeerJS's own free relay (turn:*.turn.peerjs.com, best effort) did not carry it. **unverified**
+  (the router settings were not checked)
+- Fix: the join now shows its steps and gives up after 20 s with advice (src/net/joinStatus.ts). Workaround: one
+  device on mobile data. A real fix for strict networks is a relay (TURN) server of our own (ADR 0004 "revisit").
+- How to verify: tests/joinStatus.test.ts; on the device, the line under "Joining room" changes and ends in advice
+- Related: ADR 0004
+
 ### Crash when YEETREAPing the bot (or a player)
 - First seen: 2026-11-22 (Elaina: "it crashed after I hooked the bot and tried to ultrareap")
 - Environment: Windows 11, three r186, dev build, Duel vs bot

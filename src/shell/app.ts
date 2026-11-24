@@ -172,6 +172,8 @@ export class Shell {
   consentAsked = false;
   settingsTab = 0;
   plantedCrash = false;
+  /** Set by a game with touch controls: opens its touch options (Settings > Controls shows a row for it). */
+  touchSettings: (() => void) | null = null;
   readonly checks = { screens: 0, labels: 0, failures: [] as string[] };
   /** The open settings screen's Display staging (#308): pending changes and the keep-or-revert confirm. */
   staging: DisplayStaging | null = null;
