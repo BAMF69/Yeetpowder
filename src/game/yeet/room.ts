@@ -5,7 +5,8 @@
 //           painted concrete walls with an orange band, a dark worn floor, a ceiling with fluorescent panels,
 //           wooden crates, teal riveted steel and hazard-striped trim on tall blocks.
 // Usage   : const room = buildRoom(arena); scene.add(room.group); ... room.dispose()
-// Notes   : Every surface is an axis-aligned box, so each face gets UVs from its world position (metres / tile
+// Notes   : Boxes with a prop are drawn by props.ts; a box's `paint` (outdoor levels) picks a tinted surface.
+//           Every surface is an axis-aligned box, so each face gets UVs from its world position (metres / tile
 //           size): textures never stretch and line up across boxes. Crates, riveted steel and lights are pictures
 //           of a whole object instead, so their faces show whole copies (fittedUVs), stretched a little to fit. This gives the kit's triplanar recipe's result
 //           without a custom shader, so three.js lighting, shadows and fog keep working (SOP-24: the triplanar
@@ -41,6 +42,15 @@ function blockKind(b: Box): PaintKind {
  * whole number of copies, never a cut-off one (Elaina, 2026-11-24: "boxes appear as partial textures").
  */
 const FITTED = new Set<PaintKind>(["crate", "steel", "light"]);
+
+/** A box's own paint (Box.paint, the outdoor levels): which painted surface it uses and the colour it is tinted. */
+const PAINTS: Record<NonNullable<Box["paint"]>, { kind: PaintKind; tint: string }> = {
+  sand: { kind: "concrete", tint: "#f2dca6" },
+  rock: { kind: "concrete", tint: "#e6d6bd" },
+  asphalt: { kind: "floor", tint: "#9a9ca0" },
+  corrugated: { kind: "steel", tint: "#b4bcc2" },
+  container: { kind: "steel", tint: "#c25a35" },
+};
 
 /** Copies of a texture across a face `size` metres wide: the nearest whole number to size / tile, at least one. */
 export function fitRepeats(size: number, tile: number): number {
@@ -95,27 +105,27 @@ function worldUVs(geo: THREE.BufferGeometry, center: THREE.Vector3, tile: number
 export function buildRoom(arena: Arena): { group: THREE.Group; dispose(): void } {
   const group = new THREE.Group();
   const geos: THREE.BufferGeometry[] = [];
-  const mats = new Map<PaintKind, THREE.Material>();
-  const mat = (kind: PaintKind): THREE.Material => {
-    let m = mats.get(kind);
+  const mats = new Map<string, THREE.Material>();
+  const mat = (kind: PaintKind, tint = "#ffffff"): THREE.Material => {
+    let m = mats.get(kind + tint);
     if (!m) {
       // light panels glow, and the ceiling (facing away from every light) shows as painted: both unlit
       m = kind === "light" || kind === "ceiling"
-        ? new THREE.MeshBasicMaterial({ map: paintedTexture(kind) })
-        : new THREE.MeshStandardMaterial({ map: paintedTexture(kind), roughness: 0.92, metalness: kind === "steel" ? 0.15 : 0 });
-      mats.set(kind, m);
+        ? new THREE.MeshBasicMaterial({ map: paintedTexture(kind), color: tint })
+        : new THREE.MeshStandardMaterial({ map: paintedTexture(kind), color: tint, roughness: 0.92, metalness: kind === "steel" ? 0.15 : 0 });
+      mats.set(kind + tint, m);
     }
     return m;
   };
   /** Adds a textured box (world-space min/max) to the group. */
-  const addBox = (min: THREE.Vector3, max: THREE.Vector3, kind: PaintKind, shadows: { cast: boolean; receive: boolean }) => {
+  const addBox = (min: THREE.Vector3, max: THREE.Vector3, kind: PaintKind, shadows: { cast: boolean; receive: boolean }, tint?: string) => {
     const size = new THREE.Vector3().subVectors(max, min);
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
     const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
     if (FITTED.has(kind)) fittedUVs(geo, size, TILE[kind] ?? 1);
     else worldUVs(geo, center, TILE[kind] ?? 1);
     geos.push(geo);
-    const mesh = new THREE.Mesh(geo, mat(kind));
+    const mesh = new THREE.Mesh(geo, mat(kind, tint));
     mesh.position.copy(center);
     mesh.castShadow = shadows.cast;
     mesh.receiveShadow = shadows.receive;
@@ -125,10 +135,15 @@ export function buildRoom(arena: Arena): { group: THREE.Group; dispose(): void }
   const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
   for (const b of arena.boxes) {
+    if (b.prop) continue; // cars, trucks, tanks, drums are drawn by props.ts; "hidden" bounds are not drawn
     const top = b.kind === "wall" ? Math.min(b.max.y, b.drawTop ?? b.max.y) : b.max.y;
     const min = v3(b.min.x, b.min.y, b.min.z);
     const max = v3(b.max.x, top, b.max.z);
-    if (b.kind === "floor") {
+    const own = b.paint ? PAINTS[b.paint] : null;
+    if (own) {
+      // the outdoor levels' own surfaces: no orange band, door or hazard trim (those belong to the indoor rooms)
+      addBox(min, max, own.kind, { cast: b.kind === "block", receive: true }, own.tint);
+    } else if (b.kind === "floor") {
       addBox(min, max, "floor", { cast: false, receive: true });
     } else if (b.kind === "ceiling") {
       addBox(min, max, "ceiling", { cast: false, receive: false });

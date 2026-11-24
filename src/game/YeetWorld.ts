@@ -18,6 +18,7 @@
 //           ?tumble trips a tumble 1 s in (logs YEET_MARK_tumble 0.4 s later, ?hold=tumble freezes there).
 //           ?yeetreap (in a bot duel) hooks the bot 1 s in and YEETREAPs it (YEET_MARK_hook, YEET_MARK_yeetreap; a
 //           crash fails smoke; ?hold=hook freezes on the hook).
+//           ?boom=<i> blows up the level's explosive i 1 s in (YEET_MARK_boom; ?hold=boom freezes on the fireball).
 //           ?shake=left|right|up|down plays one touch shake move 1 s in (YEET_MARK_shake; ?hold=shake freezes there).
 //           ?hero fires Reaper's Kick straight down 1 s in (YEET_MARK_hero mid hero landing, ?hold=hero freezes).
 //           ?showcase holds the camera in front of your third-person operative (art review);
@@ -32,7 +33,8 @@ import { effectiveShake } from "../core/settings";
 import { Shake } from "../core/shake";
 import { rayArena } from "../core/yeet/arena";
 import { AUTOPLAY_SECONDS, autoplayStep } from "../core/yeet/autoplay";
-import { levelById } from "../core/yeet/levels";
+import { BOT_LEVELS, levelById, type LevelId } from "../core/yeet/levels";
+import { buildProps } from "./yeet/props";
 import { NO_INPUT, PLAYER_CODE, YeetSim, type PlayerState, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
 import { len, normalize, vec, type Vec3 } from "../core/yeet/vec";
@@ -120,10 +122,10 @@ export class YeetWorld implements World {
   private readonly autoplay = shell.params.has("autoplay");
   /** Duel vs bot (menu "Duel vs bot", or ?level=duel&bot=easy|medium|hard): offline, the bot is player 2. */
   private readonly botSkill = this.autoplay ? null : YeetWorld.botFrom(shell.params.get("bot"), shell.params.get("level") ?? shell.worldOption);
-  private readonly levelId = this.autoplay ? "sandbox" : this.botSkill ? "duel" : shell.params.get("level") ?? shell.worldOption;
+  private readonly levelId = this.autoplay ? "sandbox" : this.botSkill ? YeetWorld.botLevel(shell.params.get("level")) : shell.params.get("level") ?? shell.worldOption;
   /** Online duel: the connection, prediction and lobby (null in single player and against a bot). */
   private readonly link = this.levelId === "duel" && !this.botSkill ? new DuelLink(shell.params) : null;
-  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, levelById(this.levelId), this.botSkill ? 2 : 1);
+  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, YeetWorld.levelFor(this.levelId, !!this.botSkill), this.botSkill ? 2 : 1);
   /** The bot's brain (src/core/yeet/bot.ts). Its seed only varies matches (?botseed=N replays one). */
   private readonly brain = this.botSkill
     ? new BotBrain(TUNING, 1, this.botSkill, Number(shell.params.get("botseed") ?? Math.floor(Math.random() * 1e6)))
@@ -141,6 +143,8 @@ export class YeetWorld implements World {
   private lookYaw = 0;
   private lookPitch = 0;
   private readonly room = buildRoom(this.sim.arena);
+  /** The new levels' cars, trucks, tanks, drums, scenery, water and shark (props.ts). */
+  private readonly props = buildProps(this.sim.level, this.sim.explosives);
   private readonly views: DummyView[] = [];
   private readonly body: Operative; // you, seen from outside (tumbles, the launch camera, hero landings)
   private readonly pickups: PickupViews;
@@ -181,6 +185,8 @@ export class YeetWorld implements World {
   /** ?shake=left|right|up|down: one shake 1 s in (no phone needed), YEET_MARK_shake 0.35 s later (?hold=shake). */
   private readonly debugShake = (["left", "right", "up", "down"] as const).find((d) => d === shell.params.get("shake")) ?? null;
   private shakeFired = false;
+  /** ?boom=<i>: explosive i blows up 1 s in (YEET_MARK_boom 0.12 s later: the fireball at its biggest). */
+  private readonly debugBoom = shell.params.has("boom") ? Number(shell.params.get("boom") || 0) : -1;
   private reapStart = -1;
   private heroFired = false;
   /** ?showcase: the camera stays in front of your operative; ?pose=...: force a pose (art review stills). */
@@ -249,6 +255,18 @@ export class YeetWorld implements World {
     sc.far = 90;
     this.scene.add(sun);
     this.scene.add(this.room.group);
+    this.scene.add(this.props.group);
+    if (this.sim.level.outdoor) {
+      // open sky (Shark Island, the Industrial yard, the Junkyard): blue above, light haze, a stronger sun that
+      // covers the whole level with its shadows
+      this.scene.background = new THREE.Color("#8ec5e8");
+      this.scene.fog = new THREE.Fog("#b8d8ec", 70, 260);
+      sun.intensity = 2.3;
+      sun.position.set(30, 60, 18);
+      sc.left = sc.bottom = -70;
+      sc.right = sc.top = 70;
+      sc.far = 180;
+    }
 
     this.sim.dummies.forEach((_d, i) => {
       const [color, name] = SUITS[i % SUITS.length];
@@ -332,6 +350,7 @@ export class YeetWorld implements World {
     this.fx.dispose();
     this.vm.dispose();
     this.room.dispose();
+    this.props.dispose();
     this.pickups.dispose();
     this.body.dispose();
     this.ballGeo.dispose();
@@ -369,6 +388,12 @@ export class YeetWorld implements World {
     this.touch?.setZoneFires(pl.weapon === "copter"); // Gatling: hold anywhere on the right to fire, drag to aim
     this.mergeTouch(f);
     if (this.tf?.shake) this.startShake(this.tf.shake);
+    if (this.debugBoom >= 0 && !this.shakeFired && this.sim.time >= 1) {
+      this.shakeFired = true;
+      for (const e of this.sim.debugExplode(this.debugBoom)) this.onEvent(e);
+      this.marks.push([this.sim.time + 0.12, "boom"]);
+      this.marks.sort((a, b) => a[0] - b[0]);
+    }
     if (this.debugShake && !this.shakeFired && this.sim.time >= 1) {
       this.shakeFired = true;
       this.startShake(this.debugShake);
@@ -465,7 +490,7 @@ export class YeetWorld implements World {
       this.marks.sort((a, b) => a[0] - b[0]);
     }
     // smoke can stop at these to screenshot a moment: --until YEET_MARK_launch (spin, copter)
-    while ((this.autoplay || this.debugTumble || this.debugHero || this.debugShake || (this.debugReap && this.reapStart >= 0)) && this.marks.length && this.sim.time >= this.marks[0][0]) {
+    while ((this.autoplay || this.debugTumble || this.debugHero || this.debugShake || this.debugBoom >= 0 || (this.debugReap && this.reapStart >= 0)) && this.marks.length && this.sim.time >= this.marks[0][0]) {
       const mark = this.marks.shift()![1];
       Log.info("yeet", `YEET_MARK_${mark}`);
       if (shell.params.get("hold") === mark) this.held = true; // ?hold=<mark>: freeze here for a screenshot
@@ -484,6 +509,7 @@ export class YeetWorld implements World {
     this.drawOthers(dt);
     this.drawBalls();
     this.pickups.update(dt, this.sim.pickups);
+    this.props.update(dt);
     // the barrels and the chop only while it really fires (not on an empty or reloading gun)
     const copterFiring = pl.weapon === "copter" && f.fireHeld && !pl.overheated && !this.sim.helpless &&
       pl.mag.copter > 0 && pl.reloading === 0;
@@ -693,8 +719,41 @@ export class YeetWorld implements World {
   }
 
   // ---- events -> effects -------------------------------------------------------
+  /** The level's own events (whoever caused them): explosions and the shark. True if it was one. */
+  private onWorldEvent(e: TaggedEvent | YeetEvent): boolean {
+    if (e.type === "explode") {
+      const spec = TUNING.explosive[e.kind];
+      this.props.explode(e.at, spec.radius);
+      this.sound.play("kaboom");
+      const pl = this.sim.player;
+      const near = Math.hypot(pl.pos.x - e.at.x, pl.pos.z - e.at.z);
+      this.shake.addTrauma(near < spec.radius * 2 ? 0.8 : 0.35);
+      if (e.kind !== "drum") this.hud.pop("KABOOM!", true);
+      return true;
+    }
+    if (e.type === "explosiveBack") return true;
+    if (e.type === "eaten") {
+      this.props.shark(e.at);
+      this.sound.play("splat");
+      const me = this.link?.slot ?? 0;
+      if (e.who === "player" && (e as TaggedEvent).p === me) {
+        this.hud.pop("EATEN BY A SHARK!", true);
+        this.sound.play("crowd_aww");
+      } else if (e.who === "player") {
+        this.hud.feedLine("FED TO THE SHARK", "the other player");
+        this.sound.play("crowd_cheer");
+      } else {
+        this.views[e.who].lastWeapon = "shotgun";
+        this.hud.feedLine("FED TO THE SHARK", this.views[e.who].name);
+      }
+      return true;
+    }
+    return false;
+  }
+
   private onEvent(e: YeetEvent): void {
     Log.debug("yeet", e.type);
+    if (this.onWorldEvent(e)) return;
     const pl = this.sim.player;
     switch (e.type) {
       case "fire": {
@@ -1013,6 +1072,18 @@ export class YeetWorld implements World {
   }
 
   // ---- duel vs bot ------------------------------------------------------------------
+  /** The level to play; in a bot match the dummies stay home (it is you against the bot). */
+  private static levelFor(id: string, botMatch: boolean): ReturnType<typeof levelById> {
+    const level = levelById(id);
+    if (botMatch) level.arena.dummySpawns = [];
+    return level;
+  }
+
+  /** A bot match's level: one of the new levels when asked for (?bot=easy&level=island), else the duel room. */
+  private static botLevel(param: string | null): LevelId {
+    return BOT_LEVELS.includes(param as LevelId) ? (param as LevelId) : "duel";
+  }
+
   /** The bot difficulty from ?bot= or the menu's world option "duel-bot-<skill>", or null. */
   private static botFrom(param: string | null, world: string | null): BotSkill | null {
     const s = param ?? (world?.startsWith("duel-bot-") ? world.slice("duel-bot-".length) : null);
@@ -1061,6 +1132,7 @@ export class YeetWorld implements World {
 
   /** A bot match's events: yours play as always; the bot's and the hits between you go the way a remote player's do. */
   private routeBotMatch(e: TaggedEvent): void {
+    if (this.onWorldEvent(e)) return;
     if (e.type === "pvpHit" || e.type === "pvpDown" || e.p === 1) this.onServerEvent(e);
     else this.onEvent(e);
   }

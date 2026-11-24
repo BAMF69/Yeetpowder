@@ -71,7 +71,7 @@ Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when
 | Airborne kick | Pea Pistol and Spin Doctor shots in mid-air kick and twist twice as hard (upward kick capped, so the Gatling tower stays Boomstick-only) *(playtest 5)* | yes |
 | Sprint | Shift: 11 m/s for 3 s, refills after a rest; firing while sprinting doubles the tumble chance *(playtest 4)* | yes |
 | Run-and-gun tumble | A shot fired while moving may knock you into a tumble (no control; the camera pops out to third person to watch). Chance grows with speed and recoil, halves when aimed; the copter never tumbles you (Elaina's call) *(playtest 3)* | yes |
-| Levels | Sandbox (the open test room, every gun), Fight Back (dummies shoot back; start with Pea Pistol + Boomstick; Spin Doctor on the ground; Gatling Copter on an 11 m tower only a Boomstick launch reaches) *(playtest 3)* and the Duel room (30 x 30 m, two spawns, Gatling and gunblade pickups) | yes |
+| Levels | Shark Island, Industrial Yard and Junkyard (first builds 2026-11-24, placeholder props: water knockouts, exploding vehicles, car stacks); Sandbox (the open test room, every gun), Fight Back (dummies shoot back; start with Pea Pistol + Boomstick; Spin Doctor on the ground; Gatling Copter on an 11 m tower only a Boomstick launch reaches) *(playtest 3)* and the Duel room (30 x 30 m, two spawns, Gatling and gunblade pickups) | yes |
 | Wall bonk | Impact above a speed threshold stuns ~0.5 s with a splat; no damage unless "Hard Walls" | yes |
 | Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol | 3 standard guns + the Gatling Copter as one rare pickup (Elaina) |
 | Hit knockback | Being shot pushes you too | yes |

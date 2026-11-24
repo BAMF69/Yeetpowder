@@ -32,6 +32,8 @@ import { moveBody, rayArena, rayBox } from "./arena";
 import type { Level } from "./levels";
 import { GUNBLADES, type Tuning, type WeaponId, type WeaponTuning } from "./tuning";
 import { addScaled, aimDir, copy, len, lenXZ, normalize, spreadDir, vec, type Vec3 } from "./vec";
+import type { ExplosiveKind } from "./arena";
+import { blast, centerOf, makeExplosives, tickWrecks, wreck, type ExplosiveState } from "./hazards";
 
 export interface YeetInput {
   /** -1..1: strafe right is +x, forward is +z (WASD / stick). */
@@ -111,7 +113,10 @@ export type YeetEvent =
   | { type: "ultraslash"; hits: number; round: number; last: boolean }
   | { type: "pvpHit"; by: number; target: number; damage: number; at: Vec3 }
   | { type: "pvpDown"; by: number; target: number }
-  | { type: "heroLanding" };
+  | { type: "heroLanding" }
+  | { type: "explode"; index: number; kind: ExplosiveKind; at: Vec3 }
+  | { type: "explosiveBack"; index: number }
+  | { type: "eaten"; who: "player" | number; by: number; at: Vec3 };
 
 /** An event with the index of the player it belongs to (step() tags every player-caused event). */
 export type TaggedEvent = YeetEvent & { p?: number };
@@ -156,6 +161,9 @@ export interface PlayerState {
   /** Gunblades: sim time of the last gun shot (Reap window), slash cooldown, the Sakura's swing recovery (a revolver
    * shot during it cancels it and lunges), the combo count and when the last slash landed. */
   lastShotAt: number;
+  /** The player who last hurt this one (-1 = none) and when (s): a knockout by water or blast credits them. */
+  lastHitBy: number;
+  lastHitAt: number;
   slashCd: number;
   slashRecover: number;
   combo: number;
@@ -213,6 +221,7 @@ export interface SimState {
   balls: Ball[];
   pickups: PickupState[];
   kos: number[];
+  explosives: ExplosiveState[];
 }
 
 export interface PickupState {
@@ -237,6 +246,8 @@ export class YeetSim {
   readonly dummies: DummyState[];
   readonly balls: Ball[] = [];
   readonly pickups: PickupState[];
+  /** The level's trucks, tanks and drums (hazards.ts): their health and wreck timers. */
+  readonly explosives: ExplosiveState[];
   /** Simulated seconds since start. */
   time = 0;
   private seed: number;
@@ -256,6 +267,7 @@ export class YeetSim {
       face: 0, aiming: 0, aiCooldown: 1.5 + i * 0.45,
     }));
     this.pickups = level.pickups.map((p) => ({ weapon: p.weapon, pos: copy(p.pos), taken: false }));
+    this.explosives = makeExplosives(level.arena, t);
   }
 
   /** The player being stepped (between steps: the local player). */
@@ -267,7 +279,7 @@ export class YeetSim {
   exportState(): SimState {
     return structuredClone({
       time: this.time, seed: this.seed, players: this.players, dummies: this.dummies, balls: this.balls,
-      pickups: this.pickups, kos: this.kos,
+      pickups: this.pickups, kos: this.kos, explosives: this.explosives,
     });
   }
 
@@ -281,6 +293,12 @@ export class YeetSim {
     this.balls.splice(0, this.balls.length, ...c.balls);
     this.pickups.splice(0, this.pickups.length, ...c.pickups);
     this.kos.splice(0, this.kos.length, ...c.kos);
+    this.explosives.splice(0, this.explosives.length, ...(c.explosives ?? []));
+    // the boxes follow: a wreck is low, a whole one full height
+    for (const ex of this.explosives) {
+      const b = this.arena.boxes[ex.box];
+      b.max.y = ex.wreckT > 0 ? Math.min(ex.top, b.min.y + this.t.explosive[ex.kind].wreck) : ex.top;
+    }
     this.cur = this.localIndex;
   }
 
@@ -299,7 +317,7 @@ export class YeetSim {
       overheated: false, yeeted: false, hp: t.player.hp, dead: 0, tumbling: 0, tumbleAge: 0, tumbleRoll: 0,
       stamina: t.sprint.stamina, sprinting: false, winded: false, sprintRest: 0,
       mag: this.fullMags(), reloading: 0,
-      lastShotAt: -99, slashCd: 0, slashRecover: 0, combo: 0, lastSlashAt: -99,
+      lastShotAt: -99, lastHitBy: -1, lastHitAt: -99, slashCd: 0, slashRecover: 0, combo: 0, lastSlashAt: -99,
       holdT: 0, holdUsed: false, hook: -1, hookT: 0, stance: false, slashHit: -1,
       stanceDashed: false, ultraLeft: 0, ultraT: 0, ultraRound: 0,
       backflipAir: false, heroLand: 0,
@@ -368,7 +386,106 @@ export class YeetSim {
     this.cur = this.localIndex;
     this.dummies.forEach((d, i) => this.stepDummy(d, i, dt, ev));
     this.stepBalls(dt, ev);
+    for (const ex of tickWrecks(this.explosives, this.arena, dt, (box, top) => this.someoneIn(box, top), this.t)) {
+      ev.push({ type: "explosiveBack", index: this.explosives.indexOf(ex) });
+    }
     return ev;
+  }
+
+  // ---- hazards: explosives and water (hazards.ts) -------------------------------------
+  /** Is anyone (a player or a dummy) inside where this box would be at full height? */
+  private someoneIn(box: number, top: number): boolean {
+    const b = this.arena.boxes[box];
+    const hw = this.t.player.halfWidth;
+    const inside = (p: Vec3) => p.x + hw > b.min.x && p.x - hw < b.max.x && p.z + hw > b.min.z && p.z - hw < b.max.z &&
+      p.y < top && p.y + this.t.player.height > b.min.y;
+    return this.players.some((p) => inside(p.pos)) || this.dummies.some((d) => inside(d.pos));
+  }
+
+  /** Debug (?boom): blows explosive `i` up now; returns its events. */
+  debugExplode(i: number): YeetEvent[] {
+    const ev: YeetEvent[] = [];
+    this.damageExplosive(i, 1e9, ev);
+    return ev;
+  }
+
+  /** A shot or a blast wears an explosive down; at 0 it blows up. */
+  private damageExplosive(i: number, damage: number, ev: YeetEvent[]): void {
+    const ex = this.explosives[i];
+    if (!ex || ex.wreckT > 0 || ex.hp <= 0) return;
+    ex.hp -= damage;
+    if (ex.hp <= 0) this.explode(i, ev);
+  }
+
+  /** The blast: everyone in reach is pushed away and up and hurt; other explosives in reach take the hit too. */
+  private explode(i: number, ev: YeetEvent[]): void {
+    const ex = this.explosives[i];
+    const spec = this.t.explosive[ex.kind];
+    const at = centerOf(ex, this.arena);
+    wreck(ex, this.arena, this.t);
+    ev.push({ type: "explode", index: i, kind: ex.kind, at });
+    const mid = this.t.player.height * 0.55;
+    this.players.forEach((v, j) => {
+      if (v.dead > 0) return;
+      const r = blast(at, vec(v.pos.x, v.pos.y + mid, v.pos.z), spec);
+      if (r.damage <= 0) return;
+      addScaled(v.vel, r.push, 1);
+      v.onGround = false;
+      v.hp -= r.damage;
+      if (j !== this.cur) {
+        v.lastHitBy = this.cur; // whoever set it off gets the knockout (and a later fall in the water)
+        v.lastHitAt = this.time;
+      }
+      if (v.hp <= 0) {
+        this.knockOut(v);
+        if (j !== this.cur) {
+          this.kos[this.cur]++;
+          ev.push({ type: "pvpDown", by: this.cur, target: j });
+        }
+      }
+    });
+    this.dummies.forEach((d, k) => {
+      if (d.down > 0) return;
+      const r = blast(at, vec(d.pos.x, d.pos.y + mid, d.pos.z), spec);
+      if (r.damage > 0) this.hitDummy(k, normalize(r.push), r.damage, len(r.push), copy(d.pos), ev);
+    });
+    this.explosives.forEach((other, k) => {
+      if (k === i || other.wreckT > 0) return;
+      const r = blast(at, centerOf(other, this.arena), spec);
+      if (r.damage > 0) this.damageExplosive(k, r.damage, ev); // a chain reaction
+    });
+  }
+
+  /** In the water: eaten (a knockout, credited to whoever hit you lately), and held under until you respawn. */
+  private waterPlayer(pl: PlayerState, ev: YeetEvent[]): void {
+    const w = this.level.water;
+    if (!w || pl.pos.y >= w.y) return;
+    if (pl.dead === 0) {
+      const recent = this.time - pl.lastHitAt <= this.t.water.credit;
+      const by = pl.lastHitBy >= 0 && pl.lastHitBy !== this.cur && recent ? pl.lastHitBy : -1;
+      ev.push({ type: "eaten", who: "player", by, at: vec(pl.pos.x, w.y, pl.pos.z) });
+      this.knockOut(pl);
+      if (by >= 0) {
+        this.kos[by]++;
+        ev.push({ type: "pvpDown", by, target: this.cur });
+      }
+    }
+    pl.pos.y = w.y - this.t.water.sink;
+    pl.vel = vec();
+    pl.tumbling = 0;
+  }
+
+  private waterDummy(d: DummyState, i: number, ev: YeetEvent[]): void {
+    const w = this.level.water;
+    if (!w || d.pos.y >= w.y) return;
+    if (d.down === 0) {
+      d.down = this.level.dummyRespawn;
+      d.hp = 0;
+      d.aiming = 0;
+      ev.push({ type: "eaten", who: i, by: -1, at: vec(d.pos.x, w.y, d.pos.z) });
+    }
+    d.pos.y = w.y - this.t.water.sink;
+    d.vel = vec();
   }
 
   // ---- targets: dummies and (in a duel) the other players ------------------------------
@@ -417,6 +534,8 @@ export class YeetSim {
     const j = code - PLAYER_CODE;
     const v = this.players[j];
     if (!v || v.dead > 0) return;
+    v.lastHitBy = this.cur;
+    v.lastHitAt = this.time;
     addScaled(v.vel, dir, knockback);
     v.vel.y += this.t.dummy.lift * Math.min(1, knockback / 4) + lift;
     v.onGround = false;
@@ -527,6 +646,7 @@ export class YeetSim {
     }
 
     if (pl.dead === 0) this.checkPickups(ev);
+    this.waterPlayer(pl, ev);
 
     if (pl.pos.y < -30) {
       this.respawnPlayer(false);
@@ -1095,6 +1215,12 @@ export class YeetSim {
     });
     const to = addScaled(copy(from), dir, dist);
     if (target >= 0) this.hitTarget(target, dir, w.damage, w.knockback, to, ev);
+    else this.explosives.forEach((ex, i) => {
+      // the wall the shot stopped at is an explosive's box: it takes the hit
+      if (ex.wreckT > 0) return;
+      const b = this.arena.boxes[ex.box];
+      if (Math.abs(rayBox(from, dir, b.min, b.max) - dist) < 0.02) this.damageExplosive(i, w.damage, ev);
+    });
     return { from, to, hit: target >= 0 };
   }
 
@@ -1234,6 +1360,7 @@ export class YeetSim {
       addScaled(d.vel, res.wallNormal, res.wallImpact * t.bonk.bounce);
       ev.push({ type: "bonk", who: i, at: copy(d.pos), speed: res.wallImpact });
     }
+    this.waterDummy(d, i, ev);
     if (d.pos.y < -30) {
       d.pos = copy(d.spawn);
       d.vel = vec();
