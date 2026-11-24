@@ -36,6 +36,8 @@ export interface PoseInput {
   flip?: number;
   /** 0..1 through a gunblade slash (a forehand sweep, right to left), 0 = none. */
   slash?: number;
+  /** Reaper's Kick has an enemy hooked: the gunblade turns on its side (as in first person). */
+  hook?: boolean;
 }
 
 export type V3 = [number, number, number];
@@ -58,6 +60,7 @@ export interface PoseTargets {
 
 /** Pose numbers (presentation only: gameplay never reads them). */
 export const POSE = {
+  hookRoll: Math.PI / 2, // Reaper's Kick hooking: the gunblade on its side
   runStride: 0.65, // thigh swing (rad) at full run
   runRate: 1.9, // stride radians per metre travelled
   runFull: 6, // m/s that counts as a full run
@@ -130,6 +133,9 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
     twist = lerp(-s.twist, s.twist, e);
     gunRoll = s.roll;
   }
+  // Reaper's Kick hooking: the gunblade rolled a quarter turn counter-clockwise as its holder sees it (the gun
+  // points along +Z, away from them, so that is a negative roll here; first person's is positive)
+  if (p.hook && p.weapon === "reaper") gunRoll -= POSE.hookRoll;
   const oneHanded = p.weapon === "pistol" || p.weapon === "sakura";
   let leftArm: PoseTargets["leftArm"] = oneHanded ? { shoulder: [-0.15 - swing * 0.6, 0, 0.12], elbow: -0.35 } : "fore";
 
@@ -212,5 +218,6 @@ export function inputFromPlayer(pl: PlayerState, simTime: number, aim: number, k
     tumbling: pl.tumbling > 0,
     dead: pl.dead > 0,
     kneel,
+    hook: pl.weapon === "reaper" && pl.hook >= 0,
   };
 }

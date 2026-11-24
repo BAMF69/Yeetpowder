@@ -18,12 +18,16 @@ export interface TouchSettings {
   gyro: boolean;
   /** x TUNING.touch.gyro. */
   gyroSpeed: number;
+  /** Shake the device for moves (shake.ts): Reaper cartwheels and flip reaps, Sakura combos. */
+  shake: boolean;
+  /** x how easily a shake counts (the detector's threshold is divided by it). */
+  shakeStrength: number;
   /** The move stick's deadzone (0..0.5 of its radius); the Settings screen's "Stick deadzone" is the gamepad's. */
   deadzone: number;
 }
 
 const KEY = "yeetpowder.touch";
-const DEFAULTS: TouchSettings = { look: 1, assist: true, gyro: false, gyroSpeed: 1, deadzone: TUNING.touch.deadzone };
+const DEFAULTS: TouchSettings = { look: 1, assist: true, gyro: false, gyroSpeed: 1, deadzone: TUNING.touch.deadzone, shake: true, shakeStrength: 1 };
 const clamp = (v: unknown, lo: number, hi: number, def: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def;
 
@@ -36,6 +40,8 @@ export function loadTouchSettings(): TouchSettings {
       gyro: typeof raw.gyro === "boolean" ? raw.gyro : DEFAULTS.gyro,
       gyroSpeed: clamp(raw.gyroSpeed, 0.5, 3, DEFAULTS.gyroSpeed),
       deadzone: clamp(raw.deadzone, 0, 0.5, DEFAULTS.deadzone),
+      shake: typeof raw.shake === "boolean" ? raw.shake : DEFAULTS.shake,
+      shakeStrength: clamp(raw.shakeStrength, 0.5, 2, DEFAULTS.shakeStrength),
     };
   } catch {
     return { ...DEFAULTS };
@@ -80,6 +86,8 @@ export function buildTouchPanel(
     <label>Gyro aiming <input type="checkbox" data-k="gyro"></label>
     <div class="note" data-note></div>
     <label>Gyro speed <input type="range" min="0.5" max="3" step="0.1" data-k="gyroSpeed"><span data-v="gyroSpeed"></span></label>
+    <label>Shake moves <input type="checkbox" data-k="shake"></label>
+    <label>Shake strength <input type="range" min="0.5" max="2" step="0.1" data-k="shakeStrength"><span data-v="shakeStrength"></span></label>
     <button data-close>Done</button>`;
   parent.append(root);
   // the panel's own taps must not reach the look zone or the game behind it
@@ -89,6 +97,9 @@ export function buildTouchPanel(
     q<HTMLInputElement>('[data-k="look"]').value = String(s.look);
     q<HTMLInputElement>('[data-k="gyroSpeed"]').value = String(s.gyroSpeed);
     q<HTMLInputElement>('[data-k="deadzone"]').value = String(s.deadzone);
+    q<HTMLInputElement>('[data-k="shake"]').checked = s.shake;
+    q<HTMLInputElement>('[data-k="shakeStrength"]').value = String(s.shakeStrength);
+    q('[data-v="shakeStrength"]').textContent = s.shakeStrength >= 1.05 ? `${s.shakeStrength.toFixed(1)}x easier` : s.shakeStrength <= 0.95 ? `${(1 / s.shakeStrength).toFixed(1)}x harder` : "normal";
     q('[data-v="deadzone"]').textContent = `${Math.round(s.deadzone * 100)}%`;
     q<HTMLInputElement>('[data-k="assist"]').checked = s.assist;
     q<HTMLInputElement>('[data-k="gyro"]').checked = s.gyro;
@@ -100,7 +111,7 @@ export function buildTouchPanel(
     const el = e.target as HTMLInputElement;
     const k = el.dataset.k as keyof TouchSettings | undefined;
     if (!k) return;
-    if (k === "look" || k === "gyroSpeed" || k === "deadzone") s[k] = Number(el.value);
+    if (k === "look" || k === "gyroSpeed" || k === "deadzone" || k === "shakeStrength") s[k] = Number(el.value);
     else s[k] = el.checked;
     saveTouchSettings(s);
     onChange(s);

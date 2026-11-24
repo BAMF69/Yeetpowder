@@ -9,6 +9,7 @@
 //             Reaper's Kick   the reaper keyframes' scoped rifle with a slotted handguard and a giant crescent blade
 //             Six-Shot Sakura a curved katana with a brass guard and a six-chamber revolver cylinder
 // Usage   : const m = buildWeapon("shotgun", kit)   // kit: materials and geometry tracking (viewmodel.ts)
+//           registerWeaponArt(id, build) swaps in a loaded model (meshyArt.ts); buildWeapon then returns it.
 //           m.group is in gun space (barrel toward -Z, +Y up); m.grip / m.fore / m.muzzle are where the hands hold
 //           it and where shots leave; m.spinner (the Gatling's barrels) spins about Z.
 // Notes   : Most parts are side profiles (outlines in the gun's Z-Y plane) extruded through the gun's width with a
@@ -295,7 +296,26 @@ const BUILDERS: Record<WeaponId, (kit: ModelKit) => Built> = { pistol, shotgun, 
 const SCALE = 0.62;
 const COPTER_SCALE = 0.88;
 
+/**
+ * Art models that replace a code-built gun once loaded (meshyArt.ts: the Meshy scythe for Reaper's Kick). A builder
+ * returns a fresh copy in gun space (barrel toward -Z) with its hand points; null: use the code model.
+ */
+const ART: Partial<Record<WeaponId, () => WeaponModel>> = {};
+
+/** Registers (or with null, removes) the art model for a gun; guns built after this use it. */
+export function registerWeaponArt(id: WeaponId, build: (() => WeaponModel) | null): void {
+  if (build) ART[id] = build;
+  else delete ART[id];
+}
+
+/** True while an art model replaces this gun's code model. */
+export function hasWeaponArt(id: WeaponId): boolean {
+  return id in ART;
+}
+
 export function buildWeapon(id: WeaponId, kit: ModelKit): WeaponModel {
+  const art = ART[id];
+  if (art) return art();
   return { scale: id === "copter" ? COPTER_SCALE : SCALE, ...BUILDERS[id](kit) };
 }
 

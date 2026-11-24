@@ -19,6 +19,7 @@
 import { Log } from "../core/log";
 import { knobOffset, stickFrom } from "../core/yeet/touch";
 import { TUNING } from "../core/yeet/tuning";
+import type { ShakeDir } from "../core/yeet/shake";
 import { Gyro } from "./gyro";
 import { canFullscreen, toggleFullscreen } from "./fullscreen";
 import { buildTouchPanel, loadTouchSettings, PANEL_CSS, type TouchSettings } from "./touchSettings";
@@ -43,6 +44,8 @@ export interface TouchFrame {
   reload: boolean;
   reset: boolean;
   pause: boolean;
+  /** A shake of the device since the last take (Shake moves on), or null. */
+  shake: ShakeDir | null;
 }
 
 const CSS = `
@@ -215,7 +218,12 @@ export class TouchControls {
     this.openPanel = () => panel.show(true);
     this.panelRoot = panel.root;
     this.off.push(() => panel.root.remove());
-    if (this.settings.gyro) void this.gyro.enable(); // turned on last time (iOS may need the switch tapped again)
+    this.syncMotion();
+    // iOS only grants motion from a tap: the first touch anywhere asks, if gyro aiming or shake moves want it
+    const ask = () => {
+      if ((this.settings.gyro || this.settings.shake) && !this.gyro.running) void this.gyro.enable();
+    };
+    this.on(window, "pointerup", ask);
 
     // a finger lifted while the page was away never sends pointerup: let go of everything
     this.on(window, "blur", () => this.letGo());
@@ -258,6 +266,7 @@ export class TouchControls {
     const f: TouchFrame = {
       moveX: this.moveX, moveZ: this.moveZ, sprint: this.sprint,
       dx: this.dx * scale, dy: this.dy * scale, gyroYaw: g.yaw * gs, gyroPitch: g.pitch * gs,
+      shake: this.gyro.running && this.settings.shake ? this.gyro.takeShake() : null,
       firePressed: this.firePressed, fireHeld: this.fireIds.size > 0, aimHeld: this.aim, jump: this.jump,
       slash: this.slash, slashHeld: this.slashId >= 0 || this.latched, reload: this.reload, reset: this.reset, pause: this.pause,
     };
@@ -273,9 +282,19 @@ export class TouchControls {
   }
 
   /** ⚙ changed something: the gyro follows its switch (the tap that flipped it lets iOS ask permission). */
-  private applySettings(s: TouchSettings): void {
-    if (s.gyro && !this.gyro.running) void this.gyro.enable();
-    if (!s.gyro && this.gyro.running) this.gyro.disable();
+  private applySettings(_s: TouchSettings): void {
+    this.syncMotion();
+  }
+
+  /** The motion sensor listens while gyro aiming or shake moves want it (asking iOS's permission on a tap). */
+  private syncMotion(): void {
+    const s = this.settings;
+    this.gyro.aim = s.gyro;
+    this.gyro.shakes = s.shake;
+    this.gyro.detector.strength = s.shakeStrength;
+    const wanted = s.gyro || s.shake;
+    if (wanted && !this.gyro.running) void this.gyro.enable();
+    if (!wanted && this.gyro.running) this.gyro.disable();
   }
 
   /** A finger lifted (seen at the window): free whatever it held. The latch stays (it outlives the finger). */

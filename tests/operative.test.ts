@@ -34,6 +34,12 @@ describe("operative poses", () => {
     expect(targetPose({ ...base, weapon: "sakura" }, 0, 0).leftArm).not.toBe("fore");
   });
 
+  it("Reaper's Kick hooking turns the gunblade a quarter turn counter-clockwise (only the scythe)", () => {
+    const free = targetPose({ ...base, weapon: "reaper" }, 0, 0).gun!.rot[2];
+    expect(targetPose({ ...base, weapon: "reaper", hook: true }, 0, 0).gun!.rot[2]).toBeCloseTo(free - Math.PI / 2);
+    expect(targetPose({ ...base, weapon: "sakura", hook: true }, 0, 0).gun!.rot[2]).toBe(targetPose({ ...base, weapon: "sakura" }, 0, 0).gun!.rot[2]);
+  });
+
   it("the Boomstick fling swings both legs up in front", () => {
     const t = targetPose({ ...base, fling: 1, onGround: false }, 0, 0);
     for (const l of t.legs) expect(l.hip[0]).toBeLessThan(-1);
@@ -64,7 +70,7 @@ describe("two-bone arm solve", () => {
     const wrist = new THREE.Group();
     wrist.position.y = -FOREARM - 0.03;
     elbow.add(wrist);
-    const arm: Arm = { shoulder, elbow, side: 1 };
+    const arm: Arm = { shoulder, elbow, wrist, side: 1 };
     for (const target of [new THREE.Vector3(0.15, 0.25, 0.35), new THREE.Vector3(0.05, 0.4, 0.4), new THREE.Vector3(0.3, 0.1, 0.2)]) {
       torso.updateMatrixWorld(true);
       solveArm(arm, target, torso);

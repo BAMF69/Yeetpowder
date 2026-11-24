@@ -6,7 +6,8 @@
 //           wooden crates, teal riveted steel and hazard-striped trim on tall blocks.
 // Usage   : const room = buildRoom(arena); scene.add(room.group); ... room.dispose()
 // Notes   : Every surface is an axis-aligned box, so each face gets UVs from its world position (metres / tile
-//           size): textures never stretch and line up across boxes. This gives the kit's triplanar recipe's result
+//           size): textures never stretch and line up across boxes. Crates, riveted steel and lights are pictures
+//           of a whole object instead, so their faces show whole copies (fittedUVs), stretched a little to fit. This gives the kit's triplanar recipe's result
 //           without a custom shader, so three.js lighting, shadows and fog keep working (SOP-24: the triplanar
 //           recipe is for models with poor UVs). Textures: src/game/yeet/paint.ts. No outlines (GDD).
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
@@ -33,6 +34,34 @@ function blockKind(b: Box): PaintKind {
   if (h <= 1.7 && thin <= 1.2) return "steel"; // low cover walls
   if (h <= 3.6 && w <= 4.5) return "crate";
   return "concrete";
+}
+
+/**
+ * Surfaces painted as a whole object (a crate's frame and X-brace, a riveted panel, a light): each face shows a
+ * whole number of copies, never a cut-off one (Elaina, 2026-11-24: "boxes appear as partial textures").
+ */
+const FITTED = new Set<PaintKind>(["crate", "steel", "light"]);
+
+/** Copies of a texture across a face `size` metres wide: the nearest whole number to size / tile, at least one. */
+export function fitRepeats(size: number, tile: number): number {
+  return Math.max(1, Math.round(size / tile));
+}
+
+/** Rewrites a box geometry's UVs so each face runs 0..n in whole copies (fitRepeats) from its edge. */
+function fittedUVs(geo: THREE.BufferGeometry, size: THREE.Vector3, tile: number): void {
+  const pos = geo.getAttribute("position");
+  const nrm = geo.getAttribute("normal");
+  const uv = geo.getAttribute("uv");
+  const f = (p: number, s: number) => (p + s / 2) / Math.max(s, 1e-6) * fitRepeats(s, tile); // 0..n across the face
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    if (Math.abs(nrm.getX(i)) > 0.5) uv.setXY(i, f(z, size.z), f(y, size.y));
+    else if (Math.abs(nrm.getY(i)) > 0.5) uv.setXY(i, f(x, size.x), f(z, size.z));
+    else uv.setXY(i, f(x, size.x), f(y, size.y));
+  }
+  uv.needsUpdate = true;
 }
 
 /** Rewrites a box geometry's UVs from world positions: x/z/y metres over the tile size, per face direction. */
@@ -83,7 +112,8 @@ export function buildRoom(arena: Arena): { group: THREE.Group; dispose(): void }
     const size = new THREE.Vector3().subVectors(max, min);
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
     const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
-    worldUVs(geo, center, TILE[kind] ?? 1);
+    if (FITTED.has(kind)) fittedUVs(geo, size, TILE[kind] ?? 1);
+    else worldUVs(geo, center, TILE[kind] ?? 1);
     geos.push(geo);
     const mesh = new THREE.Mesh(geo, mat(kind));
     mesh.position.copy(center);

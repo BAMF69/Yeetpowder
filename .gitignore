@@ -77,3 +77,8 @@ docs/concept/*.zip
 # Raw Quaternius "Ultimate Modular Men" source pack (265 MB, CC0, re-downloadable from quaternius.com).
 # The game ships only the runtime copy in public/assets/models/quaternius/modular_men/ (ASSET_LOG A-0004).
 /Modular Men/
+
+# Raw Meshy exports (44 MB and 11 MB, 4096/2048 px PNG textures; re-downloadable from Elaina's Meshy account).
+# The game ships the slimmed copies in public/assets/models/meshy/ (tools/slim_glb.mjs; ASSET_LOG A-0012, A-0013).
+/Meshy_AI_Sniper_Scythe_*.glb
+/Meshy_AI_Tactical_Character_Rigged_*.glb
