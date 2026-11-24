@@ -11,11 +11,14 @@
 // ---------------------------------------------------------------------------
 import { Log } from "../../core/log";
 import type { ClientMsg, NetInput, ServerMsg } from "../../net/protocol";
+import type { NetStatus, Transport } from "./transport";
 
-export type NetStatus = "connecting" | "open" | "closed";
+export type { NetStatus } from "./transport";
 
-export class NetClient {
+/** The home duel server (npm run duel, ADR 0002) over a WebSocket; ?net=server picks it (ADR 0004). */
+export class NetClient implements Transport {
   status: NetStatus = "connecting";
+  failReason = "";
   /** Last measured round trip (ms), simulated lag included. */
   rtt = 0;
   private readonly ws: WebSocket;
@@ -30,6 +33,7 @@ export class NetClient {
     };
     this.ws.onclose = () => {
       this.status = "closed";
+      this.failReason ||= 'Could not reach the duel server. Start it with "npm run duel" on the PC.';
       Log.debug("net", "connection closed");
     };
     this.ws.onerror = () => Log.warn("net", `could not reach the duel server at ${url} (is "npm run duel" running?)`);

@@ -79,5 +79,7 @@ export default defineConfig({
     port: 5173,
     open: false,
     proxy: HTTPS ? { "/duel-ws": { target: `ws://localhost:${DUEL_PORT}`, ws: true } } : undefined,
+    // behind duel.mjs's front door the page is on another port than Vite: hot reload connects to the page's port
+    hmr: process.env.YEET_PUBLIC_PORT ? { clientPort: Number(process.env.YEET_PUBLIC_PORT) } : undefined,
   },
 });

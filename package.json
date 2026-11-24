@@ -17,6 +17,8 @@
     "duel:server": "vite build --ssr server/main.ts --outDir build/server --emptyOutDir && node build/server/main.js"
   },
   "dependencies": {
+    "peerjs": "1.5.5",
+    "qrcode-generator": "2.0.4",
     "three": "0.186.1",
     "ws": "8.23.0"
   },

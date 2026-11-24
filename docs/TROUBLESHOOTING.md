@@ -44,3 +44,14 @@
 - How to verify: `tests/net.test.ts` "hooked by player 1, player 2's own prediction stays on the hook" (fails without
   the fix, with 100 ms lag each way); then a laptop + tablet duel.
 - Lesson: anything the predictor steps that is not yours needs your best guess of its input, and its events are not yours.
+
+### Smoke: "120 frames did not run within ... ms (the page froze?)" on play queries
+- First seen: 2026-11-23, while adding browser-hosted duels
+- Symptom: `smoke --query "play..."` without `--until` fails the 120-frame check; runs that wait for a marker pass;
+  FRAME_TIMES mean ~660 ms (it was ~160 ms the day before).
+- Root cause: not the code. The laptop was on battery (Win32_Battery status 1, discharging) with the i3-1215U held at
+  1.2 GHz; smoke draws on the CPU (software WebGL), so frames ran ~4x slower and 120 of them missed the timeout.
+  Found after a no-network run (`play&level=duel&bot=easy`) and plain `play` failed the same way.
+- Fix: plug the laptop in before judging frame-count smokes (or use `--until <marker>` runs).
+- How to verify: `Get-CimInstance Win32_Battery` (BatteryStatus 2 = on mains), then rerun the smoke.
+- Lesson: when every scene gets slower at once, check the machine (power, clock speed, other load) before the code.
