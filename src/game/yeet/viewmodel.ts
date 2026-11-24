@@ -87,6 +87,11 @@ const AIM_BELOW = 0.1;
 const SCOPE_AT = 0.85;
 /** Gunblade slash swing: seconds of the cut, how far the arm sweeps (rad), and how far the blade tilts flat. */
 const SWING = { time: 0.2, back: 0.14, reaper: 1.5, sakura: 1.1, axe: 1.7, tilt: 1.0 };
+/** A grenade throw (playtest: "should look like a throw"): s winding the arm up overhead, swinging it through, and
+ *  settling back; the arm's turn at the top of the wind-up and at the end of the swing (rad, + raises it). */
+const THROW = { wind: 0.12, swing: 0.1, settle: 0.28, up: 1.3, through: -0.6 };
+/** Rocket Axe with F held: raised this much (m) and turned 20 degrees clockwise as you see it. */
+const RAISE = { up: 0.14, roll: -(20 * Math.PI) / 180 };
 /** Reaper's Kick hooking: the gunblade rolls this far counter-clockwise (as you look down it), blade to the left. */
 const HOOK_ROLL = Math.PI / 2;
 
@@ -149,7 +154,11 @@ export class Viewmodel {
   /** Hold-move poses, eased 0..1: the Sakura's reversed blade (dash stance) and the scythe pulled in (hook). */
   private stancePose = 0;
   private hookPose = 0;
-  private holdKind: "none" | "stance" | "hook" = "none";
+  private holdKind: "none" | "stance" | "hook" | "raise" = "none";
+  /** 0..1: the Rocket Axe raised with F held. */
+  private raisePose = 0;
+  /** s since a grenade throw (99 = none). */
+  private throwT = 99;
   /** True while the Spin Doctor's scope covers the view (the HUD draws the scope). */
   scoped = false;
   private spin = 0;
@@ -226,6 +235,10 @@ export class Viewmodel {
 
   /** A shot of weapon: the general kick plus that gun's pose (smaller when aimed). trauma ~0..1. */
   fired(weapon: WeaponId, trauma: number, aimed = false): void {
+    if (weapon === "grenade") {
+      this.throwT = 0; // a throw: no kick, no muzzle flash
+      return;
+    }
     this.kickAmt = Math.min(1.2, this.kickAmt + (trauma * 1.6 + 0.15) * (aimed ? 0.5 : 1));
     this.flashT = 0.05;
     this.flash.rotation.z = Math.random() * Math.PI; // purely cosmetic randomness: not part of the sim
@@ -238,6 +251,23 @@ export class Viewmodel {
       this.flingT = 0;
       this.flingAmp = aimed ? FLING.aimed : 1;
     }
+  }
+
+  /** The grenade has left the hand and the next is not up yet: the hand shows empty (grenades only). */
+  setEmpty(on: boolean): void {
+    const g = this.guns.get(this.current);
+    if (g) g.group.visible = !(on && this.current === "grenade" && this.throwT > THROW.wind);
+  }
+
+  /** The arm's extra turn for a grenade throw this frame: up overhead, through, back. */
+  private throwTurn(dt: number): number {
+    this.throwT += dt;
+    const t = this.throwT;
+    const { wind, swing, settle, up, through } = THROW;
+    if (t < wind) return up * (t / wind);
+    if (t < wind + swing) return up + (through - up) * ((t - wind) / swing);
+    if (t < wind + swing + settle) return through * (1 - (t - wind - swing) / settle);
+    return 0;
   }
 
   /** Debug (?flash): keeps the muzzle flash showing, for stills. */
@@ -253,7 +283,7 @@ export class Viewmodel {
   }
 
   /** The hold move's pose: "stance" (blade held backwards), "hook" (scythe wrapped round an enemy) or "none". */
-  setHold(kind: "none" | "stance" | "hook"): void {
+  setHold(kind: "none" | "stance" | "hook" | "raise"): void {
     this.holdKind = kind;
   }
 
@@ -309,13 +339,13 @@ export class Viewmodel {
     // right arm: general kick + blowback + Boomstick fling (up and forward)
     // (the general kick is muted while flung, or it would carry the gun up out of view)
     const kick = Math.max(0, k) * 0.3 * (1 - fling);
-    this.armR.rotation.set(kick + over * BLOW.angle + fling * FLING.arm + wig + judder, 0, over * BLOW.twist - fling * 0.25);
+    this.armR.rotation.set(kick + over * BLOW.angle + fling * FLING.arm + wig + judder + this.throwTurn(dt), 0, over * BLOW.twist - fling * 0.25);
     this.armR.position.set(SHOULDER_R.x, SHOULDER_R.y - Math.max(0, -k) * 0.12, SHOULDER_R.z + Math.max(0, k) * 0.06 * (1 - fling));
     this.armR.position.addScaledVector(ARM_FLUNG_SHIFT, fling);
     // the hand: rest -> aimed (centre) as the right mouse is held, plus the blowback's upward jerk
     const aimNow = this.aim * (1 - fling); // a Boomstick fling knocks you off your sights
     const hand = this.aimHand(this.tmp).lerp(this.restHand(this.tmp2), 1 - aimNow).sub(SHOULDER_R);
-    hand.y += up * BLOW_UP;
+    hand.y += up * BLOW_UP + this.raisePose * RAISE.up;
     hand.z -= up * 0.05;
     this.placeHand(hand);
     this.tiltGun(aimNow);
@@ -329,11 +359,13 @@ export class Viewmodel {
     const ease = 1 - Math.exp(-14 * dt);
     this.stancePose += ((this.holdKind === "stance" ? 1 : 0) - this.stancePose) * ease;
     this.hookPose += ((this.holdKind === "hook" ? 1 : 0) - this.hookPose) * ease;
+    this.raisePose += ((this.holdKind === "raise" ? 1 : 0) - this.raisePose) * ease;
     this.mount.rotation.y = this.stancePose * Math.PI * 0.85; // set, never add: "+=" spun the blade every frame (playtest)
     this.armR.rotation.x -= this.stancePose * 0.25;
     this.armR.rotation.x += this.hookPose * 0.35;
     this.armR.rotation.y += this.hookPose * 0.45;
     this.mount.rotation.z += this.hookPose * HOOK_ROLL; // + about the view axis (toward you) turns it counter-clockwise
+    this.mount.rotation.z += this.raisePose * RAISE.roll; // the Rocket Axe with F held: clockwise
     // a slash: sweep from right to left (or back), the blade laid flat for the cut, then settle
     this.swingT += dt;
     if (this.swingT < SWING.time + SWING.back) {

@@ -413,7 +413,11 @@ export class YeetWorld implements World {
     const endLock = f.firePressed && !this.shakeRun.active && this.shakeRun.locking > 0;
     if (this.forceAim) f.aimHeld = true;
     this.aimKnock = Math.max(0, this.aimKnock - dt);
-    const aiming = f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless;
+    // the Rocket Axe with F held is raised for the grenade slash: no scope zoom then (playtest 2026-11-24)
+    const axeHeld = pl.weapon === "axe" && f.slashHeld;
+    const aiming = f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless && !axeHeld;
+    if (pl.weapon === "axe") this.vm.setHold(axeHeld ? "raise" : "none");
+    this.vm.setEmpty(pl.weapon === "grenade" && (pl.mag.grenade === 0 || pl.reloading > 0));
     this.updateAim(aiming, dt);
     if (this.debugFlash) {
       this.vm.holdFlash();
@@ -553,6 +557,7 @@ export class YeetWorld implements World {
       winded: pl.winded,
       tumbling: pl.tumbling > 0 && pl.dead === 0,
       ammo: pl.mag[pl.weapon],
+      extra: pl.weapon === "axe" ? (pl.axeGrenadeReload > 0 ? "GRENADES RELOADING" : `GRENADES ${pl.axeGrenades}/${TUNING.axe.grenadeMag}`) : "",
       magSize: TUNING.weapons[pl.weapon].mag,
       reload: pl.reloading > 0 ? pl.reloading / TUNING.weapons[pl.weapon].reload : 0,
     });

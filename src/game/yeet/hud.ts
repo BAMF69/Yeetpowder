@@ -43,6 +43,8 @@ export interface HudState {
   ammo: number;
   magSize: number;
   reload: number;
+  /** A second ammo line (the Rocket Axe's grenade launcher), or "". */
+  extra?: string;
 }
 
 const CSS = `
@@ -136,6 +138,7 @@ const CSS = `
   font-size: calc(30px * var(--s)); text-shadow: 0 0 4px #000; }
 .yh-ammo small { font-size: 0.5em; opacity: 0.8; margin-left: 4px; }
 .yh-ammo.empty { color: #ff5252; }
+.yh-ammo-extra { font-size: 15px; font-weight: 800; opacity: 0.9; margin-top: 2px; }
 .yh-ammo .rl { display: none; height: 6px; width: 150px; margin-left: auto; margin-top: 4px; border-radius: 3px;
   background: rgba(0, 0, 0, 0.5); overflow: hidden; }
 .yh-ammo .rl div { height: 100%; width: 0; background: #ffd84a; }
@@ -191,6 +194,7 @@ export class YeetHud {
   private readonly ammo: HTMLDivElement;
   private readonly ammoText: HTMLDivElement;
   private readonly ammoBar: HTMLDivElement;
+  private readonly ammoExtra: HTMLDivElement;
   private hitT = 0;
   private starT = 0;
   private popN = 0;
@@ -229,6 +233,7 @@ export class YeetHud {
     this.ammo = el("yh-ammo", this.root);
     this.ammoText = el("", this.ammo);
     this.ammoBar = el("", el("rl", this.ammo));
+    this.ammoExtra = el("yh-ammo-extra", this.ammo);
     this.stam = el("yh-stam", this.root);
     this.stamFill = el("fill", this.stam);
     this.tip = el("yh-tip", this.root);
@@ -326,6 +331,7 @@ export class YeetHud {
     this.ammo.classList.toggle("reloading", s.reload > 0);
     this.ammo.classList.toggle("empty", s.ammo === 0 && s.reload === 0);
     this.ammoBar.style.width = `${Math.round((1 - s.reload) * 100)}%`;
+    if (this.ammoExtra.textContent !== (s.extra ?? "")) this.ammoExtra.textContent = s.extra ?? "";
     this.stamFill.style.width = `${Math.round(s.stamina * 100)}%`;
     this.stam.classList.toggle("winded", s.winded);
     this.stam.style.opacity = s.stamina >= 0.999 && !s.winded ? "0" : "1";

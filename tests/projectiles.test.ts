@@ -149,3 +149,39 @@ describe("explosive weapons in the air", () => {
     expect(kick(false)).toBeGreaterThan(20); // a Boomstick-size shove
   });
 });
+
+describe("magazines and the throw (playtest 2026-11-24)", () => {
+  it("throwing a grenade leaves you standing: no push, still on the ground", () => {
+    const s = sim("grenade");
+    s.step({ ...NO_INPUT, firePressed: true });
+    expect(s.player.onGround).toBe(true);
+    expect(Math.hypot(s.player.vel.x, s.player.vel.y, s.player.vel.z)).toBeLessThan(0.01);
+    expect(s.projectiles[0]).toMatchObject({ kind: "grenade" });
+  });
+
+  it("the Rocket Launcher and Grenades reload after every shot", () => {
+    for (const w of ["rocket", "grenade"] as const) {
+      const s = sim(w);
+      const ev = s.step({ ...NO_INPUT, firePressed: true });
+      expect(ev.some((e) => e.type === "reload"), w).toBe(true);
+      expect(s.player.mag[w]).toBe(0);
+    }
+  });
+
+  it("the Rocket Axe's grenade launcher holds 4 grenade slashes, then reloads on its own; the rocket is separate", () => {
+    const s = sim("axe");
+    let slashes = 0;
+    for (let i = 0; i < 6; i++) {
+      run(s, TUNING.axe.grenadeCooldown + 0.05);
+      s.player.pos = vec(0, 0, 10); // back on the floor for the next one
+      s.player.vel = vec(0, 0, 0);
+      s.player.onGround = true;
+      if (s.step({ ...NO_INPUT, slashHeld: true, firePressed: true }).some((e) => e.type === "grenadeSlash")) slashes++;
+    }
+    expect(slashes).toBe(TUNING.axe.grenadeMag);
+    expect(s.player.axeGrenadeReload).toBeGreaterThan(0);
+    expect(s.player.mag.axe).toBe(TUNING.weapons.axe.mag); // the rocket untouched
+    run(s, TUNING.axe.grenadeReload + 0.1);
+    expect(s.player.axeGrenades).toBe(TUNING.axe.grenadeMag);
+  });
+});
