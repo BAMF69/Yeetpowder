@@ -61,7 +61,7 @@ export interface Decor {
 export function sandboxLevel(): Level {
   return {
     id: "sandbox", name: "Sandbox", arena: testRoom(), spawn: { x: 0, y: 0, z: 14 }, spawnYaw: 0,
-    startWeapons: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura"], // every weapon, for testing
+    startWeapons: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura", "rocket", "grenade", "axe"], // every weapon, for testing
     pickups: [], dummiesFight: false, dummyRespawn: 2.5,
     seed: 1,
   };

@@ -290,7 +290,48 @@ function sakura(kit: ModelKit): Built {
   return { group, grip: v(0, 0, 0.06), fore: null, muzzle: v(0, 0, -0.23) };
 }
 
-const BUILDERS: Record<WeaponId, (kit: ModelKit) => Built> = { pistol, shotgun, sniper, copter, reaper, sakura };
+/** Rocket Launcher: a fat tube over the shoulder grip, a sight, the pink warhead showing at the front. */
+function rocket(kit: ModelKit): Built {
+  const group = new THREE.Group();
+  const { B, C, Ball } = tools(kit, group);
+  C(0.085, 0.085, 1.0, 12, "polymer", 0, 0.02, -0.2); // the tube
+  C(0.095, 0.095, 0.08, 12, "gunmetal", 0, 0.02, -0.7); // the muzzle ring
+  C(0.095, 0.11, 0.1, 12, "gunmetal", 0, 0.02, 0.3); // the flared back
+  Ball(0.06, "accent", 0, 0.02, -0.66); // the warhead in the tube
+  B(0.05, 0.14, 0.06, "polymer", 0, -0.1, 0.06); // grip
+  B(0.05, 0.12, 0.06, "polymer", 0, -0.09, -0.28); // front grip
+  B(0.03, 0.07, 0.12, "gunmetal", 0.07, 0.1, -0.1); // the sight
+  return { group, grip: v(0, -0.14, 0.06), fore: v(0, -0.12, -0.28), muzzle: v(0, 0.02, -0.72) };
+}
+
+/** Grenades: one in the hand, a ribbed pink yeetpowder grenade with its lever and pin. */
+function grenade(kit: ModelKit): Built {
+  const group = new THREE.Group();
+  const { B, C, Ball } = tools(kit, group);
+  const body = Ball(0.06, "accent", 0, 0.02, -0.04);
+  body.scale.set(1, 1.2, 1);
+  C(0.028, 0.028, 0.04, 8, "gunmetal", 0, 0.1, -0.04); // the fuse head
+  B(0.016, 0.1, 0.02, "gunmetal", 0.02, 0.06, 0.01); // the lever
+  C(0.018, 0.018, 0.006, 8, "brass", -0.035, 0.11, -0.04); // the pin's ring
+  return { group, grip: v(0, 0, 0), fore: null, muzzle: v(0, 0.06, -0.12) };
+}
+
+/**
+ * Rocket Axe (until the Meshy model loads), drawn in its aimed (over the shoulder) pose: the block at the back by
+ * the hand, the haft running forward to the knobbed butt the rockets leave from, the blade on top along the haft.
+ * From the hip the view tilts it butt-down (viewmodel.ts HOLD.axe).
+ */
+function axe(kit: ModelKit): Built {
+  const group = new THREE.Group();
+  const { B, C } = tools(kit, group);
+  C(0.022, 0.022, 0.95, 8, "wood", 0, 0, -0.4); // the haft
+  B(0.09, 0.12, 0.16, "gunmetal", 0, 0, 0.12); // the block at the back
+  C(0.04, 0.05, 0.08, 10, "gunmetal", 0, 0, -0.9); // the knobbed butt (the rocket's exit)
+  B(0.02, 0.26, 0.5, "blade", 0, 0.15, -0.4); // the blade along the haft (edge up: forward once tilted)
+  return { group, grip: v(0, 0, 0.02), fore: v(0, 0, -0.35), muzzle: v(0, 0, -0.95) };
+}
+
+const BUILDERS: Record<WeaponId, (kit: ModelKit) => Built> = { pistol, shotgun, sniper, copter, reaper, sakura, rocket, grenade, axe };
 
 /** Metres per model unit for every gun but the Gatling, which is held bigger (playtest: "too small"). */
 const SCALE = 0.62;

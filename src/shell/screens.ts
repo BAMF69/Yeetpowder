@@ -155,8 +155,23 @@ export function levelsScreen(shell: Shell): Screen {
     p.append(tl(shell.i18n, "levels.title", "heading", {}, "div"));
     const list = el("div", "list");
     for (const id of ["island", "industrial", "junkyard"]) {
-      list.append(m.add(buttonItem(shell.i18n, `level.${id}`, () => {
-        shell.worldOption = id;
+      list.append(m.add(buttonItem(shell.i18n, `level.${id}`, () => shell.push(opponentsScreen(shell, id)))).el);
+    }
+    list.append(m.add(buttonItem(shell.i18n, "credits.back", () => shell.back())).el);
+    p.append(list);
+    root.append(p);
+  }, { cancel: () => shell.back() });
+}
+
+/** Yeetpowder: who you play a new level against (src/core/yeet/matchSetup.ts OPPONENTS). */
+export function opponentsScreen(shell: Shell, level: string): Screen {
+  return built("opponents", "dim", (root, m) => {
+    const p = panel("narrow");
+    p.append(tl(shell.i18n, "opponents.title", "heading", { level: shell.i18n.t(`level.${level}`) }, "div"));
+    const list = el("div", "list");
+    for (const opp of ["static", "fight", "bot-easy", "bot-medium", "bot-hard"]) {
+      list.append(m.add(buttonItem(shell.i18n, `opponents.${opp}`, () => {
+        shell.worldOption = opp === "fight" ? level : `${level}:${opp}`;
         shell.startGame("main");
       })).el);
     }

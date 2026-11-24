@@ -33,7 +33,8 @@ import { effectiveShake } from "../core/settings";
 import { Shake } from "../core/shake";
 import { rayArena } from "../core/yeet/arena";
 import { AUTOPLAY_SECONDS, autoplayStep } from "../core/yeet/autoplay";
-import { BOT_LEVELS, levelById, type LevelId } from "../core/yeet/levels";
+import { levelById } from "../core/yeet/levels";
+import { parseMatch } from "../core/yeet/matchSetup";
 import { buildProps } from "./yeet/props";
 import { NO_INPUT, PLAYER_CODE, YeetSim, type PlayerState, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
@@ -44,7 +45,7 @@ import { shell } from "../shell/app";
 import { FpsInput, type FpsFrame } from "./fpsInput";
 import { TouchControls, type TouchFrame } from "./touchControls";
 import { DuelLink } from "./net/duelLink";
-import { BOT_SKILLS, BotBrain, type BotSkill } from "../core/yeet/bot";
+import { BotBrain } from "../core/yeet/bot";
 import { INTERP_MS } from "./net/remote";
 import type { World } from "./threeHost";
 import { makeDummy, makeStars, PIVOT, type DummyFigure, type Stars } from "./yeet/figures";
@@ -68,10 +69,12 @@ const PLAYER_SUIT = "#3d4b75"; // the keyframes' navy (tints the operative's fab
 const DUEL_SUITS = ["#1e88e5", "#fb8c00"];
 const DOWN_VERB: Record<WeaponId, string> = {
   pistol: "PEA'D", shotgun: "BLASTED", sniper: "YEETED", copter: "SHREDDED", reaper: "REAPED", sakura: "SLICED",
+  rocket: "ROCKETED", grenade: "FRAGGED", axe: "AXED",
 };
 const FIRE_POP: Partial<Record<WeaponId, string>> = { shotgun: "BLAM!", sniper: "KRAK!", reaper: "KRAK!" };
 const FIRE_SOUND: Record<WeaponId, string> = {
   pistol: "pea", shotgun: "boom", sniper: "krak", copter: "brrt", reaper: "krak", sakura: "revolver",
+  rocket: "lob", grenade: "lob", axe: "lob",
 };
 /** Reaper's Kick flips, seen from inside: a full turn of the camera over flipTime (none with reduce motion). */
 const FLIP_AXIS = { backflip: [1, 0], frontflip: [-1, 0], cartwheel: [0, 1] } as const;
@@ -121,11 +124,15 @@ export class YeetWorld implements World {
   readonly camera: THREE.PerspectiveCamera;
   private readonly autoplay = shell.params.has("autoplay");
   /** Duel vs bot (menu "Duel vs bot", or ?level=duel&bot=easy|medium|hard): offline, the bot is player 2. */
-  private readonly botSkill = this.autoplay ? null : YeetWorld.botFrom(shell.params.get("bot"), shell.params.get("level") ?? shell.worldOption);
-  private readonly levelId = this.autoplay ? "sandbox" : this.botSkill ? YeetWorld.botLevel(shell.params.get("level")) : shell.params.get("level") ?? shell.worldOption;
+  /** Which level and who against (matchSetup.ts): the menu's world option or ?level / ?opp / ?bot. */
+  private readonly match = parseMatch({
+    level: shell.params.get("level"), world: shell.worldOption, bot: shell.params.get("bot"), opp: shell.params.get("opp"),
+  });
+  private readonly botSkill = this.autoplay ? null : this.match.bot;
+  private readonly levelId = this.autoplay ? "sandbox" : this.match.levelId;
   /** Online duel: the connection, prediction and lobby (null in single player and against a bot). */
   private readonly link = this.levelId === "duel" && !this.botSkill ? new DuelLink(shell.params) : null;
-  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, YeetWorld.levelFor(this.levelId, !!this.botSkill), this.botSkill ? 2 : 1);
+  private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, YeetWorld.levelFor(this.levelId, !!this.botSkill, this.match.stillDummies), this.botSkill ? 2 : 1);
   /** The bot's brain (src/core/yeet/bot.ts). Its seed only varies matches (?botseed=N replays one). */
   private readonly brain = this.botSkill
     ? new BotBrain(TUNING, 1, this.botSkill, Number(shell.params.get("botseed") ?? Math.floor(Math.random() * 1e6)))
@@ -144,7 +151,7 @@ export class YeetWorld implements World {
   private lookPitch = 0;
   private readonly room = buildRoom(this.sim.arena);
   /** The new levels' cars, trucks, tanks, drums, scenery, water and shark (props.ts). */
-  private readonly props = buildProps(this.sim.level, this.sim.explosives);
+  private readonly props = buildProps(this.sim.level, this.sim.explosives, this.sim.projectiles);
   private readonly views: DummyView[] = [];
   private readonly body: Operative; // you, seen from outside (tumbles, the launch camera, hero landings)
   private readonly pickups: PickupViews;
@@ -732,6 +739,19 @@ export class YeetWorld implements World {
       return true;
     }
     if (e.type === "explosiveBack") return true;
+    if (e.type === "blast") {
+      // a rocket or grenade going off: the same pink fireball, smaller
+      this.props.explode(e.at, e.radius * 0.8);
+      this.sound.play("kaboom");
+      const pl = this.sim.player;
+      const near = Math.hypot(pl.pos.x - e.at.x, pl.pos.y - e.at.y, pl.pos.z - e.at.z);
+      this.shake.addTrauma(near < e.radius * 1.5 ? 0.6 : near < e.radius * 4 ? 0.25 : 0.08);
+      return true;
+    }
+    if (e.type === "bounce") {
+      this.sound.play("bonk");
+      return true;
+    }
     if (e.type === "eaten") {
       this.props.shark(e.at);
       this.sound.play("splat");
@@ -768,6 +788,7 @@ export class YeetWorld implements World {
         const pop = FIRE_POP[e.weapon];
         if (pop) this.hud.pop(pop);
         this.camera.updateMatrixWorld(true);
+        if (!e.tracers.length) break; // a rocket or grenade: no tracers (the projectile is drawn in flight)
         const from = this.third > 0.5 ? this.tmpA.set(e.tracers[0].from.x, e.tracers[0].from.y, e.tracers[0].from.z) : this.vm.muzzleWorld(this.tmpA);
         for (const t of e.tracers) {
           const to = this.tmpB.set(t.to.x, t.to.y, t.to.z);
@@ -902,6 +923,12 @@ export class YeetWorld implements World {
       case "lunge":
         this.sound.play("swish");
         break;
+      case "grenadeSlash":
+        // Rocket Axe, F + Fire: the leap and flip are watched from outside (playtest 2026-11-24)
+        this.hud.pop("GRENADE SLASH!", true);
+        this.sound.play("swish");
+        this.startKick(0, TUNING.axe.camera);
+        break;
       case "hook":
         this.hud.pop("HOOKED!");
         this.sound.play("shing");
@@ -1005,7 +1032,17 @@ export class YeetWorld implements World {
     this.bodyRoll = kicking ? 0 : this.bodyRoll + pl.tumbleRoll * dt;
     this.body.root.position.set(pl.pos.x, pl.pos.y + PIVOT - this.sim.kneelDepth(pl) * 0.6, pl.pos.z); // sinks into the hero landing
     facing(pl.yaw, this.body.root.quaternion).multiply(this.qA.setFromAxisAngle(X_AXIS, this.bodyRoll));
-    this.body.setPose(this.posed(inputFromPlayer(pl, this.sim.time, this.aim, this.sim.kneelDepth(pl) / TUNING.reaper.heroLanding.kneel)));
+    // a flip seen from outside (the grenade slash pops the camera out for it): the body turns head over heels
+    const flipping = this.flipT < TUNING.reaper.flipTime && !shell.settings.access.reduce_motion;
+    const flipK = flipping ? this.flipT / TUNING.reaper.flipTime : 0;
+    if (flipping) {
+      const turn = Math.PI * 2 * (flipK * flipK * (3 - 2 * flipK));
+      const sign = this.flipKind === "frontflip" ? 1 : -1; // + about the body's x tips the head forward
+      if (this.flipKind === "cartwheel") this.body.root.quaternion.multiply(this.qA.setFromAxisAngle(Z_AXIS, -turn * this.flipSide));
+      else this.body.root.quaternion.multiply(this.qA.setFromAxisAngle(X_AXIS, sign * turn));
+    }
+    const bodyIn = inputFromPlayer(pl, this.sim.time, this.aim, this.sim.kneelDepth(pl) / TUNING.reaper.heroLanding.kneel);
+    this.body.setPose(this.posed(flipping ? { ...bodyIn, flip: flipK, onGround: false } : bodyIn));
     this.body.update(dt, this.camera);
 
     // the chase point, pulled in if a wall is in the way
@@ -1073,22 +1110,13 @@ export class YeetWorld implements World {
 
   // ---- duel vs bot ------------------------------------------------------------------
   /** The level to play; in a bot match the dummies stay home (it is you against the bot). */
-  private static levelFor(id: string, botMatch: boolean): ReturnType<typeof levelById> {
+  private static levelFor(id: string, botMatch: boolean, still: boolean): ReturnType<typeof levelById> {
     const level = levelById(id);
     if (botMatch) level.arena.dummySpawns = [];
+    if (still) level.dummiesFight = false; // the "stand still" choice
     return level;
   }
 
-  /** A bot match's level: one of the new levels when asked for (?bot=easy&level=island), else the duel room. */
-  private static botLevel(param: string | null): LevelId {
-    return BOT_LEVELS.includes(param as LevelId) ? (param as LevelId) : "duel";
-  }
-
-  /** The bot difficulty from ?bot= or the menu's world option "duel-bot-<skill>", or null. */
-  private static botFrom(param: string | null, world: string | null): BotSkill | null {
-    const s = param ?? (world?.startsWith("duel-bot-") ? world.slice("duel-bot-".length) : null);
-    return BOT_SKILLS.includes(s as BotSkill) ? (s as BotSkill) : null;
-  }
 
   /**
    * ?yeetreap: the steps a player takes to YEETREAP the bot (the crash of 2026-11-22): Reaper's Kick in hand, the

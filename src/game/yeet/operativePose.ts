@@ -65,6 +65,8 @@ export const POSE = {
   runRate: 1.9, // stride radians per metre travelled
   runFull: 6, // m/s that counts as a full run
   ready: { pos: [-0.16, 0.2, 0.3] as V3, pitch: -0.35 }, // gun at the hip, barrel down
+  axeReady: { pos: [-0.16, 0.42, 0.3] as V3 }, // the Rocket Axe from the hip: held up at chest height (playtest)
+  axeAimed: { pos: [-0.22, 0.66, 0.12] as V3 }, // the Rocket Axe aimed: up above the right shoulder (right is -x)
   aimed: { pos: [-0.12, 0.38, 0.36] as V3 }, // gun at the shoulder, barrel along the look
   copter: { pos: [-0.17, -0.02, 0.06] as V3, pitch: 0.04 }, // Gatling: rear handle by the hip
   blade: { pos: [-0.2, 0.16, 0.28] as V3, pitch: 0.55 }, // Sakura: blade up and forward
@@ -110,12 +112,16 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
   // the gun: ready at the hip, raised to the shoulder when aiming; the Gatling low; the Sakura up
   let gunPos: V3 = POSE.ready.pos;
   let pitch = lerp(POSE.ready.pitch, p.pitch, p.aim);
+  // Rocket Axe: from the hip the butt points down at the feet (the blade forward); aimed, level over the shoulder
+  if (p.weapon === "axe") pitch = lerp(-1.45, p.pitch, p.aim);
   if (p.weapon === "copter") {
     gunPos = POSE.copter.pos;
     pitch = POSE.copter.pitch + p.pitch * 0.3;
   } else if (p.weapon === "sakura") {
     gunPos = POSE.blade.pos;
     pitch = POSE.blade.pitch;
+  } else if (p.weapon === "axe") {
+    gunPos = lerp3(POSE.axeReady.pos, POSE.axeAimed.pos, p.aim); // hip: held up high; aimed: up above the right shoulder
   } else {
     gunPos = lerp3(POSE.ready.pos, POSE.aimed.pos, p.aim);
   }
@@ -124,7 +130,7 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
   let twist = 0;
   // a gunblade slash: the blade sweeps across, right to left, the shoulders turning with it
   const sl = p.slash ?? 0;
-  if (sl > 0 && (p.weapon === "reaper" || p.weapon === "sakura")) {
+  if (sl > 0 && (p.weapon === "reaper" || p.weapon === "sakura" || p.weapon === "axe")) {
     const s = POSE.slash;
     const e = sl * sl * (3 - 2 * sl);
     gunYaw = lerp(s.from, s.to, e);
@@ -204,7 +210,8 @@ const FLING_TIME = { rise: 0.08, hold: 0.3, fall: 0.35 };
 export function inputFromPlayer(pl: PlayerState, simTime: number, aim: number, kneel: number): PoseInput {
   const since = simTime - pl.lastShotAt;
   let fling = 0;
-  if (pl.weapon === "shotgun" && since >= 0) { // lastShotAt starts at -99: no fling until a shot
+  // the Boomstick, the Rocket Launcher and the Rocket Axe launch you: the legs swing up in front
+  if ((pl.weapon === "shotgun" || pl.weapon === "rocket" || pl.weapon === "axe") && since >= 0) { // lastShotAt starts at -99
     const { rise, hold, fall } = FLING_TIME;
     fling = since < rise ? since / rise : since < rise + hold ? 1 : Math.max(0, 1 - (since - rise - hold) / fall);
   }

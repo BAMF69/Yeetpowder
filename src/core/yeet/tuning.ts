@@ -14,9 +14,9 @@
 // ---------------------------------------------------------------------------
 
 /** The four guns, then the two gunblades (melee + gun, the slice's skill showcase). */
-export type WeaponId = "pistol" | "shotgun" | "sniper" | "copter" | "reaper" | "sakura";
+export type WeaponId = "pistol" | "shotgun" | "sniper" | "copter" | "reaper" | "sakura" | "rocket" | "grenade" | "axe";
 
-export const GUNBLADES: readonly WeaponId[] = ["reaper", "sakura"];
+export const GUNBLADES: readonly WeaponId[] = ["reaper", "sakura", "axe"];
 
 export interface WeaponTuning {
   /** Shown in the HUD. */
@@ -59,6 +59,8 @@ export interface WeaponTuning {
   knockback: number;
   /** Max hit distance (m). */
   range: number;
+  /** Fires a projectile instead of hitscan pellets (TUNING.projectile): the Rocket Launcher, Grenades, the axe's rocket. */
+  projectile?: "rocket" | "grenade";
   /** Screen shake trauma added per shot (0..1). */
   trauma: number;
 }
@@ -208,7 +210,57 @@ export const TUNING = {
       mag: 6, reload: 1.2, twist: 0.8, aimedTwist: 0.15, hop: 0, damage: 15, pellets: 1, // reload = the spin-reload
       spread: 0, knockback: 3, range: 40, trauma: 0.18,
     },
+    // ---- explosives (Elaina, 2026-11-24): projectiles that blow up (TUNING.projectile); your own blast launches you ----
+    rocket: {
+      name: "Rocket Launcher", auto: false, cooldown: 0.85, recoil: 28, airRecoil: 2, airTwist: 2, airLiftCap: 999,
+      mag: 3, reload: 1.7, twist: 0.5, aimedTwist: 0.15, hop: 0, damage: 0, pellets: 0, // the blast does the damage
+      spread: 0, knockback: 0, range: 0, trauma: 0.4, projectile: "rocket",
+    },
+    grenade: {
+      name: "Grenades", auto: false, cooldown: 0.5, recoil: 3, airRecoil: 2, airTwist: 2, airLiftCap: 999,
+      mag: 3, reload: 1.5, twist: 0.3, aimedTwist: 0.1, hop: 0, damage: 0, pellets: 0,
+      spread: 0, knockback: 0, range: 0, trauma: 0.15, projectile: "grenade",
+    },
+    // the third gunblade (TUNING.axe): from the hip the nozzle points at your feet (the rocket launches you up);
+    // aimed it is held like a bazooka (the rocket goes forward, the kick throws you back like the Boomstick)
+    axe: {
+      name: "Rocket Axe", auto: false, cooldown: 0.8, recoil: 28, airRecoil: 2, airTwist: 2, airLiftCap: 999,
+      mag: 3, reload: 1.8, twist: 0, aimedTwist: 0, hop: 0, damage: 0, pellets: 0,
+      spread: 0, knockback: 0, range: 0, trauma: 0.45, projectile: "rocket",
+    },
   } satisfies Record<WeaponId, WeaponTuning>,
+
+  /**
+   * Projectiles (sim.ts stepProjectiles; Elaina 2026-11-24): rockets fly straight at `speed` m/s and blow up on the
+   * first thing they touch (or after `life` s); grenades are thrown at `speed` plus `up` m/s, fall at `gravity` x the
+   * world's, bounce keeping `bounce` of their speed, and blow up after `fuse` s or on touching someone. The blast is
+   * hazards.ts's (push away and up, damage, both falling off to nothing at the radius). In your own blast you take
+   * `self.damage` of the damage and `self.force` of the push: a rocket jump hurts a little and launches a lot.
+   */
+  projectile: {
+    rocket: { speed: 34, life: 4, radius: 0.25, blast: { radius: 4.5, force: 20, lift: 9, damage: 80 }, self: { damage: 0.35, force: 1.3 } },
+    grenade: {
+      speed: 16, up: 4, gravity: 1, bounce: 0.45, fuse: 1.5, radius: 0.15,
+      blast: { radius: 4.2, force: 36, lift: 20, damage: 70 }, self: { damage: 0.5, force: 1 }, // x2 push (playtest 2026-11-24)
+    },
+  },
+
+  /**
+   * Rocket Axe (Elaina, playtest 2026-11-24): hip fire points the nozzle at your feet: the rocket goes straight down
+   * and you get `hipRecoil` m/s up (x the weapon's airRecoil in the air) on top of its blast; aimed, the rocket goes
+   * forward and the weapon's `recoil` throws you back. F is a heavy cleave. Hold F and fire for the grenade slash: a
+   * cleave, a leap forward (`leap` m/s, `leapUp` up) in a front flip, a grenade fired out behind you at
+   * `grenadeSpeed`; it pops the camera out (third person) for `camera` s.
+   */
+  axe: {
+    hipRecoil: 12,
+    slash: { damage: 30, range: 2.8, arc: 2.4, knockback: 9, lift: 3, cooldown: 0.3 },
+    leap: 14,
+    leapUp: 7,
+    grenadeSpeed: 10,
+    grenadeCooldown: 0.9,
+    camera: 0.9,
+  },
 
   /**
    * Reaper's Kick (scythe + sniper rifle): the shot decides your flip. Aimed 30+ degrees down = the big backflip;
@@ -257,7 +309,7 @@ export const TUNING = {
     ultra: { minSpeed: 12, interval: 0.07, damage: 24, range: 3.6, arc: Math.PI, knockback: 5, lastKnockback: 18, lift: 3, lunge: 4 },
   },
 
-  weaponOrder: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura"] as WeaponId[],
+  weaponOrder: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura", "rocket", "grenade", "axe"] as WeaponId[],
 
   /** Pick up a gun by walking within this distance of it (m, from your middle). */
   pickupRadius: 1.4,
@@ -268,7 +320,7 @@ export const TUNING = {
     /** Screens narrower than this (width / height) widen the view so the sides stay in sight (view.ts). 4:3 keeps
      *  every landscape phone and tablet as it was; a phone held upright sees what a 4:3 screen sees. */
     minAspect: 4 / 3,
-    fov: { pistol: 55, shotgun: 60, sniper: 18, copter: 62, reaper: 30, sakura: 60 } satisfies Record<WeaponId, number>,
+    fov: { pistol: 55, shotgun: 60, sniper: 18, copter: 62, reaper: 30, sakura: 60, rocket: 55, grenade: 62, axe: 60 } satisfies Record<WeaponId, number>,
     time: 0.12,
     /**
      * Aimed fire (playtest 3: physics, not a weaker gun): the gun is centred, so the kick goes straight back

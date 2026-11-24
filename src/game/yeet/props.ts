@@ -15,6 +15,7 @@ import * as THREE from "three";
 import type { Box } from "../../core/yeet/arena";
 import type { ExplosiveState } from "../../core/yeet/hazards";
 import type { Decor, Level } from "../../core/yeet/levels";
+import type { Projectile } from "../../core/yeet/sim";
 
 const CAR_COLOURS = ["#8a3b2b", "#3b5a7a", "#7a7a3b", "#5d6b5e", "#a06a2c", "#6b4a6b", "#8c8c86"];
 const WATER = { colour: "#2a7fa8", opacity: 0.86, size: 220 };
@@ -30,7 +31,7 @@ export interface Props {
   dispose(): void;
 }
 
-export function buildProps(level: Level, explosives: ExplosiveState[]): Props {
+export function buildProps(level: Level, explosives: ExplosiveState[], projectiles: Projectile[] = []): Props {
   const group = new THREE.Group();
   const geos: THREE.BufferGeometry[] = [];
   const mats = new Map<string, THREE.Material>();
@@ -198,6 +199,30 @@ export function buildProps(level: Level, explosives: ExplosiveState[]): Props {
   const ball = geo(new THREE.IcosahedronGeometry(1, 1));
   const blasts: { outer: THREE.Mesh; inner: THREE.Mesh; t: number; r: number }[] = [];
 
+  // ---- rockets and grenades in flight (a small pool, reused frame to frame) ----
+  const rocketGeo = geo(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8).rotateX(Math.PI / 2));
+  const noseGeo = geo(new THREE.ConeGeometry(0.07, 0.18, 8).rotateX(-Math.PI / 2).translate(0, 0, -0.34));
+  const flameGeo = geo(new THREE.ConeGeometry(0.09, 0.45, 8).rotateX(Math.PI / 2).translate(0, 0, 0.45));
+  const grenadeGeo = geo(new THREE.IcosahedronGeometry(0.12, 1));
+  const pink = new THREE.MeshBasicMaterial({ color: "#ff3fa4" });
+  mats.set("pink", pink);
+  const pool: { rocket: THREE.Group; grenade: THREE.Mesh }[] = [];
+  const shell = (i: number) => {
+    while (pool.length <= i) {
+      const rocket = new THREE.Group();
+      part(rocket, rocketGeo, mat("#6d7178", 0.5, 0.5));
+      part(rocket, noseGeo, mat("#ff3fa4", 0.5, 0.2));
+      rocket.add(new THREE.Mesh(flameGeo, pink)); // yeetpowder exhaust
+      const grenade = new THREE.Mesh(grenadeGeo, mat("#ff3fa4", 0.6, 0.1));
+      grenade.castShadow = true;
+      rocket.visible = grenade.visible = false;
+      group.add(rocket, grenade);
+      pool.push({ rocket, grenade });
+    }
+    return pool[i];
+  };
+  const look = new THREE.Vector3();
+
   return {
     group,
     update(dt) {
@@ -212,6 +237,20 @@ export function buildProps(level: Level, explosives: ExplosiveState[]): Props {
         }
       });
       if (water) water.position.y = level.water!.y + Math.sin(performance.now() / 900) * 0.03; // a slow swell
+      projectiles.forEach((p, i) => {
+        const s = shell(i);
+        const r = p.kind === "rocket";
+        s.rocket.visible = r;
+        s.grenade.visible = !r;
+        if (r) {
+          s.rocket.position.set(p.pos.x, p.pos.y, p.pos.z);
+          s.rocket.lookAt(look.set(p.pos.x - p.vel.x, p.pos.y - p.vel.y, p.pos.z - p.vel.z)); // nose (-Z) along the flight
+        } else {
+          s.grenade.position.set(p.pos.x, p.pos.y + 0.12, p.pos.z);
+          s.grenade.rotation.x += dt * 12;
+        }
+      });
+      for (let i = projectiles.length; i < pool.length; i++) pool[i].rocket.visible = pool[i].grenade.visible = false;
       // the shark: up out of the water, a moment at the top, back down
       sharkT += dt;
       const total = SHARK.rise + SHARK.hold + SHARK.sink;
