@@ -9,6 +9,7 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import { Log } from "../core/log";
+import { TUNING } from "../core/yeet/tuning";
 
 export interface TouchSettings {
   /** x TUNING.touch.lookScale for finger drags. */
@@ -17,10 +18,12 @@ export interface TouchSettings {
   gyro: boolean;
   /** x TUNING.touch.gyro. */
   gyroSpeed: number;
+  /** The move stick's deadzone (0..0.5 of its radius); the Settings screen's "Stick deadzone" is the gamepad's. */
+  deadzone: number;
 }
 
 const KEY = "yeetpowder.touch";
-const DEFAULTS: TouchSettings = { look: 1, assist: true, gyro: false, gyroSpeed: 1 };
+const DEFAULTS: TouchSettings = { look: 1, assist: true, gyro: false, gyroSpeed: 1, deadzone: TUNING.touch.deadzone };
 const clamp = (v: unknown, lo: number, hi: number, def: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def;
 
@@ -32,6 +35,7 @@ export function loadTouchSettings(): TouchSettings {
       assist: typeof raw.assist === "boolean" ? raw.assist : DEFAULTS.assist,
       gyro: typeof raw.gyro === "boolean" ? raw.gyro : DEFAULTS.gyro,
       gyroSpeed: clamp(raw.gyroSpeed, 0.5, 3, DEFAULTS.gyroSpeed),
+      deadzone: clamp(raw.deadzone, 0, 0.5, DEFAULTS.deadzone),
     };
   } catch {
     return { ...DEFAULTS };
@@ -48,7 +52,7 @@ export function saveTouchSettings(s: TouchSettings): void {
 
 export const PANEL_CSS = `
 /* over the HUD (7) and the duel panel (8), under the shell's screens (10) */
-.yt-panel { position: fixed; left: 10px; top: 56px; z-index: 9; touch-action: manipulation; background: rgba(20, 24, 34, 0.94); color: #fff;
+.yt-panel { position: fixed; left: 10px; top: 56px; z-index: 11; /* above the shell's menus (10): Settings opens it too */ touch-action: manipulation; background: rgba(20, 24, 34, 0.94); color: #fff;
   border: 3px solid #ffd84a; border-radius: 14px; padding: 12px 14px; width: min(320px, 80vw); font-size: 15px; }
 .yt-panel h3 { margin: 0 0 8px; font-size: 17px; }
 .yt-panel label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0; }
@@ -71,6 +75,7 @@ export function buildTouchPanel(
   root.style.display = "none";
   root.innerHTML = `<h3>Touch controls</h3>
     <label>Look speed <input type="range" min="0.5" max="3" step="0.1" data-k="look"><span data-v="look"></span></label>
+    <label>Stick deadzone <input type="range" min="0" max="0.5" step="0.05" data-k="deadzone"><span data-v="deadzone"></span></label>
     <label>Aim assist <input type="checkbox" data-k="assist"></label>
     <label>Gyro aiming <input type="checkbox" data-k="gyro"></label>
     <div class="note" data-note></div>
@@ -83,6 +88,8 @@ export function buildTouchPanel(
   const refresh = () => {
     q<HTMLInputElement>('[data-k="look"]').value = String(s.look);
     q<HTMLInputElement>('[data-k="gyroSpeed"]').value = String(s.gyroSpeed);
+    q<HTMLInputElement>('[data-k="deadzone"]').value = String(s.deadzone);
+    q('[data-v="deadzone"]').textContent = `${Math.round(s.deadzone * 100)}%`;
     q<HTMLInputElement>('[data-k="assist"]').checked = s.assist;
     q<HTMLInputElement>('[data-k="gyro"]').checked = s.gyro;
     q('[data-v="look"]').textContent = `${s.look.toFixed(1)}x`;
@@ -93,7 +100,7 @@ export function buildTouchPanel(
     const el = e.target as HTMLInputElement;
     const k = el.dataset.k as keyof TouchSettings | undefined;
     if (!k) return;
-    if (k === "look" || k === "gyroSpeed") s[k] = Number(el.value);
+    if (k === "look" || k === "gyroSpeed" || k === "deadzone") s[k] = Number(el.value);
     else s[k] = el.checked;
     saveTouchSettings(s);
     onChange(s);

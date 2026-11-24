@@ -20,6 +20,7 @@ import { Log } from "../core/log";
 import { knobOffset, stickFrom } from "../core/yeet/touch";
 import { TUNING } from "../core/yeet/tuning";
 import { Gyro } from "./gyro";
+import { canFullscreen, toggleFullscreen } from "./fullscreen";
 import { buildTouchPanel, loadTouchSettings, PANEL_CSS, type TouchSettings } from "./touchSettings";
 
 export interface TouchFrame {
@@ -68,6 +69,12 @@ const CSS = `
 .yt-reload { right: calc(4vmin + var(--b) * 1.05); bottom: calc(var(--b) * 2.35); width: calc(var(--b) * 0.55);
   height: calc(var(--b) * 0.55); font-size: calc(var(--b) * 0.12); }
 .yt-bar { position: absolute; left: 10px; top: 10px; display: flex; gap: 8px; }
+.yt-rotate { display: none; position: fixed; left: 50%; top: 42%; transform: translateX(-50%); padding: 8px 14px;
+  border-radius: 10px; background: rgba(20, 24, 34, 0.85); color: #fff; font: 600 15px system-ui, sans-serif;
+  pointer-events: none; white-space: nowrap; animation: yt-hint-fade 6s forwards; }
+@media (orientation: portrait) { .yt-rotate { display: block; } }
+/* fades after a few seconds (showing it again on each turn to portrait restarts the fade) */
+@keyframes yt-hint-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
 .yt-top { position: static; border-radius: 12px; width: auto; height: auto; padding: 8px 12px; font-size: 14px; }
 /* the shell's "Esc Pause" prompt means nothing on a tablet: the Pause button replaces it */
 body.yt-touch .hudbar { display: none; }
@@ -107,6 +114,8 @@ export class TouchControls {
   private readonly zoneFireIds = new Set<number>();
   /** The player's options (⚙) and the gyro. */
   readonly settings: TouchSettings = loadTouchSettings();
+  private openPanel: () => void = () => {};
+  private panelRoot: HTMLElement | null = null;
   private readonly gyro = new Gyro();
   private firePressed = false;
   private aim = false;
@@ -199,6 +208,12 @@ export class TouchControls {
     this.button("yt-top", "↺ Respawn", () => (this.reset = true), undefined, bar);
     const panel = buildTouchPanel(document.body, this.settings, (s) => this.applySettings(s), () => this.gyro.blockedReason);
     this.button("yt-top", "⚙", () => panel.show(panel.root.style.display === "none"), undefined, bar);
+    // fullscreen from a tap (Android, iPad): the finger lifting counts as the tap browsers require
+    if (canFullscreen()) this.button("yt-top", "⛶", () => {}, () => toggleFullscreen(), bar);
+    // held upright the view is narrow: say so (only shown in portrait, by CSS)
+    div("yt-rotate", this.root).textContent = "Turn sideways for the best view";
+    this.openPanel = () => panel.show(true);
+    this.panelRoot = panel.root;
     this.off.push(() => panel.root.remove());
     if (this.settings.gyro) void this.gyro.enable(); // turned on last time (iOS may need the switch tapped again)
 
@@ -302,7 +317,13 @@ export class TouchControls {
     for (const b of this.root.querySelectorAll(".yt-btn.down")) b.classList.remove("down");
   }
 
+  /** Opens the touch options (the ⚙ panel); the Settings screen's "Touch controls" row calls it. */
+  openSettings(): void {
+    this.openPanel();
+  }
+
   dispose(): void {
+    this.panelRoot?.remove(); // it lives on document.body, outside root
     for (const f of this.off) f();
     this.off.length = 0;
     this.gyro.dispose();
@@ -321,7 +342,7 @@ export class TouchControls {
   private moveStick(e: PointerEvent): void {
     const dx = e.clientX - this.stickX;
     const dy = e.clientY - this.stickY;
-    const s = stickFrom(dx, dy, TUNING.touch);
+    const s = stickFrom(dx, dy, { ...TUNING.touch, deadzone: this.settings.deadzone });
     this.moveX = s.x;
     this.moveZ = s.z;
     this.sprint = s.sprint;

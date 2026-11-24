@@ -265,6 +265,9 @@ export const TUNING = {
   /** Right-click aim: field of view per gun (degrees; hip fire is 75) and how fast the zoom moves (s). */
   aim: {
     hipFov: 75,
+    /** Screens narrower than this (width / height) widen the view so the sides stay in sight (view.ts). 4:3 keeps
+     *  every landscape phone and tablet as it was; a phone held upright sees what a 4:3 screen sees. */
+    minAspect: 4 / 3,
     fov: { pistol: 55, shotgun: 60, sniper: 18, copter: 62, reaper: 30, sakura: 60 } satisfies Record<WeaponId, number>,
     time: 0.12,
     /**

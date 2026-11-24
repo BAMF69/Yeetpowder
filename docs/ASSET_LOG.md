@@ -18,6 +18,7 @@
 
 | A-0004 | Animated character (optional preview) | public/assets/models/quaternius/modular_men/Swat.gltf; License.txt | https://quaternius.com/packs/ultimatemodularcharacters.html | Quaternius | CC0 1.0 Universal; included archive License.txt | none required; credit Quaternius | no | no (runtime scale and roughness only) | 2026-11-21 | 8,794 triangles, 24 clips; above character budget. Enable with ?play&operative; preview only, not approved release art. |
 | A-0005 | 3D model trials (experiment) | Meshy_AI_Tactical_Sentinel_1122004834_generate.glb, ..._generate-quads.glb, ..._generate-quads (1).glb (repo root) | Meshy AI text/image-to-3D (verify: who generated them, plan and terms) | Elaina the Great (AI-assisted, verify) | Meshy terms (verify before any use) | none specified | dev-only | no | 2026-11-21 | Not loaded by the game, not shipped. Check Meshy's licence for your plan before using in a build. |
+| A-0011 | App icons | public/icons/*.png; public/manifest.webmanifest | Made in code: tools/make_icons.mjs (SVG rendered by Playwright Chromium) | Claude for Elaina the Great | Own work | none | no | no | 2026-11-24 | Navy tile, hot-pink yeetpowder burst, yellow Y; for the installed app (Android Install app, iPhone home screen). PLACEHOLDER until real key art. |
 
 ## Rules
 - "AI-assisted?" uses one of: `no`, `dev-only` (AI helped, nothing AI-made ships), `pre-generated` (AI output ships in the build), `live` (generated at runtime). Steam's disclosure is built from the `pre-generated` and `live` rows (see SOP-04).

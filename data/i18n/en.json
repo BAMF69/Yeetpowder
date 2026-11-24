@@ -63,6 +63,7 @@
  "controls.hint": "Select an action, then press the new key or button",
  "controls.press": "Press a key or button (Esc cancels)",
  "controls.reset": "Reset controls to defaults",
+ "controls.touch": "Touch controls: look speed, stick, aim assist, gyro",
  "controls.swapped": "{action} took the old binding",
  "controls.conflict": "{a} and {b} share a binding",
  "controls.none": "none",

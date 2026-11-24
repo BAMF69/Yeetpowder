@@ -228,6 +228,10 @@ export class PeerGuest implements Transport {
     this.outbox.push(input);
   }
 
+  joinProgress(): { brokerOpen: boolean; ice?: string } {
+    return { brokerOpen: this.status === "open", ice: this.conn?.peerConnection?.iceConnectionState };
+  }
+
   flush(): void {
     if (!this.outbox.length || !this.conn?.open) return;
     this.send({ t: "in", inputs: this.outbox });

@@ -51,6 +51,7 @@ import { PickupViews } from "./yeet/pickups";
 import { YeetSound } from "./yeet/sound";
 import { buildRoom } from "./yeet/room";
 import { Viewmodel } from "./yeet/viewmodel";
+import { fovForAspect } from "../core/yeet/view";
 
 // ---- Tunables (presentation only; gameplay numbers are in tuning.ts) ----------
 const SUITS: Array<[string, string]> = [
@@ -159,6 +160,8 @@ export class YeetWorld implements World {
   private time = 0;
   /** 0 (hip) .. 1 (aimed), eased toward the right mouse button. */
   private aim = 0;
+  /** The zoom's fov (degrees) before the screen-shape widening (view.ts); hip fire is TUNING.aim.hipFov. */
+  private aimFov: number = TUNING.aim.hipFov;
   /** > 0: a shot knocked you out of zoom for this many more seconds. */
   private aimKnock = 0;
   /** One-shot presses from a frame that ran no sim step (fast monitors): used by the next step. */
@@ -220,7 +223,7 @@ export class YeetWorld implements World {
     // an interior (the rooms have ceilings now): dark, with soft fog for depth (GDD: restrained lighting)
     this.scene.background = new THREE.Color("#1c1e22");
     this.scene.fog = new THREE.Fog("#30343a", 55, 170); // light fog: the keyframe has almost none, and the 24 m ceiling must not vanish
-    this.camera = new THREE.PerspectiveCamera(75, aspect, 0.05, 300);
+    this.camera = new THREE.PerspectiveCamera(fovForAspect(TUNING.aim.hipFov, aspect), aspect, 0.05, 300);
     this.camera.rotation.order = "YXZ";
     this.scene.add(this.camera);
     this.camera.add(this.vm.root);
@@ -274,6 +277,8 @@ export class YeetWorld implements World {
       : null;
     if (this.touch) {
       this.hud.setTouch((i) => (this.slotTap = i));
+      const touch = this.touch;
+      shell.touchSettings = () => touch.openSettings(); // Settings > Controls > "Touch controls"
       Log.info("yeet", "touch controls on");
     }
     this.canvas.addEventListener("mousedown", this.onCanvasDown);
@@ -307,6 +312,7 @@ export class YeetWorld implements World {
     this.canvas.removeEventListener("mousedown", this.onCanvasDown);
     this.fps.dispose();
     this.touch?.dispose();
+    shell.touchSettings = null;
     this.hud.dispose();
     this.fx.dispose();
     this.vm.dispose();
@@ -323,6 +329,12 @@ export class YeetWorld implements World {
 
   resize(aspect: number): void {
     this.camera.aspect = aspect;
+    this.applyFov(); // a narrow screen widens the view (view.ts)
+  }
+
+  /** The camera's fov for the current zoom and screen shape. */
+  private applyFov(): void {
+    this.camera.fov = fovForAspect(this.aimFov, this.camera.aspect);
     this.camera.updateProjectionMatrix();
   }
 
@@ -490,9 +502,9 @@ export class YeetWorld implements World {
     this.aim = held ? Math.min(1, this.aim + step) : Math.max(0, this.aim - step);
     const target = TUNING.aim.fov[this.sim.player.weapon];
     const fov = TUNING.aim.hipFov + (target - TUNING.aim.hipFov) * this.aim;
-    if (Math.abs(fov - this.camera.fov) > 0.01) {
-      this.camera.fov = fov;
-      this.camera.updateProjectionMatrix();
+    if (Math.abs(fov - this.aimFov) > 0.01) {
+      this.aimFov = fov;
+      this.applyFov();
     }
     this.vm.setAim(this.aim);
   }
@@ -500,7 +512,7 @@ export class YeetWorld implements World {
   /** Screen-space zoom relative to hip fire (1 at hip, smaller when zoomed in). */
   private zoomFactor(): number {
     const half = (deg: number) => Math.tan((deg * Math.PI) / 360);
-    return half(this.camera.fov) / half(TUNING.aim.hipFov);
+    return half(this.aimFov) / half(TUNING.aim.hipFov); // the zoom, not the screen-shape widening
   }
 
   // ---- input -----------------------------------------------------------------

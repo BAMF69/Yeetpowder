@@ -21,6 +21,8 @@ import { Predictor } from "../../net/predict";
 import { NetClient } from "./netClient";
 import { RemoteBuffer } from "./remote";
 import { roomQrSvg } from "./roomQr";
+import { joinStage } from "../../net/joinStatus";
+import { Log } from "../../core/log";
 
 const CSS = `
 .yd { position: fixed; inset: 0; z-index: 8; /* over the touch controls (6) and HUD (7): the lobby needs taps */ display: flex; align-items: center; justify-content: center;
@@ -209,15 +211,49 @@ export class DuelLink {
       }
     }
     const net = this.net!;
+    const started = performance.now();
+    let sent = false;
     const t = window.setInterval(() => {
-      if (net.status === "open") {
-        window.clearInterval(t);
-        net.send(msg);
-      } else if (net.status === "closed") {
+      if (net !== this.net || this.ready) {
+        window.clearInterval(t); // joined (or replaced by another try)
+        return;
+      }
+      if (net.status === "closed") {
         window.clearInterval(t);
         this.showLobby(net.failReason || "Could not connect.");
+        return;
+      }
+      if (net.status === "open" && !sent) {
+        sent = true;
+        net.send(msg);
+      }
+      if (!net.joinProgress) {
+        if (sent) window.clearInterval(t); // the home server and the host answer at once
+        return;
+      }
+      // a guest: say where the join is, and give up with advice instead of hanging (iPhone on home Wi-Fi)
+      const stage = joinStage({ ...net.joinProgress(), elapsedMs: performance.now() - started });
+      if (stage.failed) {
+        window.clearInterval(t);
+        Log.warn("net", `join gave up: ${stage.text} (${JSON.stringify(net.joinProgress())})`);
+        net.close();
+        this.net = null;
+        this.showLobby(stage.text);
+      } else {
+        this.setSubline(stage.text);
       }
     }, 50);
+  }
+
+  /** The small line under a message ("Joining room ABCD..."): where the join is. */
+  private setSubline(text: string): void {
+    let line = this.panel.querySelector(".yd-note") as HTMLDivElement | null;
+    if (!line) {
+      line = document.createElement("div");
+      line.className = "yd-note";
+      this.panel.append(line);
+    }
+    if (line.textContent !== text) line.textContent = text;
   }
 
   private showLobby(error = ""): void {
