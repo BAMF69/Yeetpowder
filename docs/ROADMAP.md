@@ -24,6 +24,12 @@
 - Weapon durability, scavenging and Smith workbench repair, for Scrapyard / Junk Wars modes only (design doc "Future systems")
 - Armor and damage types (bullet, slash, blast, bonk): Modern vest, Medium brigandine, Chainmail, Plate; heavier armor cuts recoil and knockback, total recoil cut capped ~75% (design doc "Future systems")
 - Couch mode: TV/laptop browser renders up to 4 split-screen panes from game state; phones join by QR code as controllers (WebRTC on same Wi-Fi, gyro aim); no video streaming, too much delay (design doc "Future systems")
+- Quick Play: best ping first, then most players; join mid-match below 8; auto-requeue after each match; rotate levels and modes (design doc "Modes, maps and match flow")
+- Room creation options: pick game mode, level, public or private (design doc "Modes, maps and match flow")
+- 8-player matches (launch target)
+- Cosmetic skin store with moderated player submissions and creator revenue share; accounts optional, only for buying or submitting (design doc "Future systems")
+- Level designer: browser editor, test-as-you-build, share by link, featured levels join Quick Play (design doc "Future systems")
+- Tutorial (skippable, under 5 min) and lore-based story mode with cosmetic rewards (design doc "Future systems")
 - 
 
 ## Milestones
