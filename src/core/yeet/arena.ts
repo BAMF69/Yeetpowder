@@ -21,7 +21,18 @@ export interface Box {
   kind: "floor" | "wall" | "block" | "ceiling";
   /** Walls: the height to draw (the solid goes far higher). */
   drawTop?: number;
+  /**
+   * Drawn as a prop instead of a painted box (props.ts): a car, or an explosive (truck, tank, drum: hazards.ts
+   * gives those health, a blast and a wreck). "hidden": a solid that is not drawn (an outdoor level's far bounds).
+   */
+  prop?: PropKind;
+  /** The painted surface to draw it with, instead of the one its size picks (room.ts). */
+  paint?: "sand" | "rock" | "asphalt" | "corrugated" | "container";
 }
+
+export type PropKind = "car" | "truck" | "tank" | "drum" | "hidden";
+export const EXPLOSIVES = ["truck", "tank", "drum"] as const;
+export type ExplosiveKind = (typeof EXPLOSIVES)[number];
 
 export interface Arena {
   boxes: Box[];

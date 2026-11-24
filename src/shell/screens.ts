@@ -129,6 +129,7 @@ export function menu(shell: Shell): Screen {
       shell.startGame("main");
     });
     add("menu.duel_bot", () => shell.push(botScreen(shell))); // Yeetpowder: offline duel against a bot
+    add("menu.levels", () => shell.push(levelsScreen(shell))); // Yeetpowder: Shark Island, Industrial Yard, Junkyard
     add("menu.settings", () => shell.push(settingsScreen(shell)));
     add("menu.credits", () => shell.push(creditsScreen(shell)));
     if (shell.debugBuild) add("menu.juice", () => shell.startGame("juice"));
@@ -145,6 +146,24 @@ export function menu(shell: Shell): Screen {
     }
     root.append(p, tl(shell.i18n, "version", "corner", { v: GAME_VERSION }, "div"));
   }, { cancel: () => shell.reset(title(shell)) });
+}
+
+/** Yeetpowder: the new levels (src/core/yeet/levelsOutdoor.ts), played against the dummies. */
+export function levelsScreen(shell: Shell): Screen {
+  return built("levels", "dim", (root, m) => {
+    const p = panel("narrow");
+    p.append(tl(shell.i18n, "levels.title", "heading", {}, "div"));
+    const list = el("div", "list");
+    for (const id of ["island", "industrial", "junkyard"]) {
+      list.append(m.add(buttonItem(shell.i18n, `level.${id}`, () => {
+        shell.worldOption = id;
+        shell.startGame("main");
+      })).el);
+    }
+    list.append(m.add(buttonItem(shell.i18n, "credits.back", () => shell.back())).el);
+    p.append(list);
+    root.append(p);
+  }, { cancel: () => shell.back() });
 }
 
 /** Yeetpowder: pick the bot's difficulty for an offline duel (src/core/yeet/bot.ts, TUNING.bot). */

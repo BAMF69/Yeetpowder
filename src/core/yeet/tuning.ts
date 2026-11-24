@@ -322,6 +322,21 @@ export const TUNING = {
   },
 
   /**
+   * Explosive vehicles and drums (hazards.ts; the Industrial yard, Elaina 2026-11-24): shots wear down `hp`; at 0
+   * the blast pushes everyone within `radius` m away and up (`force` and `lift` m/s at the centre, falling to 0 at
+   * the edge) and hurts them (`damage` hp at the centre), sets off other explosives in reach, and leaves a wreck
+   * `wreck` m tall that stays as cover; it is whole again after `respawn` s (once nobody stands in it).
+   */
+  explosive: {
+    drum: { hp: 25, radius: 4.5, force: 16, lift: 8, damage: 35, wreck: 0.3 },
+    truck: { hp: 120, radius: 7, force: 22, lift: 10, damage: 60, wreck: 1.3 },
+    tank: { hp: 220, radius: 9, force: 28, lift: 13, damage: 90, wreck: 1.6 },
+    respawn: 25,
+  },
+  /** Shark Island: who falls below the water is eaten (a knockout, credited to whoever hit them within `credit` s). */
+  water: { credit: 8, sink: 3 },
+
+  /**
    * Bots (src/core/yeet/bot.ts): full players driven by a brain that only presses what a player can press. Each
    * difficulty is how human its hands and judgment are, never a cheat (same guns, recoil, tumbles, ammo, hp).
    *   reaction    s between seeing something and acting on it (it aims at where you were that long ago)

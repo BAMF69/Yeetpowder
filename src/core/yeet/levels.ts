@@ -6,6 +6,7 @@
 //             fight   -> "Fight Back": dummies shoot at you; you start with the Pea Pistol and Boomstick, the Spin
 //                        Doctor lies on the ground, the Gatling Copter waits on an 11 m tower only a Boomstick launch
 //                        reaches (Play on the menu)
+//             island, industrial, junkyard -> the new levels (levelsOutdoor.ts)
 // Usage   : const sim = new YeetSim(TUNING, fightLevel());   levelById("sandbox")
 // Notes   : No three import. The tower height is checked by tests/yeetSim.test.ts: a Boomstick floor launch must
 //           clear it and the Pea Pistol must not (from the floor or from the highest crate).
@@ -14,8 +15,12 @@
 import { box, room, testRoom, type Arena } from "./arena";
 import type { WeaponId } from "./tuning";
 import type { Vec3 } from "./vec";
+import { industrialLevel, islandLevel, junkyardLevel } from "./levelsOutdoor";
 
-export type LevelId = "sandbox" | "fight" | "duel";
+export type LevelId = "sandbox" | "fight" | "duel" | "island" | "industrial" | "junkyard";
+
+/** The new levels a bot match can be played on (?bot=easy&level=island): no dummies then, just the two of you. */
+export const BOT_LEVELS: LevelId[] = ["island", "industrial", "junkyard"];
 
 export interface Pickup {
   weapon: WeaponId;
@@ -38,6 +43,19 @@ export interface Level {
   dummyRespawn: number;
   /** Seed for the run's chance rolls (run-and-gun tumbles): same seed + same inputs = same run. */
   seed: number;
+  /** Open sky above (no ceiling over at least part of it): the renderer draws a sky and sunlight. */
+  outdoor?: boolean;
+  /** Water at this height: falling below it is a knockout (Shark Island; hazards.ts, the sim's eaten rule). */
+  water?: { y: number };
+  /** Scenery that is drawn but not collided with (palms, a crane): props.ts. */
+  decor?: Decor[];
+}
+
+export interface Decor {
+  kind: "palm" | "rock" | "crane" | "crusher";
+  pos: Vec3;
+  yaw?: number;
+  scale?: number;
 }
 
 export function sandboxLevel(): Level {
@@ -129,5 +147,12 @@ export function duelLevel(): Level {
 }
 
 export function levelById(id: string | null | undefined): Level {
-  return id === "sandbox" ? sandboxLevel() : id === "duel" ? duelLevel() : fightLevel();
+  switch (id) {
+    case "sandbox": return sandboxLevel();
+    case "duel": return duelLevel();
+    case "island": return islandLevel();
+    case "industrial": return industrialLevel();
+    case "junkyard": return junkyardLevel();
+    default: return fightLevel();
+  }
 }

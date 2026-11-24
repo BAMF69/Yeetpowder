@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { moveBody, rayBox, testRoom } from "../src/core/yeet/arena";
 import { AUTOPLAY_SECONDS, autoplayStep } from "../src/core/yeet/autoplay";
 import { duelLevel, fightLevel, sandboxLevel, TOWER_TOP, type Level } from "../src/core/yeet/levels";
+import { industrialLevel, islandLevel, junkyardLevel } from "../src/core/yeet/levelsOutdoor";
 import { NO_INPUT, PLAYER_CODE, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../src/core/yeet/sim";
 import { TUNING } from "../src/core/yeet/tuning";
 import { aimDir, vec } from "../src/core/yeet/vec";
@@ -56,7 +57,7 @@ describe("vectors and collision", () => {
     expect(r.wallNormal).toEqual({ x: -1, y: 0, z: 0 });
   });
 
-  for (const make of [sandboxLevel, fightLevel]) {
+  for (const make of [sandboxLevel, fightLevel, islandLevel, industrialLevel, junkyardLevel]) {
     it(`${make().name}: the player and every dummy spawn clear of the geometry, standing on something (SOP-09)`, () => {
       const level = make();
       const sim = newSim(level);
@@ -72,6 +73,25 @@ describe("vectors and collision", () => {
         expect(b.pos.y).toBeCloseTo(spawns[i].y, 3);
         expect(b.pos.z).toBeCloseTo(spawns[i].z, 3);
       });
+    });
+  }
+
+  for (const make of [islandLevel, industrialLevel, junkyardLevel]) {
+    it(`${make().name}: both duel spawns stand on something, and every pickup can be picked up`, () => {
+      const level = make();
+      const sim = new YeetSim(structuredClone(TUNING), level, 2);
+      for (let i = 0; i < 60; i++) sim.step([NO_INPUT, NO_INPUT]);
+      sim.players.forEach((p, j) => {
+        expect(p.onGround, `player ${j + 1}`).toBe(true);
+        expect(p.pos.y).toBeCloseTo(level.spawns![j].y, 3);
+      });
+      // each pickup rests on a surface: a body dropped there lands at its height
+      for (const pk of level.pickups) {
+        const solo = newSim(level);
+        solo.player.pos = { ...pk.pos, y: pk.pos.y + 0.5 };
+        run(solo, 0.6);
+        expect(solo.player.pos.y, `${pk.weapon} at ${JSON.stringify(pk.pos)}`).toBeCloseTo(pk.pos.y, 1);
+      }
     });
   }
 });
