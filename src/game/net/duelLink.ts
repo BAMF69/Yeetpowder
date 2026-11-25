@@ -13,6 +13,10 @@
 //           real ones. ?debug shows ping, snapshot rate and prediction corrections.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
+import type { BotSkill } from "../../core/yeet/bot";
+import type { MatchStatus } from "../../net/roomOptions";
+import type { PartySession } from "./partySession";
+import { shell } from "../../shell/app";
 import type { TaggedEvent, YeetInput } from "../../core/yeet/sim";
 import { cleanCode, DUEL_PORT, type ClientMsg, type ServerMsg, type Snapshot } from "../../net/protocol";
 import { PeerGuest, PeerHost } from "./peerLink";
@@ -23,6 +27,8 @@ import { RemoteBuffer } from "./remote";
 import { roomQrSvg } from "./roomQr";
 import { joinStage } from "../../net/joinStatus";
 import { Log } from "../../core/log";
+import type { ReplayClip } from "../../net/highlight";
+import type { PlayerProfile } from "../../net/profile";
 
 const CSS = `
 .yd { position: fixed; inset: 0; z-index: 8; /* over the touch controls (6) and HUD (7): the lobby needs taps */ display: flex; align-items: center; justify-content: center;
@@ -76,7 +82,23 @@ function shareOrigin(): string {
 }
 
 export class DuelLink {
-  readonly predictor = new Predictor(0);
+  readonly predictor: Predictor;
+  readonly party: PartySession | null;
+  active = [false, false];
+  bots: (BotSkill | null)[] = [null, null];
+  match: MatchStatus | null = null;
+  profiles: PlayerProfile[] = [];
+  replay: ReplayClip | null = null;
+  onReplay: (() => void) | null = null;
+  setReplayPlaying(playing: boolean): void { this.root.style.visibility = playing ? "hidden" : "visible"; }
+  private owner = 0;
+  private rosterStamp = "";
+  private detailsOpen = false;
+  private inviteOpen = false;
+  private countdownLine: HTMLParagraphElement | null = null;
+  private modeLine: HTMLDivElement | null = null;
+  private readonly scoreDown = (e: KeyboardEvent) => { if (e.code === "Tab" && shell.top?.gameplay) { e.preventDefault(); this.detailsOpen = true; this.showParty(true); } };
+  private readonly scoreUp = (e: KeyboardEvent) => { if (e.code === "Tab") { this.detailsOpen = false; this.showParty(true); } };
   readonly remote = new RemoteBuffer();
   slot = -1;
   code = "";
@@ -95,10 +117,13 @@ export class DuelLink {
   private snapTimes: number[] = [];
   private corrections: number[] = [];
 
-  constructor(params: URLSearchParams) {
+  constructor(params: URLSearchParams, party: PartySession | null = null) {
+    window.addEventListener("keydown", this.scoreDown); window.addEventListener("keyup", this.scoreUp);
+    this.party = party;
+    this.predictor = new Predictor(0, party?.options);
     this.serverMode = params.get("net") === "server";
     this.lagMs = Number(params.get("lag")) || 0;
-    if (this.serverMode) this.net = new NetClient(duelSocketUrl(), this.lagMs, (m) => this.onMsg(m));
+    if (this.serverMode && !party) this.net = new NetClient(duelSocketUrl(), this.lagMs, (m) => this.onMsg(m));
     this.style = document.createElement("style");
     this.style.textContent = CSS;
     document.head.append(this.style);
@@ -109,6 +134,16 @@ export class DuelLink {
     this.root.append(this.panel);
     document.body.append(this.root);
     this.netLine = params.has("debug") ? this.addNetLine() : null;
+    if (party) {
+      this.net = party.transport; this.slot = party.slot; this.code = party.code;
+      this.predictor.setSlot(party.slot);
+      this.present = Array(party.options.capacity).fill(false);
+      this.active = Array(party.options.capacity).fill(false);
+      this.bots = Array(party.options.capacity).fill(null);
+      party.subscribe((m) => this.onMsg(m));
+      this.showParty();
+      return;
+    }
     const room = cleanCode(params.get("room") ?? "");
     if (room.length === 4) {
       this.showMessage("Joining room " + room + "...");
@@ -125,13 +160,14 @@ export class DuelLink {
 
   /** Both players are here: the duel is on. */
   get full(): boolean {
-    return this.present.every(Boolean);
+    return this.party ? this.active.every(Boolean) : this.present.every(Boolean);
   }
 
   /** Predicts one step of your input and queues it for the server; returns the step's events to play now. */
   stepLocal(input: YeetInput, dYaw: number, dPitch: number): TaggedEvent[] {
-    if (!this.ready) return [];
+    if (!this.ready || this.net?.status !== "open" || this.party && (this.match?.phase === "finished" || !this.active[this.slot])) return [];
     const { msg, events } = this.predictor.local(input, dYaw, dPitch);
+    msg.round = this.party?.round ?? 1;
     this.net?.queue(msg);
     // only your own moves: the other player's (their landing, pickups, bonks) come from the server, and hits are its call
     return events.filter((e) => e.p === this.slot && e.type !== "pvpHit" && e.type !== "pvpDown");
@@ -162,7 +198,8 @@ export class DuelLink {
   }
 
   dispose(): void {
-    this.net?.close();
+    window.removeEventListener("keydown", this.scoreDown); window.removeEventListener("keyup", this.scoreUp);
+    if (this.party) this.party.close(); else this.net?.close();
     this.root.remove();
     this.netLine?.remove();
     this.style.remove();
@@ -191,6 +228,19 @@ export class DuelLink {
     this.serverEvents.push(...s.events);
     const wasFull = this.full;
     this.present = s.present;
+    this.profiles = s.profiles ?? [];
+    this.bots = s.bots ?? s.present.map(() => null);
+    this.active = s.active ?? s.present;
+    const wasFinished = this.match?.phase === "finished";
+    this.match = s.match ?? null;
+    if (s.replay !== undefined) this.replay = s.replay;
+    if (this.match?.phase !== "finished") this.replay = null;
+    this.owner = s.owner ?? 0;
+    if (this.party) {
+      this.showParty();
+      if (!wasFinished && this.match?.phase === "finished" && this.replay) this.onReplay?.();
+      return;
+    }
     if (this.full !== wasFull) {
       if (this.full) this.root.style.display = "none";
       else this.showWaiting("The other player left.");
@@ -307,6 +357,78 @@ export class DuelLink {
     (this.panel.querySelector(".yd-err") as HTMLDivElement).textContent = note;
     this.root.style.pointerEvents = "none"; // you can click past it into the game while you wait
     this.panel.style.pointerEvents = "auto";
+  }
+
+  private showParty(force = false): void {
+    const party = this.party;
+    if (!party) return;
+    const humans = this.present.filter(Boolean).length;
+    const bots = this.bots.filter(Boolean).length;
+    const finished = this.match?.phase === "finished";
+    const mode = { kills: "Deathmatch", lives: "Last player standing", timed: "Timed", ringout: "Ring Out · unlimited HP" }[party.options.mode];
+    const modeText = `${mode} · ${this.match?.phase === "waiting" ? "Waiting for players" : party.options.mode === "timed" ? Math.ceil(this.match?.remaining ?? party.options.minutes * 60) + "s left" : party.options.mode === "lives" ? party.options.lives + " lives" : "First to " + party.options.scoreLimit}`;
+    const countdownText = `Next match on a new map in ${Math.ceil(this.match?.nextRoundIn ?? 0)}s`;
+    if (this.modeLine) this.modeLine.textContent = modeText;
+    if (this.countdownLine) this.countdownLine.textContent = countdownText;
+    // Clock ticks must preserve the buttons and keyboard focus, even on a slow renderer.
+    const state = JSON.stringify([humans, bots, this.bots, this.match?.phase,
+      this.predictor.sim.kos, this.match?.lives, this.detailsOpen, this.inviteOpen, this.owner, this.profiles]);
+    if (!force && state === this.rosterStamp) return;
+    this.rosterStamp = state;
+    this.root.style.display = "flex";
+    this.root.classList.toggle("corner", !finished);
+    // Room controls stay usable after focus loss opens the shell's pause overlay (z-index 10).
+    this.root.style.zIndex = finished ? "50" : "12";
+    this.panel.replaceChildren();
+    this.countdownLine = null;
+    const title = document.createElement("h2");
+    title.textContent = finished ? "Match complete" : `${party.offline ? "Offline" : "Room " + this.code} · ${humans} player${humans === 1 ? "" : "s"} + ${bots} bots`;
+    this.panel.append(title);
+    const note = document.createElement("div"); note.className = "yd-note"; this.modeLine = note;
+    note.textContent = modeText;
+    this.panel.append(note);
+    if (finished) {
+      const result = document.createElement("p");
+      result.textContent = this.match!.winners.length === 1 ? `Winner: ${this.name(this.match!.winners[0])}` : "Draw";
+      this.panel.append(result);
+      if (this.match?.nextRoundIn !== undefined) { const countdown = document.createElement("p"); this.countdownLine = countdown; countdown.textContent = countdownText; this.panel.append(countdown); }
+    }
+    const button = (label: string, action: () => void) => {
+      const b = document.createElement("button"); b.textContent = label; b.onclick = action; this.panel.append(b);
+    };
+    if (finished && this.replay) button("Yeet of the match", () => { shell.resumeGame(); this.onReplay?.(); });
+    if (finished && party.options.visibility === "public") button("Next match · new map", () => { this.net?.send({ t: "next" }); shell.resumeGame(); });
+    if (!finished) button(this.detailsOpen ? "Hide players" : "Players", () => { this.detailsOpen = !this.detailsOpen; this.showParty(true); });
+    if (this.detailsOpen || finished) {
+      this.predictor.sim.players.forEach((_, slot) => {
+        if (!this.present[slot] && !this.bots[slot]) return;
+        const row = document.createElement("div");
+        row.textContent = `${this.name(slot)}${slot === this.slot ? " (you)" : ""} · ${this.predictor.sim.kos[slot]} KOs${party.options.mode === "lives" ? " · " + this.match?.lives[slot] + " lives" : ""}`;
+        this.panel.append(row);
+      });
+    }
+    if (!party.offline && !finished) {
+      const url = new URL(location.pathname, shareOrigin());
+      url.search = new URLSearchParams({ online: "1", room: this.code, level: party.options.level }).toString();
+      button("Invite", () => {
+        this.inviteOpen = !this.inviteOpen; this.showParty(true);
+        void navigator.clipboard?.writeText(url.href).catch(() => {});
+      });
+      if (this.inviteOpen) {
+        const link = document.createElement("div"); link.className = "yd-link"; link.textContent = url.href;
+        const qr = document.createElement("div"); qr.className = "yd-qr"; qr.innerHTML = roomQrSvg(url.href);
+        this.panel.append(link, qr);
+      }
+    }
+    if (finished && this.slot === this.owner) button("Rematch", () => { this.net?.send({ t: "rematch" }); shell.resumeGame(); });
+    if (finished) button("Back to menu", () => shell.quitToTitle());
+    if (finished && document.pointerLockElement) void document.exitPointerLock();
+  }
+
+  name(slot: number): string {
+    if (this.profiles[slot]) return this.profiles[slot].name;
+    const skill = this.bots[slot];
+    return skill ? `${skill === "easy" ? "Easy" : "Medium"} bot ${slot + 1}` : `Player ${slot + 1}`;
   }
 
   private addNetLine(): HTMLDivElement {

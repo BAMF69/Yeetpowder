@@ -15,6 +15,9 @@
 // Updated : 2026-11-13 with Claude (Opus 5.5, claude-opus-5-5): the HUD note: HTML follows ui_scale and text_scale through
 //           the CSS, text the renderer draws uses core/hud.ts (#309)
 // ---------------------------------------------------------------------------
+import { partyScreen } from "./partyScreen";
+import { profileScreen } from "./profileScreen";
+import type { LevelId } from "../core/yeet/levels";
 import { glyphName, glyphSet, promptBinding } from "../core/bindings";
 import type { Screen, Shell } from "./app";
 import { creditsText } from "./credits";
@@ -113,9 +116,19 @@ export function consent(shell: Shell): Screen {
 export function menu(shell: Shell): Screen {
   return built("menu", "dim", (root, m) => {
     const p = panel("narrow");
+    p.style.maxHeight = "85vh"; p.style.overflowY = "auto";
+    root.classList.add("yeet-menu");
+    root.style.backgroundImage = "linear-gradient(90deg,rgba(4,8,20,.98),rgba(4,8,20,.88) 40%,rgba(4,8,20,.25)),url(assets/ui/title_logo.jpg)";
     p.append(tl(shell.i18n, "game.title", "heading", { name: GAME_NAME }, "div"));
+    p.append(tl(shell.i18n, "menu.tagline", "yeet-tagline", {}, "div"));
     const list = el("div", "list");
     const add = (key: string, fn: () => void) => list.append(m.add(buttonItem(shell.i18n, key, fn)).el);
+    add("menu.quick", () => shell.push(partyScreen(shell, "quick")));
+    add("menu.profile", () => shell.push(profileScreen(shell)));
+    add("menu.make_room", () => shell.push(partyScreen(shell, "create")));
+    add("menu.join_room", () => shell.push(partyScreen(shell, "join")));
+    add("menu.couch", () => shell.push(partyScreen(shell, "couch")));
+    add("menu.spectate", () => shell.push(partyScreen(shell, "spectate")));
     add("menu.play", () => {
       shell.worldOption = ""; // Yeetpowder: Fight Back
       shell.startGame("main");
@@ -152,9 +165,10 @@ export function menu(shell: Shell): Screen {
 export function levelsScreen(shell: Shell): Screen {
   return built("levels", "dim", (root, m) => {
     const p = panel("narrow");
+    p.style.maxHeight = "85vh"; p.style.overflowY = "auto";
     p.append(tl(shell.i18n, "levels.title", "heading", {}, "div"));
     const list = el("div", "list");
-    for (const id of ["island", "industrial", "junkyard"]) {
+    for (const id of ["island", "industrial", "junkyard", "island-party", "industrial-party", "junkyard-party", "coliseum"]) {
       list.append(m.add(buttonItem(shell.i18n, `level.${id}`, () => shell.push(opponentsScreen(shell, id)))).el);
     }
     list.append(m.add(buttonItem(shell.i18n, "credits.back", () => shell.back())).el);
@@ -169,6 +183,7 @@ export function opponentsScreen(shell: Shell, level: string): Screen {
     const p = panel("narrow");
     p.append(tl(shell.i18n, "opponents.title", "heading", { level: shell.i18n.t(`level.${level}`) }, "div"));
     const list = el("div", "list");
+    list.append(m.add(buttonItem(shell.i18n, "opponents.custom", () => shell.push(partyScreen(shell, "solo", level as LevelId)))).el);
     for (const opp of ["static", "fight", "bot-easy", "bot-medium", "bot-hard"]) {
       list.append(m.add(buttonItem(shell.i18n, `opponents.${opp}`, () => {
         shell.worldOption = opp === "fight" ? level : `${level}:${opp}`;
@@ -377,3 +392,5 @@ export function crashed(shell: Shell, file: string, detail = ""): Screen {
     root.append(p);
   });
 }
+
+export { partyScreen };

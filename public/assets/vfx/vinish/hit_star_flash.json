@@ -1,0 +1,18 @@
+{
+ "id": "hit_star_flash",
+ "title": "Cartoon Hit Star",
+ "columns": 8,
+ "rows": 8,
+ "frames": 64,
+ "fps": 30,
+ "loop": false,
+ "blending": "normal",
+ "alpha": "straight (colour bled under transparent pixels)",
+ "order": "row-major from the top-left cell",
+ "note": "One-shot: a comic-book spiky star that pops out and shrinks away, with a yellow fill and an outline.",
+ "sheets": {
+  "2048": "hit_star_flash_sheet_2048.png",
+  "1024": "hit_star_flash_sheet_1024.png",
+  "512": "hit_star_flash_sheet_512.png"
+ }
+}

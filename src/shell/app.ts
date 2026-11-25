@@ -265,6 +265,14 @@ export class Shell {
       Log.info("core", `BOOT_OK ${GAME_NAME}`);
       if (this.drive) {
         runDrive(this, this.drive).catch((err: unknown) => Log.error("drive", `DRIVE_ABORT ${this.drive}: ${err instanceof Error ? err.message : String(err)}`));
+      } else if (this.params.has("quick")) {
+        this.push(screens.partyScreen(this, "quick"));
+      } else if (this.params.has("online") && this.params.has("room")) {
+        this.push(screens.partyScreen(this, this.params.has("spectate") ? "spectate" : "join"));
+      } else if (this.params.has("couch") && !this.params.has("play")) {
+        this.push(screens.partyScreen(this, "couch"));
+      } else if (this.params.has("make-room")) {
+        this.push(screens.partyScreen(this, "create"));
       } else if (this.params.has("play")) {
         this.startGame("main"); // ?play: straight into the play world (quick iteration, smoke screenshots of play)
       }

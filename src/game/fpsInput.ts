@@ -40,7 +40,7 @@ export interface FpsFrame {
 }
 
 const WEAPON_KEYS: Record<string, number> = {
-  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
+  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8, Digit0: 9,
 };
 
 export class FpsInput {

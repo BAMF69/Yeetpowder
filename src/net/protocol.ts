@@ -10,6 +10,11 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import type { SimState, TaggedEvent, YeetInput } from "../core/yeet/sim";
+import type { LevelId } from "../core/yeet/levels";
+import type { BotSkill } from "../core/yeet/bot";
+import type { MatchStatus, RoomOptions } from "./roomOptions";
+import type { ReplayClip } from "./highlight";
+import type { PlayerProfile } from "./profile";
 
 /** The duel server's port on this PC (the page itself is served by Vite). */
 export const DUEL_PORT = 7357;
@@ -22,14 +27,19 @@ const CODE_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
 /** One player's input for one sim step, numbered so the server can acknowledge it. */
 export interface NetInput extends YeetInput {
+  round?: number;
   seq: number;
   dYaw: number;
   dPitch: number;
 }
 
 export type ClientMsg =
-  | { t: "create" }
-  | { t: "join"; code: string }
+  | { t: "create"; options?: Partial<RoomOptions>; profile?: PlayerProfile }
+  | { t: "quick"; profile?: PlayerProfile }
+  | { t: "next" }
+  | { t: "rematch" }
+  | { t: "leave" }
+  | { t: "join"; code: string; spectate?: boolean; profile?: PlayerProfile }
   | { t: "in"; inputs: NetInput[] }
   | { t: "ping"; at: number };
 
@@ -48,10 +58,19 @@ export interface Snapshot {
    * prediction steps the other player the way the server does: still holding F keeps you on their hook.
    */
   held?: YeetInput[];
+  bots?: (BotSkill | null)[];
+  active?: boolean[];
+  match?: MatchStatus;
+  owner?: number;
+  profiles?: PlayerProfile[];
+  round?: number;
+  /** Sent once at the end; retained by the session while its world loads. */
+  replay?: ReplayClip | null;
 }
 
 export type ServerMsg =
-  | { t: "joined"; code: string; slot: number; level: "duel" }
+  | { t: "round"; options: RoomOptions; round: number }
+  | { t: "joined"; code: string; slot: number; level: LevelId; options?: RoomOptions }
   | Snapshot
   | { t: "error"; reason: string }
   | { t: "pong"; at: number };

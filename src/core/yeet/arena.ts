@@ -27,7 +27,7 @@ export interface Box {
    */
   prop?: PropKind;
   /** The painted surface to draw it with, instead of the one its size picks (room.ts). */
-  paint?: "sand" | "rock" | "asphalt" | "corrugated" | "container";
+  paint?: "sand" | "rock" | "asphalt" | "corrugated" | "container" | "concrete";
 }
 
 export type PropKind = "car" | "truck" | "tank" | "drum" | "hidden";

@@ -1,0 +1,15 @@
+Poly Haven terrain textures, retrieved 2026-11-24.
+
+Asset licence: CC0 1.0 Universal.
+Official policy: https://polyhaven.com/license
+Legal text: CC0-1.0.txt
+Source pages, individual authors, original map URLs and SHA-256 checksums:
+terrain-sources.json
+
+Materials: Aerial Sand, Rock Face 03, Asphalt 03, Corrugated Iron, Concrete Floor.
+Sources were downloaded from the official Poly Haven API and asset CDN.
+Original 1K JPG files stay in .asset_cache/level-textures (not shipped).
+Game copies are resized to 512 by 512 and encoded as JPEG quality 88 with the
+browser image encoder. No displacement is applied; collision geometry stays exact.
+
+Credit is voluntary under CC0: Terrain textures from Poly Haven, https://polyhaven.com.

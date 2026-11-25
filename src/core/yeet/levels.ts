@@ -16,20 +16,26 @@ import { box, room, testRoom, type Arena } from "./arena";
 import type { WeaponId } from "./tuning";
 import type { Vec3 } from "./vec";
 import { industrialLevel, islandLevel, junkyardLevel } from "./levelsOutdoor";
+import { industrialPartyLevel, islandPartyLevel, junkyardPartyLevel, PARTY_LEVELS } from "./levelsParty";
+import { coliseumLevel } from "./levelColiseum";
 
-export type LevelId = "sandbox" | "fight" | "duel" | "island" | "industrial" | "junkyard";
+export type LevelId = "sandbox" | "fight" | "duel" | "island" | "industrial" | "junkyard" | "coliseum" | (typeof PARTY_LEVELS)[number];
 
 /** The new levels a bot match can be played on (?bot=easy&level=island): no dummies then, just the two of you. */
-export const BOT_LEVELS: LevelId[] = ["island", "industrial", "junkyard"];
+export const BOT_LEVELS: LevelId[] = ["island", "industrial", "junkyard", "coliseum", ...PARTY_LEVELS];
 
 export interface Pickup {
-  weapon: WeaponId;
+  weapon: WeaponId | "health";
   pos: Vec3;
 }
 
 export interface Level {
   id: LevelId;
   name: string;
+  /** Layout capacity; the online lobby's player limit is configured separately. */
+  recommendedPlayers?: number;
+  /** Ring Out: hits and blasts still push players, but only leaving the arena knocks them out. */
+  infiniteHp?: boolean;
   arena: Arena;
   spawn: Vec3;
   spawnYaw: number;
@@ -61,7 +67,7 @@ export interface Decor {
 export function sandboxLevel(): Level {
   return {
     id: "sandbox", name: "Sandbox", arena: testRoom(), spawn: { x: 0, y: 0, z: 14 }, spawnYaw: 0,
-    startWeapons: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura", "rocket", "grenade", "axe"], // every weapon, for testing
+    startWeapons: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura", "rocket", "grenade", "axe", "shield"], // every weapon, for testing
     pickups: [], dummiesFight: false, dummyRespawn: 2.5,
     seed: 1,
   };
@@ -146,13 +152,32 @@ export function duelLevel(): Level {
   };
 }
 
-export function levelById(id: string | null | undefined): Level {
+function baseLevelById(id: string | null | undefined): Level {
   switch (id) {
     case "sandbox": return sandboxLevel();
     case "duel": return duelLevel();
     case "island": return islandLevel();
     case "industrial": return industrialLevel();
     case "junkyard": return junkyardLevel();
+    case "island-party": return islandPartyLevel();
+    case "industrial-party": return industrialPartyLevel();
+    case "junkyard-party": return junkyardPartyLevel();
+    case "coliseum": return coliseumLevel();
     default: return fightLevel();
   }
+}
+
+export function levelById(id: string | null | undefined): Level {
+  const level = baseLevelById(id);
+  if (!level.outdoor) return level;
+  const clear = (p: Vec3) => level.arena.boxes.some((b) => b.max.y <= p.y + 0.05 && Math.abs(b.max.y - p.y) < 0.1 && p.x >= b.min.x && p.x <= b.max.x && p.z >= b.min.z && p.z <= b.max.z)
+    && !level.arena.boxes.some((b) => b.max.y > p.y + 0.1 && b.min.y < p.y + 1.7 && b.min.x < p.x + 0.5 && b.max.x > p.x - 0.5 && b.min.z < p.z + 0.5 && b.max.z > p.z - 0.5);
+  const nearby = (p: Vec3) => Array.from({ length: 8 }, (_, i) => ({ x: p.x + Math.sin(i * Math.PI / 4) * 3, y: p.y, z: p.z + Math.cos(i * Math.PI / 4) * 3 })).find(clear);
+  const spawns = level.spawns ?? [level.spawn];
+  for (const p of spawns.filter((_, i) => i % 2 === 0)) level.pickups.push({ weapon: "health", pos: { ...p } });
+  const shield = nearby(spawns[1] ?? level.spawn); if (shield) level.pickups.push({ weapon: "shield", pos: shield });
+  if (level.recommendedPlayers === 8) spawns.forEach((p, i) => {
+    const pos = nearby(p); if (pos && (!shield || pos.x !== shield.x || pos.z !== shield.z)) level.pickups.push({ weapon: ["shotgun", "grenade", "sniper", "rocket"][i % 4] as WeaponId, pos });
+  });
+  return level;
 }

@@ -36,6 +36,8 @@ export interface World {
   /** One step of real time in seconds (clamped). */
   update(dt: number): void;
   resize(aspect: number): void;
+  /** Optional split-screen or cinematic rendering, on the same renderer and canvas. */
+  render?(renderer: THREE.WebGLRenderer): void;
   /** Optional: fetch what the world needs; progress(0..1) feeds the loading screen. */
   load?(progress: (v: number) => void): Promise<void>;
   /** Optional: free what the world made beyond its scene's meshes (disposeScene does those). */
@@ -193,7 +195,8 @@ export class ThreeHost implements GameHost {
       }
     }
     const view = this.world && this.loaded ? this.world : this.showBackdrop ? this.backdropWorld : null;
-    if (view) this.renderer.render(view.scene, view.camera);
+    if (view?.render) view.render(this.renderer);
+    else if (view) this.renderer.render(view.scene, view.camera);
     else this.renderer.clear();
 
     if (this.shots.length) {
