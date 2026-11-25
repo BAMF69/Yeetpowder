@@ -32,7 +32,7 @@ interface WeaponArt {
    * katana); "x-blade-down" also points -x forward but turns its blade (hanging toward -y) onto the top (the Rocket
    * Axe: its knobbed -x end is the handle's butt the rockets leave from).
    */
-  orient?: "x-" | "x-blade-down";
+  orient?: "x-" | "x-blade-down" | "upright";
   /** Model units per Meshy unit (sized against the code-built model it replaces). */
   fit: number;
   /** Hand points and the muzzle in Meshy's own space (x along the weapon, its business end toward -x). */
@@ -56,6 +56,16 @@ const WEAPONS: Partial<Record<WeaponId, WeaponArt>> = {
 };
 
 let operative: THREE.Object3D | null = null;
+let rocketPreview: THREE.Object3D | null = null;
+let grenadePreview: (() => WeaponModel) | null = null;
+
+export function rocketPreviewArt(): THREE.Object3D | null {
+  return rocketPreview?.clone() ?? null;
+}
+
+export function grenadePreviewArt(): THREE.Object3D | null {
+  return grenadePreview?.().group ?? null;
+}
 
 /** The loaded operative (a glTF scene with the skinned body), or null: keep the code-built figure. */
 export function operativeArt(): THREE.Object3D | null {
@@ -64,6 +74,7 @@ export function operativeArt(): THREE.Object3D | null {
 
 /** The turn from Meshy space to gun space (barrel toward -Z, +Y up) for each way a model lies. */
 const ORIENT = {
+  upright: new THREE.Matrix4(),
   // -x -> -Z (forward), +y stays up: -90 degrees about Y
   "x-": new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(-1, 0, 0)),
   // -x -> -Z (forward), -y (the blade) -> +Y (on top), and z to keep it a rotation
@@ -95,17 +106,45 @@ function weaponBuilder(scene: THREE.Object3D, art: WeaponArt): () => WeaponModel
 }
 
 /** The weapons that have art (the first-person view rebuilds these after loading). */
-export const ART_WEAPONS = Object.keys(WEAPONS) as WeaponId[];
+export const ART_WEAPONS = new Set(Object.keys(WEAPONS) as WeaponId[]);
+
+// Source files are served by Vite in development until provenance and fit are verified.
+const PREVIEW_ROOT = "assets_src/approved-art/weapons/";
+const PREVIEW_WEAPONS = {
+  pistol: { url: PREVIEW_ROOT + "glock-17.glb", fit: 0.18, grip: [0.69, -0.43, 0], fore: null, muzzle: [-1, 0.45, 0] },
+  sniper: { url: PREVIEW_ROOT + "sniper.glb", fit: 0.69, grip: [0.43, -0.14, 0], fore: [-0.34, -0.02, 0], muzzle: [-1, 0.09, 0] },
+  rocket: { url: PREVIEW_ROOT + "at-2x-launcher.glb", fit: 0.55, grip: [0.19, -0.29, 0], fore: [-0.32, -0.29, 0], muzzle: [-0.99, 0.09, 0] },
+  grenade: { url: "assets_src/additional-art/grenade.glb", orient: "upright", fit: 0.09, grip: [0, -0.12, 0], fore: null, muzzle: [0, 0.06, -1.2] },
+} satisfies Partial<Record<WeaponId, WeaponArt>>;
+
+function previewShotgun(candidate: string): WeaponArt {
+  return { url: PREVIEW_ROOT + candidate + ".glb", fit: 0.58, grip: [0.38, -0.035, 0], fore: [-0.26, 0.075, 0], muzzle: [-1, 0.16, 0] };
+}
 
 /** Loads the art and registers it with gunModels (a failure logs a warning: the code models stay). */
-export async function loadMeshyArt(progress: (v: number) => void = () => {}, skip = false): Promise<void> {
+export async function loadMeshyArt(progress: (v: number) => void = () => {}, skip = false, preview: string | null = null): Promise<void> {
   if (skip) {
     Log.info("art", "?noart: code-built models");
     progress(1);
     return;
   }
   const loader = new GLTFLoader();
-  const jobs = [...Object.entries(WEAPONS).map(([id, art]) => () => loadWeapon(loader, id as WeaponId, art!)), () => loadOperative(loader)];
+  const weapons = { ...WEAPONS };
+  const jobs = [() => loadOperative(loader)];
+  if (import.meta.env.DEV && (preview === "approved" || preview === "shotgun-existing" || preview === "weathered-shotgun")) {
+    Object.assign(weapons, PREVIEW_WEAPONS);
+    if (preview !== "approved") weapons.shotgun = previewShotgun(preview);
+    jobs.push(async () => {
+      try {
+        rocketPreview = (await loader.loadAsync(PREVIEW_ROOT + "at-2x-rocket.glb")).scene;
+        rocketPreview.rotation.y = -Math.PI / 2;
+        rocketPreview.scale.setScalar(0.5);
+      } catch (err) {
+        Log.warn("art", `AT-2X rocket did not load, the code-built one stays (${String(err)})`);
+      }
+    });
+  }
+  for (const [id, art] of Object.entries(weapons)) jobs.push(() => loadWeapon(loader, id as WeaponId, art));
   let done = 0;
   await Promise.all(jobs.map((job) => job().then(() => progress(++done / jobs.length))));
 }
@@ -125,7 +164,10 @@ async function loadWeapon(loader: GLTFLoader, id: WeaponId, art: WeaponArt): Pro
     scene.traverse((o) => {
       if (o instanceof THREE.Mesh) o.castShadow = true;
     });
-    registerWeaponArt(id, weaponBuilder(scene, art));
+    const build = weaponBuilder(scene, art);
+    registerWeaponArt(id, build);
+    if (import.meta.env.DEV && id === "grenade") grenadePreview = build;
+    ART_WEAPONS.add(id);
     Log.info("art", `Meshy model in for ${id}`);
   } catch (err) {
     Log.warn("art", `Meshy ${id} did not load, the code-built one stays (${String(err)})`);

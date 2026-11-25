@@ -16,6 +16,7 @@ import type { Box } from "../../core/yeet/arena";
 import type { ExplosiveState } from "../../core/yeet/hazards";
 import type { Decor, Level } from "../../core/yeet/levels";
 import type { Projectile } from "../../core/yeet/sim";
+import { grenadePreviewArt, rocketPreviewArt } from "./meshyArt";
 
 const CAR_COLOURS = ["#8a3b2b", "#3b5a7a", "#7a7a3b", "#5d6b5e", "#a06a2c", "#6b4a6b", "#8c8c86"];
 const WATER = { colour: "#2a7fa8", opacity: 0.86, size: 220 };
@@ -206,14 +207,19 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
   const grenadeGeo = geo(new THREE.IcosahedronGeometry(0.12, 1));
   const pink = new THREE.MeshBasicMaterial({ color: "#ff3fa4" });
   mats.set("pink", pink);
-  const pool: { rocket: THREE.Group; grenade: THREE.Mesh }[] = [];
+  const pool: { rocket: THREE.Group; grenade: THREE.Object3D }[] = [];
   const shell = (i: number) => {
     while (pool.length <= i) {
       const rocket = new THREE.Group();
-      part(rocket, rocketGeo, mat("#6d7178", 0.5, 0.5));
-      part(rocket, noseGeo, mat("#ff3fa4", 0.5, 0.2));
+      const art = rocketPreviewArt();
+      if (art) {
+        rocket.add(art);
+      } else {
+        part(rocket, rocketGeo, mat("#6d7178", 0.5, 0.5));
+        part(rocket, noseGeo, mat("#ff3fa4", 0.5, 0.2));
+      }
       rocket.add(new THREE.Mesh(flameGeo, pink)); // yeetpowder exhaust
-      const grenade = new THREE.Mesh(grenadeGeo, mat("#ff3fa4", 0.6, 0.1));
+      const grenade = grenadePreviewArt() ?? new THREE.Mesh(grenadeGeo, mat("#ff3fa4", 0.6, 0.1));
       grenade.castShadow = true;
       rocket.visible = grenade.visible = false;
       group.add(rocket, grenade);

@@ -332,7 +332,7 @@ export class YeetWorld implements World {
   async load(progress: (v: number) => void): Promise<void> {
     await this.sound.load((v) => progress(v * 0.6));
     // Elaina's Meshy models (the scythe); ?noart keeps the code-built ones
-    await loadMeshyArt((v) => progress(0.6 + v * 0.2), shell.params.has("noart"));
+    await loadMeshyArt((v) => progress(0.6 + v * 0.2), shell.params.has("noart"), shell.params.get("art-preview"));
     for (const id of ART_WEAPONS) this.vm.rebuildGun(id); // the first-person guns were built before the art loaded
     const skin = operativeArt();
     if (skin) for (const op of [this.body, ...this.others]) op.useSkin(skin);

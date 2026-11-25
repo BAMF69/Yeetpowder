@@ -16,6 +16,19 @@ Use this prompt to start the integration task:
 
 ## Inventory and review notes
 
+### Local integration preview
+
+Run the Vite development server and open `?play&art-preview=approved` to try the Glock-17, Rustbound Sniper Rifle, AT-2X launcher and rocket, and the supplied grenade held and in flight. Use `art-preview=shotgun-existing` or `art-preview=weathered-shotgun` to add one shotgun candidate at a time. Add `&noart` to compare with the procedural models. The preview uses the source GLBs directly. Release builds do not include these GLBs.
+
+The four additional exports are staged in `assets_src/additional-art/`. Confirm their source and license before release.
+
+| Local source | Staged GLB | Triangles | Remaining checks |
+| --- | --- | ---: | --- |
+| Meshy Alien T-Pose | `alien.glb` | 3,132 | Rig and test gameplay poses. The source is 39.4 MB and needs a smaller runtime export. |
+| Meshy Samurai Warrior | `samurai.glb` | 3,133 | Inspect hands and accessories, then rig and test gameplay poses. |
+| Meshy Health Pack | `health-pack.glb` | 2,590 | Check the replacement mesh in scene. The current branch has no health-pack pickup. |
+| Meshy grenade | `grenade.glb` | 518 | Check held fit and flight, and prepare the pickup visual. |
+
 All staged files are under `assets_src/approved-art/`. They are review-approved source art for integration. This staging commit adds no runtime loading.
 
 - **Weapons** include the split AT-2X launcher and rocket, Ballistic Shield, Glock-17, Minigun, Rustbound Sniper Rifle, and two shotgun candidates. The standalone AT-2X GLBs contain 2,142 and 192 triangles, respectively. Both use centering pivots, with their original positions stored as node extras named `sourcePivot`. Set in-game attach points from the art. The original long-barrel gun is held for a replacement. The medkit remesh has holes and is held for replacement.
