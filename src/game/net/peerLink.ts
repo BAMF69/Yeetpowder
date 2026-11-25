@@ -78,6 +78,7 @@ export class PeerHost implements Transport {
   private clock: Worker | null = null;
   private last = 0;
   private acc = 0;
+  private announcedRound = 1;
 
   constructor(private readonly onMsg: (m: ServerMsg) => void) {
     this.register(0);
@@ -110,10 +111,11 @@ export class PeerHost implements Transport {
   }
 
   send(msg: ClientMsg): void {
+    if (msg.t === "next") { this.room?.nextRound(this.hostSlot); return; }
     if (msg.t === "rematch") { this.room?.restart(this.hostSlot); return; }
     if (msg.t !== "create" || this.room) return; // the host only ever makes its own room
     this.room = new Room(this.code, msg.options);
-    this.hostSlot = this.room.join();
+    this.hostSlot = this.room.join(msg.profile);
     this.onMsg({ t: "joined", code: this.code, slot: this.hostSlot, level: this.room.options.level, options: this.room.options });
     this.last = performance.now();
     this.clock = tickWorker(() => this.tick());
@@ -141,6 +143,7 @@ export class PeerHost implements Transport {
       if (!msg || !this.room) return;
       if (msg.t === "ping") conn.send(JSON.stringify({ t: "pong", at: msg.at } satisfies ServerMsg));
       else if (msg.t === "in" && slot >= 0 && Array.isArray(msg.inputs)) this.room.push(slot, msg.inputs);
+      else if (msg.t === "next" && slot >= 0) this.room.nextRound(slot);
       else if (msg.t === "join" && slot < 0 && !watching) {
         if (msg.spectate) {
           if (this.watchers.size >= 16) { conn.send(JSON.stringify({ t: "error", reason: "Too many spectators." } satisfies ServerMsg)); return; }
@@ -148,7 +151,7 @@ export class PeerHost implements Transport {
           conn.send(JSON.stringify({ t: "joined", code: this.code, slot: -1, level: this.room.options.level, options: this.room.options } satisfies ServerMsg));
           conn.send(JSON.stringify({ ...this.room.snapshot(false), events: [] })); return;
         }
-        slot = this.room.join();
+        slot = this.room.join(msg.profile);
         if (slot < 0) {
           conn.send(JSON.stringify({ t: "error", reason: "That room is full." } satisfies ServerMsg));
           return;
@@ -182,6 +185,12 @@ export class PeerHost implements Transport {
       this.acc -= STEP_MS;
       steps++;
       room.step();
+      if (room.round !== this.announcedRound) {
+        this.announcedRound = room.round;
+        const message = { t: "round", options: { ...room.options }, round: room.round } as const;
+        for (const c of [...this.conns, ...this.watchers]) if (c?.open) c.send(JSON.stringify(message));
+        this.onMsg(message);
+      }
       if (room.tick % SNAP_EVERY !== 0) continue;
       const snap = room.snapshot();
       const json = JSON.stringify(snap);

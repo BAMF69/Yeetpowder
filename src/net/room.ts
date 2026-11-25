@@ -16,6 +16,7 @@ import { NO_INPUT, YeetSim, type TaggedEvent, type YeetInput } from "../core/yee
 import { TUNING } from "../core/yeet/tuning";
 import { MAX_QUEUE, type NetInput, type Snapshot } from "./protocol";
 import { HighlightRecorder } from "./highlight";
+import { playerProfile, type PlayerProfile } from "./profile";
 
 export const SLOTS = 2;
 
@@ -31,7 +32,10 @@ function heldOf(i: NetInput): YeetInput {
 
 export class Room {
   readonly options: RoomOptions;
-  readonly sim: YeetSim;
+  sim: YeetSim;
+  readonly profiles: PlayerProfile[];
+  round = 1;
+  private finishedTick = 0;
   readonly present: boolean[];
   readonly bots: (BotSkill | null)[];
   readonly acks: number[];
@@ -51,6 +55,7 @@ export class Room {
     this.legacy = options === undefined;
     this.options = roomOptions(options ?? { level: "duel", capacity: 2, botFill: false });
     const n = this.options.capacity;
+    this.profiles = Array.from({ length: n }, (_, i) => playerProfile(undefined, `Player ${i + 1}`));
     this.sim = new YeetSim(TUNING, roomLevel(this.options), n);
     this.present = Array(n).fill(false);
     this.bots = Array(n).fill(null);
@@ -65,7 +70,8 @@ export class Room {
   }
 
   private fill(slot: number): void {
-    const skill: BotSkill = slot % 2 ? "medium" : "easy";
+    const skill: BotSkill = !this.options.botSkill || this.options.botSkill === "mixed" ? (slot % 2 ? "medium" : "easy") : this.options.botSkill;
+    this.profiles[slot] = playerProfile({ name: `${skill[0].toUpperCase() + skill.slice(1)} bot ${slot + 1}`, operator: ["navy", "ember", "mint", "violet"][slot % 4] as PlayerProfile["operator"] });
     this.bots[slot] = this.options.botFill ? skill : null;
     this.brains[slot] = this.options.botFill ? new BotBrain(TUNING, slot, skill, this.sim.level.seed * 101 + slot) : null;
     if (!this.options.botFill) { this.sim.players[slot].hp = 0; this.sim.players[slot].dead = 1e9; }
@@ -78,13 +84,14 @@ export class Room {
   get empty(): boolean { return this.present.every((p) => !p); }
   get full(): boolean { return this.present.every(Boolean); }
 
-  join(): number {
+  join(profile?: PlayerProfile): number {
     if (!this.legacy && this.match.phase === "finished") return -1;
     if (!this.legacy && this.options.mode === "lives" && !this.options.botFill && this.match.phase === "playing") return -1;
     const liveSeat = this.present.findIndex((human, s) => !human && (this.options.mode !== "lives" || this.match.lives[s] > 0));
     const slot = liveSeat >= 0 ? liveSeat : this.present.indexOf(false);
     if (slot < 0) return -1;
     this.present[slot] = true;
+    this.profiles[slot] = playerProfile(profile?.name === "Player" ? { ...profile, name: `Player ${slot + 1}` } : profile, `Player ${slot + 1}`);
     this.bots[slot] = null; this.brains[slot] = null;
     this.queues[slot].length = 0; this.queuedSeq[slot] = this.acks[slot] = 0;
     this.last[slot] = { ...NO_INPUT, seq: 0, dYaw: 0, dPitch: 0 };
@@ -105,10 +112,11 @@ export class Room {
     if (!this.present[slot]) return;
     const q = this.queues[slot];
     for (const i of inputs.slice(-MAX_QUEUE)) {
+      if ((i?.round ?? 1) !== this.round) continue;
       if (!i || !Number.isSafeInteger(i.seq) || i.seq <= this.queuedSeq[slot] ||
           ![i.dYaw, i.dPitch, i.moveX, i.moveZ, i.select].every(Number.isFinite)) continue;
       this.queuedSeq[slot] = i.seq;
-      const clean: NetInput = { ...NO_INPUT, seq: i.seq, moveX: Math.max(-1, Math.min(1, i.moveX)), moveZ: Math.max(-1, Math.min(1, i.moveZ)),
+      const clean: NetInput = { ...NO_INPUT, round: this.round, seq: i.seq, moveX: Math.max(-1, Math.min(1, i.moveX)), moveZ: Math.max(-1, Math.min(1, i.moveZ)),
         dYaw: Math.max(-Math.PI, Math.min(Math.PI, i.dYaw)), dPitch: Math.max(-Math.PI, Math.min(Math.PI, i.dPitch)),
         select: Math.max(-1, Math.min(TUNING.weaponOrder.length - 1, Math.floor(i.select))), reset: false };
       for (const key of ["jump", "firePressed", "fireHeld", "aiming", "sprint", "reload", "slash", "slashHeld", "touch"] as const) clean[key] = i[key] === true;
@@ -119,7 +127,13 @@ export class Room {
 
   step(): void {
     this.tick++;
-    if (this.match.phase === "finished") return;
+    if (this.match.phase === "finished") {
+      if (this.options.visibility === "public") {
+        this.match.nextRoundIn = Math.max(0, 30 - (this.tick - this.finishedTick) * TUNING.step);
+        if (this.match.nextRoundIn === 0) this.nextRound(this.owner);
+      }
+      return;
+    }
     const active = this.active;
     if (this.match.phase === "waiting" && active.filter(Boolean).length >= 2 && !this.empty && (this.options.botFill || this.full)) {
       if (!this.legacy && !this.options.botFill) {
@@ -148,10 +162,10 @@ export class Room {
       this.sim.look(inp.dYaw, inp.dPitch, s);
       inputs.push(inp);
     }
-    this.events.push(...this.sim.step(inputs));
+    const stepEvents = this.sim.step(inputs); this.events.push(...stepEvents);
     if (this.legacy) return; // Keep the original unbounded duel flow; configured rooms own match rules.
     if (this.match.phase !== "playing") return;
-    this.recorder.record(this.sim.time, this.sim.players, active);
+    this.recorder.record(this.sim.time, this.sim.players, active, stepEvents);
     this.match.elapsed = this.sim.time - this.startedAt!;
     this.match.remaining = Math.max(0, this.options.minutes * 60 - this.match.elapsed);
     if (this.options.mode === "lives") {
@@ -169,13 +183,27 @@ export class Room {
     }
   }
 
-  private finish(winners: number[]): void { this.match.phase = "finished"; this.match.winners = winners; }
+  private finish(winners: number[]): void {
+    this.match.phase = "finished"; this.match.winners = winners; this.finishedTick = this.tick;
+    if (this.options.visibility === "public") this.match.nextRoundIn = 30;
+  }
+
+  nextRound(slot: number): void {
+    if (this.options.visibility !== "public" || !this.present[slot] || this.match.phase !== "finished") return;
+    const maps = ["island-party", "industrial-party", "junkyard-party", "coliseum"] as const;
+    this.options.level = maps[(maps.indexOf(this.options.level as typeof maps[number]) + 1) % maps.length];
+    this.options.mode = "kills";
+    this.sim = new YeetSim(TUNING, roomLevel(this.options), this.options.capacity);
+    this.restart(this.owner); this.round++;
+    this.acks.fill(0); this.queuedSeq.fill(0);
+  }
 
   restart(slot: number): void {
     if (slot !== this.owner || this.match.phase !== "finished") return;
     this.sim.importState(new YeetSim(TUNING, roomLevel(this.options), this.options.capacity).exportState());
     this.match.phase = "waiting"; this.match.elapsed = 0; this.match.remaining = this.options.minutes * 60;
     this.match.winners = []; this.match.lives.fill(this.options.lives); this.startedAt = null; this.events = [];
+    delete this.match.nextRoundIn;
     this.recorder = new HighlightRecorder(); this.replaySent = false;
     for (let s = 0; s < this.present.length; s++) {
       this.queues[s].length = 0;
@@ -189,8 +217,17 @@ export class Room {
       events: [...this.events], present: [...this.present], bots: [...this.bots], active: this.active,
       held: this.last.map((l, s) => this.active[s] ? heldOf(l) : NO_INPUT),
       match: structuredClone(this.match), owner: this.owner };
+    snap.round = this.round; snap.profiles = structuredClone(this.profiles);
     if (this.match.phase === "finished" && (!this.replaySent || !clearEvents)) {
       snap.replay = this.recorder.clip();
+      if (snap.replay) {
+        const winner = this.match.winners[0] ?? snap.replay.slot;
+        snap.replay.name = this.profiles[snap.replay.slot].name;
+        snap.replay.operator = this.profiles[snap.replay.slot].operator;
+        snap.replay.winner = { slot: winner, name: this.profiles[winner].name, score: this.sim.kos[winner] };
+        snap.replay.intro = { time: this.sim.time, actors: this.sim.players.map((p, i) => this.active[i] ? { x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.yaw, pitch: p.pitch,
+          speed: Math.hypot(p.vel.x, p.vel.y, p.vel.z), weapon: p.weapon, dead: p.dead > 0, ground: p.onGround, hidden: p.swallowed } : null) };
+      }
       if (clearEvents) this.replaySent = true;
     }
     if (clearEvents) this.events = [];

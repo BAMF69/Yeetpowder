@@ -32,3 +32,11 @@ offline Quick Play fallback and existing peer invitations, not a global public r
 
 Validation: `tests/partyRooms.test.ts`, existing net/prediction regressions, `tools/test_party_network.mjs`
 (live WebSockets), and `tools/test_party_browser.mjs` (room controls, two clients, disconnect fill and offline play).
+
+2026-11-24 playtest revision: public results start a 30-second countdown and allow any connected combatant to
+start the next map immediately. The authoritative Room retains its code, seats and validated player profiles,
+replaces its simulation, clears scores, and advances the round number. Transports announce the new options before
+the next snapshot; PartySession hands the existing connection into a newly constructed world. Inputs carry a
+round epoch so delayed controls from the previous match cannot poison the new input sequence. Private rooms retain
+owner-controlled same-map rematches. Local solo arena setup exposes 1–7 opponents and difficulty; Quick Play bot
+fill remains easy/medium. See `tests/soloPlaytest.test.ts` and `tools/test_quick_rotation.mjs`.

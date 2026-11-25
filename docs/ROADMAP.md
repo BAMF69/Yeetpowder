@@ -4,6 +4,7 @@
 > Claude reads the **Now** section at session start.
 
 ## Now (max 3 items)
+- [ ] **Solo Party playtest follow-up (2026-11-24)**: implement/replay the report in PLAYTEST_LOG.md: warehouse z-fighting, name/operator profiles, kill-qualified winner intro/replay, quick round rotation, shark approach, grenades/shotgun, actual pickup models and availability, island AI, randomized spawns, health/shield, menu, opponent counts, Tab scores, grenade aiming and weapon resync. Automated validation is recorded in HANDOFF; next human pass checks combat balance and visual readability.
 - [ ] **Bots: easy / medium / hard** (full players driven by a brain that only presses player controls; offline Duel vs bot from the menu; guns only, gunblades next) | Done when: Elaina plays each difficulty and easy feels beatable, hard feels like a good player, none feel like cheats | First build 2026-11-22: `src/core/yeet/bot.ts`, TUNING.bot, 7 tests
 - [ ] **Duel netcode** (2 players, room code + link, client prediction and interpolation; ADR 0001 toy physics). Since 2026-11-23 the host's browser runs the room and the guest connects over WebRTC (ADR 0004, PeerJS broker); the home server (ADR 0002) stays behind `?net=server`. Still to do for play over the internet: a hosted build of the page, and a relay (TURN) for strict networks | Done when: two browser windows (then laptop + phone) join one room by link and play each other with every slice weapon, smooth on both | Timebox: 4 sessions
 

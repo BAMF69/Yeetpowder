@@ -1,4 +1,10 @@
 {
+ "menu.tagline": "RECUL. ENVOL. ENCORE.",
+ "opponents.custom": "Nombre d’adversaires et règles",
+ "room.solo": "Arène solo",
+ "room.opponents": "Nombre d’adversaires",
+ "room.botSkill": "Difficulté des bots",
+ "menu.profile": "Joueur et opérateur",
  "menu.couch": "Mode canapé",
  "menu.spectate": "Regarder un salon",
  "room.couch": "Mode canapé",

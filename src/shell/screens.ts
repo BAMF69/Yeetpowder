@@ -16,6 +16,8 @@
 //           the CSS, text the renderer draws uses core/hud.ts (#309)
 // ---------------------------------------------------------------------------
 import { partyScreen } from "./partyScreen";
+import { profileScreen } from "./profileScreen";
+import type { LevelId } from "../core/yeet/levels";
 import { glyphName, glyphSet, promptBinding } from "../core/bindings";
 import type { Screen, Shell } from "./app";
 import { creditsText } from "./credits";
@@ -115,10 +117,14 @@ export function menu(shell: Shell): Screen {
   return built("menu", "dim", (root, m) => {
     const p = panel("narrow");
     p.style.maxHeight = "85vh"; p.style.overflowY = "auto";
+    root.classList.add("yeet-menu");
+    root.style.backgroundImage = "linear-gradient(90deg,rgba(4,8,20,.98),rgba(4,8,20,.88) 40%,rgba(4,8,20,.25)),url(assets/ui/title_logo.jpg)";
     p.append(tl(shell.i18n, "game.title", "heading", { name: GAME_NAME }, "div"));
+    p.append(tl(shell.i18n, "menu.tagline", "yeet-tagline", {}, "div"));
     const list = el("div", "list");
     const add = (key: string, fn: () => void) => list.append(m.add(buttonItem(shell.i18n, key, fn)).el);
     add("menu.quick", () => shell.push(partyScreen(shell, "quick")));
+    add("menu.profile", () => shell.push(profileScreen(shell)));
     add("menu.make_room", () => shell.push(partyScreen(shell, "create")));
     add("menu.join_room", () => shell.push(partyScreen(shell, "join")));
     add("menu.couch", () => shell.push(partyScreen(shell, "couch")));
@@ -177,6 +183,7 @@ export function opponentsScreen(shell: Shell, level: string): Screen {
     const p = panel("narrow");
     p.append(tl(shell.i18n, "opponents.title", "heading", { level: shell.i18n.t(`level.${level}`) }, "div"));
     const list = el("div", "list");
+    list.append(m.add(buttonItem(shell.i18n, "opponents.custom", () => shell.push(partyScreen(shell, "solo", level as LevelId)))).el);
     for (const opp of ["static", "fight", "bot-easy", "bot-medium", "bot-hard"]) {
       list.append(m.add(buttonItem(shell.i18n, `opponents.${opp}`, () => {
         shell.worldOption = opp === "fight" ? level : `${level}:${opp}`;

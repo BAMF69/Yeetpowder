@@ -1,4 +1,10 @@
 {
+ "menu.tagline": "RECOIL. LAUNCH. REPEAT.",
+ "opponents.custom": "Choose opponent count & rules",
+ "room.solo": "Solo Arena",
+ "room.opponents": "Number of opponents",
+ "room.botSkill": "Bot difficulty",
+ "menu.profile": "Player & Operator",
  "menu.couch": "Couch Mode",
  "menu.spectate": "Spectate a Room",
  "room.couch": "Couch Mode",

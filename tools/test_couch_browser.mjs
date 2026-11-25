@@ -19,7 +19,13 @@ await page.addInitScript(() => {
 });
 const base = server.resolvedUrls.local[0];
 const world = (fn) => page.evaluate(async (source) => { const { game } = await import('/src/main.ts'); return new Function('world', source)(game.world); }, fn);
-const ready = () => page.waitForFunction(async () => { const { game } = await import('/src/main.ts'); return game.loaded && game.world !== null; }, undefined, { polling: 100 });
+async function poll(read, label) {
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) { if (await read()) return; await page.waitForTimeout(100); }
+  throw new Error('Timed out: ' + label);
+}
+const waitWorld = (code) => poll(() => world(code), code);
+const ready = () => poll(() => page.evaluate(async () => { const { game } = await import('/src/main.ts'); const { shell } = await import('/src/shell/app.ts'); return !!(game.loaded && game.world !== null && shell.top?.gameplay); }), 'gameplay ready');
 let host;
 try {
   if (!process.argv.includes('--quick-only')) {
@@ -37,7 +43,7 @@ try {
   await page.evaluate(() => {
     window.__qaPads = [{ axes: [1, 0, 0, 0], buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })) }];
   });
-  await page.waitForFunction(async (before) => { const { game } = await import('/src/main.ts'); const p = game.world.room.sim.players[1]; return Math.hypot(p.pos.x - before.x, p.pos.z - before.z) > 0.8; }, before[1], { polling: 100 });
+  await poll(async () => { const p = await world('return world.room.sim.players[1].pos;'); return Math.hypot(p.x - before[1].x, p.z - before[1].z) > 0.8; }, 'controller movement');
   const after = await world('return world.room.sim.players.map(p => ({...p.pos}));');
   assert(Math.hypot(after[0].x - before[0].x, after[0].z - before[0].z) < 0.05, 'Player 2 pad must not move Player 1');
   await page.screenshot({ path: 'captures/progress/coliseum-couch-two.png' });
@@ -45,14 +51,15 @@ try {
   await page.evaluate(() => { window.__qaPads = []; });
   await world('world.room.sim.players[1].vel = {x:80,y:40,z:0}; return true;');
   await page.waitForTimeout(350);
-  await world('world.room.sim.kos[0] = world.room.options.scoreLimit; return true;');
+  await world('const r=world.room,ev=[]; r.sim.cur=1; r.sim.hitTarget(1000,{x:0,y:0,z:1},1e6,0,r.sim.players[0].pos,ev); r.recorder.record(r.sim.time,r.sim.players,r.active,ev); r.sim.kos[0]=r.options.scoreLimit; return true;');
   await page.getByRole('button', { name: 'Skip replay', exact: true }).waitFor();
+  await page.getByText(/Yeet of the match · Player 2/).waitFor();
   await page.screenshot({ path: 'captures/progress/yeet-of-the-match.png' });
   assert.match(await page.locator('body').innerText(), /Yeet of the match · Player 2/);
   await page.getByRole('button', { name: 'Skip replay', exact: true }).click();
   await page.getByRole('button', { name: 'Rematch', exact: true }).click();
   console.log('Fastest-player replay and skip passed');
-  await page.waitForFunction(async () => { const { game } = await import('/src/main.ts'); return game.world.room.match.phase === 'playing' && game.world.room.sim.kos.every(n => n === 0); }, undefined, { polling: 100 });
+  await waitWorld('return world.room.match.phase === "playing" && world.room.sim.kos.every(n => n === 0);');
   await page.goto(`${base}?data-dir=couch-qa&play&couch=3&noart`, { waitUntil: 'domcontentloaded', timeout: 120000 });
   await page.locator('[data-screen="loading"]').waitFor({ state: 'detached' });
   await page.locator('[data-player="3"]').waitFor();
@@ -73,12 +80,12 @@ try {
   await ready();
   await world('const r=world.partySession.transport.room; r.restart(0); r.options.scoreLimit=100; r.sim.players[0].hp=10000; r.sim.players[0].vel={x:0,y:90,z:0}; return true;');
   await page.waitForTimeout(300);
-  await world('const r=world.partySession.transport.room; r.sim.kos[0]=r.options.scoreLimit; return true;');
+  await world('const r=world.partySession.transport.room,ev=[]; r.sim.cur=0; r.sim.hitTarget(1001,{x:0,y:0,z:1},1e6,0,r.sim.players[1].pos,ev); r.recorder.record(r.sim.time,r.sim.players,r.active,ev); r.sim.kos[0]=r.options.scoreLimit; return true;');
   await page.getByRole('button', { name: 'Skip replay', exact: true }).waitFor();
   await page.screenshot({ path: 'captures/progress/quick-play-highlight.png' });
   await page.getByRole('button', { name: 'Skip replay', exact: true }).click();
   await page.getByRole('button', { name: 'Rematch', exact: true }).click();
-  await page.waitForFunction(async () => { const { game } = await import('/src/main.ts'); return game.world.partySession.transport.room.match.phase === 'playing'; }, undefined, { polling: 100 });
+  await waitWorld('return world.partySession.transport.room.match.phase === "playing";');
   console.log('Standard Quick Play end-of-match replay and rematch passed');
   host = new WebSocket('ws://127.0.0.1:7357');
   const joined = new Promise((resolve, reject) => { host.on('message', (raw) => { const m = JSON.parse(String(raw)); if (m.t === 'joined') resolve(m); if (m.t === 'error') reject(new Error(m.reason)); }); });

@@ -41,6 +41,18 @@ skip it or watch again from the results. Speed now reads **yeters per second** (
 Developer entry points: `?couch`, `?play&couch=2` (also 3/4), `?play&level=coliseum&mapview`,
 `?online=1&room=ABCD&spectate`. Design and limits: `docs/adr/0006-couch-spectators-and-highlights.md`.
 
+Playtest improvements: **Player & Operator** saves your name and one of four operator color variants, shared with
+the room. **Arenas → Choose opponent count & rules** starts a local match against 1–7 bots. Hold **Tab** for scores.
+Public Quick Play results count down 30 seconds to a new map, or use **Next match · new map** immediately.
+Highlights now need a credited knockout in the recorded moment and begin with a two-second frozen winner orbit,
+showing the winner's name and score.
+
+Green health packs restore up to 50 HP and return after 12 seconds. Weapon pickups display their actual models
+and return after six seconds; Party arenas have extra supplies. The **Yeet Shield** (slot **0**) blocks most
+frontal damage while aiming; fire to bash, and watch your flanks. Aimed grenades throw farther and show a static-world
+trajectory and predicted blast area. Grenade blasts and the shotgun cone are wider. Shark attacks have a two-second
+visible approach before the victim disappears. Respawns choose varied, unoccupied starting points.
+
 ## For contributors and testers
 1. Read `docs/ENGINE.md` for setup.
 2. Run `python tools/dev.py doctor` (or `python tools/doctor.py`) to verify your environment.

@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------------
 
 /** The four guns, then the two gunblades (melee + gun, the slice's skill showcase). */
-export type WeaponId = "pistol" | "shotgun" | "sniper" | "copter" | "reaper" | "sakura" | "rocket" | "grenade" | "axe";
+export type WeaponId = "pistol" | "shotgun" | "sniper" | "copter" | "reaper" | "sakura" | "rocket" | "grenade" | "axe" | "shield";
 
 export const GUNBLADES: readonly WeaponId[] = ["reaper", "sakura", "axe"];
 
@@ -176,6 +176,8 @@ export const TUNING = {
   },
 
   weapons: {
+    shield: { name: "Yeet Shield", auto: false, cooldown: 0.8, recoil: 0, airRecoil: 1, airTwist: 1, airLiftCap: 999,
+      mag: 1, reload: 0.1, twist: 0, aimedTwist: 0, hop: 0, damage: 25, pellets: 0, spread: 0, knockback: 14, range: 2.8, trauma: 0.2 },
     pistol: {
       name: "Pea Pistol", auto: false, cooldown: 0.16,
       recoil: 11, // playtest 3: 7.5 -> 11 ("still more kickback")
@@ -188,7 +190,7 @@ export const TUNING = {
     shotgun: {
       name: "Boomstick", auto: false, cooldown: 0.75, recoil: 30, airRecoil: 1, airTwist: 1, airLiftCap: 999, mag: 2, reload: 1.4,
       twist: 3, aimedTwist: 0.15, hop: 0, damage: 9, pellets: 9,
-      spread: 0.09, knockback: 2.2, range: 30, trauma: 0.5,
+      spread: 0.15, knockback: 2.2, range: 30, trauma: 0.5,
     },
     sniper: {
       name: "Spin Doctor", auto: false, cooldown: 1.1, recoil: 16, airRecoil: 2, airTwist: 2, airLiftCap: SNIPER_AIR_LIFT, mag: 5, reload: 1.8,
@@ -243,8 +245,8 @@ export const TUNING = {
   projectile: {
     rocket: { speed: 34, life: 4, radius: 0.25, blast: { radius: 4.5, force: 20, lift: 9, damage: 80 }, self: { damage: 0.35, force: 1.3 } },
     grenade: {
-      speed: 16, up: 4, gravity: 1, bounce: 0.45, fuse: 1.5, radius: 0.15,
-      blast: { radius: 4.2, force: 36, lift: 20, damage: 70 }, self: { damage: 0.5, force: 1 }, // x2 push (playtest 2026-11-24)
+      speed: 16, aimedSpeed: 27, up: 4, gravity: 1, bounce: 0.45, fuse: 1.5, radius: 0.15,
+      blast: { radius: 8, force: 36, lift: 20, damage: 70 }, self: { damage: 0.5, force: 1 },
     },
   },
 
@@ -315,10 +317,13 @@ export const TUNING = {
     ultra: { minSpeed: 12, interval: 0.07, damage: 24, range: 3.6, arc: Math.PI, knockback: 5, lastKnockback: 18, lift: 3, lunge: 4 },
   },
 
-  weaponOrder: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura", "rocket", "grenade", "axe"] as WeaponId[],
+  weaponOrder: ["pistol", "shotgun", "sniper", "copter", "reaper", "sakura", "rocket", "grenade", "axe", "shield"] as WeaponId[],
 
   /** Pick up a gun by walking within this distance of it (m, from your middle). */
   pickupRadius: 1.4,
+  supplies: { weaponRespawn: 6, healthRespawn: 12, heal: 50 },
+  shield: { damageScale: 0.1, forceScale: 0.4, frontalDot: -0.25 },
+  shark: { approach: 2 },
 
   /** Right-click aim: field of view per gun (degrees; hip fire is 75) and how fast the zoom moves (s). */
   aim: {
@@ -326,7 +331,7 @@ export const TUNING = {
     /** Screens narrower than this (width / height) widen the view so the sides stay in sight (view.ts). 4:3 keeps
      *  every landscape phone and tablet as it was; a phone held upright sees what a 4:3 screen sees. */
     minAspect: 4 / 3,
-    fov: { pistol: 55, shotgun: 60, sniper: 18, copter: 62, reaper: 30, sakura: 60, rocket: 55, grenade: 62, axe: 60 } satisfies Record<WeaponId, number>,
+    fov: { pistol: 55, shotgun: 60, sniper: 18, copter: 62, reaper: 30, sakura: 60, rocket: 55, grenade: 62, axe: 60, shield: 65 } satisfies Record<WeaponId, number>,
     time: 0.12,
     /**
      * Aimed fire (playtest 3: physics, not a weaker gun): the gun is centred, so the kick goes straight back

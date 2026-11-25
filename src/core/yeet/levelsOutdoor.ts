@@ -33,6 +33,11 @@ export function fence(x0: number, x1: number, z0: number, z1: number, drawTop: n
   ];
 }
 
+/** The warehouse supplies the west walls. Drawing another fence on those exact faces causes z-fighting. */
+export function yardFence(x: number, z0: number, z1: number): Box[] {
+  return fence(0, x, z0, z1, 5, "corrugated").filter((b) => b.max.x > 0).map((b) => ({ ...b, min: { ...b.min, x: Math.max(0, b.min.x) } }));
+}
+
 /** Invisible solid bounds round an open level (and a lid), so nothing leaves it. */
 export function bounds(half: number, lid: number): Box[] {
   const hidden = (b: Box): Box => ({ ...b, kind: "wall", prop: "hidden" });
@@ -107,7 +112,7 @@ export function industrialLevel(): Level {
       boxes: [
         box(-33, -1, -21, 0, 0, 21, "floor"), // the hall's floor
         { ...box(0, -1, -21, 33, 0, 21, "floor"), paint: "asphalt" }, // the yard
-        ...fence(-32, 32, -20, 20, 5, "corrugated"), // the yard's fence (the hall's walls are drawn taller below)
+        ...yardFence(32, -20, 20),
         hallWall(box(-33, 0, -21, -32, SOLID, 21)), // the hall: west wall, north and south walls drawn to the roof
         hallWall(box(-32, 0, -21, 0, SOLID, -20)),
         hallWall(box(-32, 0, 20, 0, SOLID, 21)),

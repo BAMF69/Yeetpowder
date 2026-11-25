@@ -44,6 +44,8 @@ interface Hold {
   aim?: { hand: THREE.Vector3; tilt: THREE.Euler };
 }
 const HOLD: Partial<Record<WeaponId, Hold>> = {
+  shield: { hand: new THREE.Vector3(-0.04, -0.05, -0.05), tilt: new THREE.Euler(0, -0.2, 0),
+    aim: { hand: new THREE.Vector3(0, -0.2, -0.3), tilt: new THREE.Euler(0, 0, 0) } },
   copter: {
     hand: new THREE.Vector3(0.1, -0.2, 0.12),
     tilt: new THREE.Euler(0.1, 0.18, 0),
@@ -234,6 +236,7 @@ export class Viewmodel {
     this.kickAmt = -0.4; // a little dip as the new gun comes up
     this.blowT = this.flingT = 99;
   }
+  get weapon(): WeaponId { return this.current; }
 
   /** A shot of weapon: the general kick plus that gun's pose (smaller when aimed). trauma ~0..1. */
   fired(weapon: WeaponId, trauma: number, aimed = false): void {

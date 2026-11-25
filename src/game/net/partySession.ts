@@ -6,22 +6,34 @@ import { DUEL_PORT, SNAP_EVERY, type ClientMsg, type NetInput, type ServerMsg, t
 import { Room } from "../../net/room";
 import { quickOptions, type RoomOptions } from "../../net/roomOptions";
 import { TUNING } from "../../core/yeet/tuning";
+import { shell } from "../../shell/app";
+import { localProfile } from "../playerProfile";
 
 export class PartySession {
+  round = 1;
+  private keepForReload = false;
   latest: Snapshot | null = null;
   private listener: ((message: ServerMsg) => void) | null = null;
   constructor(readonly transport: Transport, readonly slot: number, readonly code: string,
-    readonly options: RoomOptions, readonly offline = false) {}
+    public options: RoomOptions, readonly offline = false) {}
   receive(message: ServerMsg): void {
-    if (message.t === "snap") this.latest = message.match?.phase === "finished"
-      ? { ...message, replay: message.replay === undefined ? this.latest?.replay : message.replay } : message;
+    if (message.t === "round") {
+      this.round = message.round;
+      this.options = { ...message.options }; this.latest = null;
+      if (this.listener) { this.keepForReload = true; prepareParty(this); shell.worldOption = this.options.level; shell.startGame("main"); }
+      return;
+    }
+    if (message.t === "snap") {
+      this.round = message.round ?? this.round;
+      this.latest = message.match?.phase === "finished" ? { ...message, replay: message.replay === undefined ? this.latest?.replay : message.replay } : message;
+    }
     this.listener?.(message);
   }
   subscribe(listener: (message: ServerMsg) => void): void {
     this.listener = listener;
     if (this.latest) listener({ ...this.latest, events: [] });
   }
-  close(): void { this.listener = null; this.transport.close(); }
+  close(): void { this.listener = null; if (this.keepForReload) { this.keepForReload = false; return; } this.transport.close(); }
 }
 
 let prepared: PartySession | null = null;
@@ -34,30 +46,34 @@ class LocalParty implements Transport {
   status = "open" as const;
   rtt = 0;
   failReason = "";
-  readonly room = new Room("LOCAL", quickOptions());
-  readonly slot = this.room.join();
+  readonly room: Room;
+  readonly slot: number;
   private readonly timer: number;
   private last = performance.now();
   private accumulator = 0;
+  private announcedRound = 1;
   onMessage: (message: ServerMsg) => void = () => {};
-  constructor() {
+  constructor(options = quickOptions()) {
+    this.room = new Room("LOCAL", options); this.slot = this.room.join(localProfile());
     this.timer = window.setInterval(() => {
       const now = performance.now();
       this.accumulator = Math.min(0.25, this.accumulator + (now - this.last) / 1000); this.last = now;
       while (this.accumulator >= TUNING.step) {
-        this.accumulator -= TUNING.step; this.room.step();
+        this.accumulator -= TUNING.step;
+        this.room.step();
+        if (this.room.round !== this.announcedRound) { this.announcedRound = this.room.round; this.onMessage({ t: "round", options: { ...this.room.options }, round: this.room.round }); }
         if (this.room.tick % SNAP_EVERY === 0) this.onMessage(this.room.snapshot());
       }
     }, 8);
   }
-  send(msg: ClientMsg): void { if (msg.t === "rematch") this.room.restart(this.slot); }
+  send(msg: ClientMsg): void { if (msg.t === "rematch") this.room.restart(this.slot); if (msg.t === "next") this.room.nextRound(this.slot); }
   queue(input: NetInput): void { this.room.push(this.slot, [input]); }
   flush(): void {}
   close(): void { window.clearInterval(this.timer); }
 }
 
-function localParty(): PartySession {
-  const transport = new LocalParty();
+export function localParty(options = quickOptions()): PartySession {
+  const transport = new LocalParty(options);
   const session = new PartySession(transport, transport.slot, "LOCAL", transport.room.options, true);
   transport.onMessage = (m) => session.receive(m);
   session.receive(transport.room.snapshot(false));
@@ -103,6 +119,7 @@ function connect(factory: (receive: (message: ServerMsg) => void) => Transport,
 }
 
 export async function connectParty(request: ClientMsg, signal: AbortSignal, offline = false): Promise<PartySession> {
+  if (request.t === "create" || request.t === "quick" || request.t === "join") request = { ...request, profile: localProfile() };
   if (offline && request.t === "quick") return localParty();
   try {
     return await connect((receive) => new NetClient(partySocketUrl(), 0, receive), request, signal,

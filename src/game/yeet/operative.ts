@@ -15,6 +15,7 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
+import { OPERATORS, type OperatorId } from "../../net/profile";
 import type { WeaponId } from "../../core/yeet/tuning";
 import type { DummyFigure } from "./figures";
 import { PIVOT } from "./figures";
@@ -46,6 +47,7 @@ const FLASH_TIME = 0.06;
 const FLASH_SIZE: Partial<Record<WeaponId, number>> = { shotgun: 3, sniper: 2.6, copter: 2, reaper: 2.6 };
 
 export interface Operative extends DummyFigure {
+  setOperator(operator: OperatorId): void;
   /** What the operative is doing (operativePose.ts): applied, eased, on the next update. */
   setPose(input: PoseInput): void;
   /** A shot: the pink muzzle flash at the held gun's barrel for a moment. */
@@ -94,6 +96,14 @@ function prism(rTop: number, rBot: number, h: number, sides: number, depth = 1, 
 
 /** bank: where materials come from (a test passes one without painted textures: Node has no canvas). */
 export function makeOperative(suit: string, bank = new MaterialBank()): Operative {
+  let selectedOperator: OperatorId | null = null;
+  const tintSkin = () => {
+    if (!worn || !selectedOperator) return;
+    for (const m of worn.materials) {
+      const base = (m.userData.operatorBase ??= m.color.clone()) as THREE.Color;
+      m.color.copy(base).multiply(new THREE.Color(OPERATORS[selectedOperator].color));
+    }
+  };
   const extraMats: THREE.Material[] = [];
   const root = new THREE.Group();
   const body = new THREE.Group();
@@ -284,6 +294,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
 
   return {
     root,
+    setOperator(operator) { if (selectedOperator === operator) return; selectedOperator = operator; cloth.color.set(OPERATORS[operator].color); tintSkin(); },
     setPose(p) {
       input = p;
     },
@@ -295,6 +306,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       }
       const posed = !first;
       worn = attachSkin(body, { hips, torso, head, arms: [armL, armR], legs }, source, SKIN_HEIGHT);
+      tintSkin();
       for (const p of parts) p.visible = false;
       if (posed) first = true; // snap back into the current pose on the next update
     },

@@ -12,6 +12,7 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
+import { TUNING } from "../../core/yeet/tuning";
 import type { Box } from "../../core/yeet/arena";
 import type { ExplosiveState } from "../../core/yeet/hazards";
 import type { Decor, Level } from "../../core/yeet/levels";
@@ -279,13 +280,20 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
       for (let i = projectiles.length; i < pool.length; i++) pool[i].rocket.visible = pool[i].grenade.visible = false;
       // the shark: up out of the water, a moment at the top, back down
       sharkT += dt;
-      const total = SHARK.rise + SHARK.hold + SHARK.sink;
+      const total = TUNING.shark.approach + SHARK.rise + SHARK.hold + SHARK.sink;
       sharkG.visible = sharkT < total;
       if (sharkG.visible) {
-        const k = sharkT < SHARK.rise ? sharkT / SHARK.rise : sharkT < SHARK.rise + SHARK.hold ? 1 : 1 - (sharkT - SHARK.rise - SHARK.hold) / SHARK.sink;
+        const biteT = Math.max(0, sharkT - TUNING.shark.approach);
+        const k = biteT < SHARK.rise ? biteT / SHARK.rise : biteT < SHARK.rise + SHARK.hold ? 1 : 1 - (biteT - SHARK.rise - SHARK.hold) / SHARK.sink;
         const e = k * k * (3 - 2 * k);
         sharkG.position.set(sharkAt.x, sharkAt.y - 2.5 + e * (SHARK.height + 2.5), sharkAt.z);
         sharkG.rotation.z = (1 - e) * 0.5;
+        sharkG.rotation.x = 0; sharkG.rotation.y = 0;
+        if (sharkT < TUNING.shark.approach) {
+          const remaining = 1 - sharkT / TUNING.shark.approach;
+          sharkG.position.set(sharkAt.x + remaining * 10, sharkAt.y + 0.05, sharkAt.z + remaining * 10);
+          sharkG.rotation.set(Math.PI / 2, Math.PI * 1.25, 0);
+        }
       }
       // fireballs: grow fast, fade out
       for (let i = blasts.length - 1; i >= 0; i--) {

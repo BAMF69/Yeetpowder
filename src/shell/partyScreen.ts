@@ -1,13 +1,13 @@
 // Native labelled controls for room setup; connection completes before the game constructs its arena.
 import type { Screen, Shell } from "./app";
-import { connectParty, prepareParty } from "../game/net/partySession";
+import { connectParty, prepareParty, localParty } from "../game/net/partySession";
 import { cleanCode, type ClientMsg } from "../net/protocol";
 import { DEFAULT_ROOM, roomOptions, type MatchMode, type RoomOptions } from "../net/roomOptions";
 import type { LevelId } from "../core/yeet/levels";
 import { Log } from "../core/log";
 import { prepareCouch } from "../game/couchSetup";
 
-export function partyScreen(shell: Shell, kind: "quick" | "create" | "join" | "couch" | "spectate"): Screen {
+export function partyScreen(shell: Shell, kind: "quick" | "create" | "join" | "couch" | "spectate" | "solo", level?: LevelId): Screen {
   const root = document.createElement("section"); root.className = "screen dim"; root.dataset.screen = "party-room";
   const panel = document.createElement("form"); panel.className = "panel narrow";
   panel.style.cssText = "display:flex;flex-direction:column;gap:10px;max-height:85vh;overflow:auto;min-width:min(360px,85vw)";
@@ -24,7 +24,7 @@ export function partyScreen(shell: Shell, kind: "quick" | "create" | "join" | "c
     select.value = value; label.append(select); panel.append(label); fields[name] = select;
     return select;
   };
-  if (kind === "create" || kind === "couch") {
+  if (kind === "create" || kind === "couch" || kind === "solo") {
     const mapIds: LevelId[] = ["coliseum", "island-party", "industrial-party", "junkyard-party", "duel", "island", "industrial", "junkyard"];
     addSelect("level", mapIds.map((id) => [id, id === "duel" ? t("menu.duel") : t(`level.${id}`)]), DEFAULT_ROOM.level);
     if (kind === "couch") {
@@ -33,6 +33,12 @@ export function partyScreen(shell: Shell, kind: "quick" | "create" | "join" | "c
       addSelect("keyboard", [["yes", t("room.keyboardMouse")], ["no", t("room.allGamepads")]], "yes");
     }
     addSelect("capacity", Array.from({ length: 7 }, (_, i) => [String(i + 2), String(i + 2)]), "8");
+    if (kind === "solo") {
+      fields.level.value = level ?? "coliseum";
+      fields.capacity.parentElement!.style.display = "none";
+      addSelect("opponents", [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), String(n)]), "7");
+      addSelect("botSkill", [["mixed", "Easy / medium mix"], ["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"]], "mixed");
+    }
     addSelect("mode", (["kills", "lives", "timed", "ringout"] as MatchMode[]).map((v) => [v, t(`room.mode.${v}`)]), "kills");
     addSelect("scoreLimit", [5, 10, 15, 20, 30, 50].map((v) => [String(v), String(v)]), "10");
     addSelect("lives", [1, 3, 5, 10].map((v) => [String(v), String(v)]), "5");
@@ -40,6 +46,8 @@ export function partyScreen(shell: Shell, kind: "quick" | "create" | "join" | "c
     addSelect("visibility", [["private", t("room.private")], ["public", t("room.public")]], "private");
     addSelect("botFill", [["yes", t("room.botsOn")], ["no", t("room.botsOff")]], "yes");
     const update = () => {
+      if (kind === "solo") { fields.capacity.value = String(Number(fields.opponents.value) + 1); fields.visibility.value = "private"; fields.botFill.value = "yes";
+        fields.visibility.parentElement!.style.display = fields.botFill.parentElement!.style.display = "none"; }
       const mode = fields.mode.value;
       fields.scoreLimit.parentElement!.style.display = mode === "lives" || mode === "timed" ? "none" : "grid";
       fields.lives.parentElement!.style.display = mode !== "lives" ? "none" : "grid";
@@ -80,6 +88,10 @@ export function partyScreen(shell: Shell, kind: "quick" | "create" | "join" | "c
       const options = Object.fromEntries(Object.entries(fields).map(([key, input]) => [key,
         ["capacity", "scoreLimit", "lives", "minutes"].includes(key) ? Number(input.value) : key === "botFill" ? input.value === "yes" : input.value]));
       request = { t: "create", options: roomOptions(options as Partial<RoomOptions>) };
+      if (kind === "solo") {
+        const session = localParty(request.options as RoomOptions); prepareParty(session); handedOff = true;
+        shell.worldOption = session.options.level; shell.startGame("main"); return;
+      }
       if (kind === "couch") {
         const players = Number(fields.players.value);
         const config = roomOptions({ ...request.options, visibility: "private", capacity: request.options?.botFill ? Math.max(players, Number(fields.capacity.value)) : players });

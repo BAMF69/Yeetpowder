@@ -220,6 +220,19 @@ export class BotBrain {
     if (holdStill && input.firePressed && Math.hypot(pl.vel.x, pl.vel.z) > PLANT_SPEED && pl.onGround) {
       input.firePressed = false; // still sliding: wait a moment so the shot does not tumble it
     }
+    // Retreat and strafe are checked in world space too: backing away from an enemy must not mean backing into water.
+    if (sim.level.water && pl.onGround) {
+      const safe = (x: number, z: number) => sim.arena.boxes.some((b) => b.max.y >= sim.level.water!.y + 0.2 && b.max.y <= pl.pos.y + 0.7 && b.min.x <= x - 0.6 && b.max.x >= x + 0.6 && b.min.z <= z - 0.6 && b.max.z >= z + 0.6);
+      const yaw = pl.yaw + dYaw, fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+      const dx = Math.cos(yaw) * input.moveX + fx * input.moveZ, dz = -Math.sin(yaw) * input.moveX + fz * input.moveZ;
+      if (!safe(pl.pos.x + dx * 2.5 + pl.vel.x * 0.25, pl.pos.z + dz * 2.5 + pl.vel.z * 0.25)) {
+        const retreat = sim.level.spawns?.filter((p) => safe(p.x, p.z)).sort((a, b) => Math.hypot(a.x - pl.pos.x, a.z - pl.pos.z) - Math.hypot(b.x - pl.pos.x, b.z - pl.pos.z))[0] ?? sim.level.spawn;
+        const keys = keysFor(retreat.x - pl.pos.x, retreat.z - pl.pos.z, yaw);
+        input.moveX = keys.moveX; input.moveZ = keys.moveZ; input.sprint = false; input.jump = false;
+        // A recoil-heavy shot near the edge can be as dangerous as walking backwards.
+        input.firePressed = false; input.fireHeld = false; this.launch = null;
+      }
+    }
 
     this.debug.state = this.state;
     this.debug.target = target;

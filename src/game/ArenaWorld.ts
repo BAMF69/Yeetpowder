@@ -27,12 +27,21 @@ import { loadTerrainTextures } from "./yeet/terrainMaterials";
 import { loadMeshyArt, operativeArt, ART_WEAPONS } from "./yeet/meshyArt";
 import { MatchReplay, followCamera } from "./yeet/matchReplay";
 import { RemoteBuffer, INTERP_MS } from "./net/remote";
+import { GrenadeGuide } from "./yeet/grenadeGuide";
+import { localProfile } from "./playerProfile";
+import { OPERATORS, type PlayerProfile } from "../net/profile";
 
 export class ArenaWorld implements World {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   private readonly cameras: THREE.PerspectiveCamera[] = [];
   private readonly guns: Viewmodel[] = [];
+  private readonly guides: GrenadeGuide[] = [];
+  private readonly scoreboard = document.createElement("div");
+  private scoresHeld = false;
+  private readonly killBanner = document.createElement("div");
+  private killUntil = 0;
+  private readonly scoreUp = (e: KeyboardEvent) => { if (e.code === "Tab") { this.scoresHeld = false; this.scoreboard.style.display = "none"; } };
   private shownWeapons: string[] = [];
   private readonly actors: Operative[] = [];
   private readonly room: Room | null;
@@ -64,6 +73,7 @@ export class ArenaWorld implements World {
   private readonly canvas: HTMLElement;
   private readonly resumeSound = () => this.sound.resume();
   private readonly key = (e: KeyboardEvent) => {
+    if (e.code === "Tab" && shell.top?.gameplay) { e.preventDefault(); this.scoresHeld = true; return; }
     if (!this.session || !shell.top?.gameplay) return;
     if (e.code === "ArrowRight") this.cycle(1);
     if (e.code === "ArrowLeft") this.cycle(-1);
@@ -76,7 +86,7 @@ export class ArenaWorld implements World {
     this.match = this.room?.match ?? { phase: "waiting", elapsed: 0, remaining: 0, lives: [], winners: [] };
     this.active = Array(source.options.capacity).fill(true);
     this.seq = Array(this.count).fill(0);
-    if (this.room) for (let i = 0; i < this.count; i++) this.room.join();
+    if (this.room) for (let i = 0; i < this.count; i++) this.room.join(i === 0 ? localProfile() : { name: `Player ${i + 1}`, operator: Object.keys(OPERATORS)[i % 4] as PlayerProfile["operator"] });
     this.canvas = document.querySelector("#game canvas") as HTMLElement;
     this.controls = source instanceof PartySession ? null : new CouchControls(this.canvas, source.keyboard);
     this.scene.background = new THREE.Color("#8ec5e8"); this.scene.fog = new THREE.Fog("#b8d8ec", 90, 260);
@@ -88,7 +98,7 @@ export class ArenaWorld implements World {
     for (let i = 0; i < this.count; i++) {
       const camera = new THREE.PerspectiveCamera(80, aspect, 0.05, 350); camera.rotation.order = "YXZ";
       this.scene.add(camera); this.cameras.push(camera);
-      if (this.room) { const gun = new Viewmodel(); camera.add(gun.root); this.guns.push(gun); }
+      if (this.room) { const gun = new Viewmodel(); camera.add(gun.root); this.guns.push(gun); this.guides.push(new GrenadeGuide(this.scene, TUNING.projectile.grenade.blast.radius)); }
     }
     this.camera = this.cameras[0]; this.cinema = new MatchReplay(this.scene, this.camera, this.sim.arena);
     this.sim.players.forEach((_, i) => {
@@ -97,6 +107,9 @@ export class ArenaWorld implements World {
     });
     this.hud.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:8;color:white;font:14px system-ui";
     document.body.append(this.hud);
+    this.scoreboard.style.cssText = "display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:55;background:#101827ee;border:2px solid #ffd84a;padding:24px;color:white;white-space:pre;font:bold 18px system-ui;border-radius:12px";
+    document.body.append(this.scoreboard); window.addEventListener("keyup", this.scoreUp);
+    this.killBanner.style.cssText = "display:none;position:fixed;top:25%;left:50%;transform:translateX(-50%);z-index:20;background:#101827dd;color:#ffd84a;font:900 26px system-ui;padding:12px;border:2px solid #ff65c1;pointer-events:none;text-align:center"; document.body.append(this.killBanner);
     if (this.room) couchViews(this.count).forEach((v, i) => {
       const region = document.createElement("div"); region.style.cssText = `position:absolute;box-sizing:border-box;border:1px solid #ffffff55;left:${v.x * 100}%;top:${v.y * 100}%;width:${v.w * 100}%;height:${v.h * 100}%`;
       const cross = document.createElement("span"); cross.textContent = "+"; cross.style.cssText = "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:24px monospace";
@@ -121,6 +134,7 @@ export class ArenaWorld implements World {
   async load(progress: (v: number) => void): Promise<void> {
     await Promise.all([loadTerrainTextures(), loadVinishVfx(), this.sound.load(progress), loadMeshyArt(() => {}, shell.params.has("noart"))]);
     const skin = operativeArt(); if (skin) for (const op of this.actors) op.useSkin(skin);
+    this.pickups.rebuildModels();
     for (const gun of this.guns) for (const id of ART_WEAPONS) gun.rebuildGun(id);
     progress(1); Log.info("yeet", `YEET_LEVEL_READY ${this.sim.level.id} ${this.room ? "couch" : "spectator"}`);
   }
@@ -129,8 +143,10 @@ export class ArenaWorld implements World {
     this.cameras.forEach((c, i) => { c.aspect = aspect * views[i].w / views[i].h; c.updateProjectionMatrix(); });
   }
   update(dt: number): void {
+    this.killBanner.style.display = performance.now() < this.killUntil ? "block" : "none";
     if (this.cinema.playing) { this.cinema.update(dt); return; }
     if (this.session) this.matchChanged();
+    if (this.scoresHeld) { this.scoreboard.style.display = "block"; this.scoreboard.textContent = "SCOREBOARD\n\n" + this.sim.kos.map((score, i) => `${this.profile(i).name}   ${score} KOs${this.room?.options.mode === "lives" ? " · " + this.match.lives[i] + " lives" : ""}`).join("\n"); }
     if (this.room && !this.finished && this.toolbarTitle) this.toolbarTitle.textContent = `${this.sim.level.name} · Couch · ${this.count} local players · ${this.room.options.mode === "timed" ? Math.ceil(this.match.remaining) + "s left" : this.room.options.mode === "lives" ? this.room.options.lives + " lives" : "First to " + this.room.options.scoreLimit}`;
     if (this.room) {
       const frames = this.controls!.take(this.count, dt);
@@ -160,20 +176,23 @@ export class ArenaWorld implements World {
     }
     this.actors.forEach((op, i) => {
       const p = this.sim.players[i], view = this.session ? this.remote.sample(i, performance.now() - INTERP_MS) : null;
+      op.setOperator(this.profile(i).operator);
       const pos = view?.pos ?? p.pos;
-      op.root.visible = this.active[i]; op.root.position.set(pos.x, pos.y + PIVOT, pos.z);
+      op.root.visible = this.active[i] && !p.swallowed; op.root.position.set(pos.x, pos.y + PIVOT, pos.z);
       op.root.rotation.set(p.dead > 0 ? -Math.PI / 2 : 0, (view?.yaw ?? p.yaw) + Math.PI, 0);
       op.setPose(inputFromPlayer(p, this.sim.time, 0, 0)); op.setHp(this.sim.level.infiniteHp ? 1 : p.hp / TUNING.player.hp); op.update(dt, this.camera);
     });
     this.pickups.update(dt, this.sim.pickups); this.props.update(dt); this.fx.update(dt); this.sound.update(shell.settings.audio);
     if (this.room) this.cameras.forEach((c, i) => {
       const p = this.sim.players[i]; c.position.set(p.pos.x, p.pos.y + TUNING.player.eyeHeight, p.pos.z); c.rotation.set(p.pitch, p.yaw, 0);
+      if (p.sharkT > 0 || p.swallowed) followCamera(c, this.sim.arena, new THREE.Vector3(p.pos.x, p.pos.y + 1, p.pos.z), new THREE.Vector3(8, 4, 8));
+      this.guides[i].update(this.sim, p, !!this.pending[i]?.input.aiming, dt);
       const gun = this.guns[i];
       if (this.shownWeapons[i] !== p.weapon) { gun.show(p.weapon); this.shownWeapons[i] = p.weapon; }
       gun.setAim(this.pending[i]?.input.aiming ? 1 : 0);
       gun.setReload(p.reloading > 0 ? 1 - p.reloading / TUNING.weapons[p.weapon].reload : 0); gun.update(dt, p.weapon === "copter" && !!this.pending[i]?.input.fireHeld);
       const speed = Math.hypot(p.vel.x, p.vel.y, p.vel.z);
-      this.cards[i].textContent = `Player ${i + 1} · ${this.sim.kos[i]} KOs${this.match.phase === "waiting" ? " · Waiting" : ""}\n${TUNING.weapons[p.weapon].name} · ${p.mag[p.weapon]}/${TUNING.weapons[p.weapon].mag} · ${this.sim.level.infiniteHp ? "HP ∞" : "HP " + Math.ceil(p.hp)}${this.room!.options.mode === "lives" ? " · " + this.match.lives[i] + " lives" : ""}\n${speed.toFixed(1)} yeters per second${!this.connected[i] ? " · Connect controller " + (i + 1 - Number(this.controls!.keyboard)) : ""}${p.dead > 0 ? " · KNOCKED OUT" : ""}`;
+      this.cards[i].textContent = `${this.profile(i).name} · ${this.sim.kos[i]} KOs · Tab scores\n${TUNING.weapons[p.weapon].name} · ${p.mag[p.weapon]}/${TUNING.weapons[p.weapon].mag} · ${this.sim.level.infiniteHp ? "HP ∞" : "HP " + Math.ceil(p.hp)}${this.room!.options.mode === "lives" ? " · " + this.match.lives[i] + " lives" : ""}\n${speed.toFixed(1)} yeters per second${!this.connected[i] ? " · Connect controller " + (i + 1 - Number(this.controls!.keyboard)) : ""}${p.sharkT > 0 ? " · SHARK APPROACHING!" : p.dead > 0 ? " · KNOCKED OUT" : ""}`;
     });
     else this.spectatorCamera();
   }
@@ -193,13 +212,16 @@ export class ArenaWorld implements World {
       const x = Math.round(v.x * size.x), y = Math.round((1 - v.y - v.h) * size.y), w = Math.round(v.w * size.x), h = Math.round(v.h * size.y);
       renderer.setViewport(x, y, w, h); renderer.setScissor(x, y, w, h);
       this.cameras[i].aspect = w / h; this.cameras[i].updateProjectionMatrix();
-      this.actors.forEach((op, s) => op.root.visible = this.active[s] && s !== i);
-      this.guns.forEach((g, s) => g.root.visible = s === i && this.sim.players[i].dead === 0 && this.active[i]);
+      this.actors.forEach((op, s) => op.root.visible = this.active[s] && (s !== i || this.sim.players[i].sharkT > 0) && !this.sim.players[s].swallowed);
+      this.guns.forEach((g, s) => g.root.visible = s === i && this.sim.players[i].dead === 0 && !this.sim.players[i].sharkT && this.active[i]);
+      this.guides.forEach((guide, s) => { guide.root.visible = s === i && this.sim.players[i].weapon === "grenade" && !!this.pending[i]?.input.aiming; });
       renderer.render(this.scene, this.cameras[i]);
     });
     renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x, size.y);
   }
   private event(e: TaggedEvent): void {
+    if (e.type === "sharkApproach") this.props.shark(e.at);
+    if (e.type === "pvpDown") { this.killBanner.textContent = `${this.profile(e.by).name} KNOCKED OUT ${this.profile(e.target).name}`; this.killUntil = performance.now() + 2200; this.sound.play("ko"); }
     if (e.type === "blast" || e.type === "explode") {
       this.fx.explosion(new THREE.Vector3(e.at.x, e.at.y, e.at.z), e.type === "blast" ? e.radius : 4);
       this.sound.play("kaboom");
@@ -211,13 +233,14 @@ export class ArenaWorld implements World {
     if (e.type === "fire" && e.p !== undefined) {
       this.actors[e.p]?.fire(e.weapon); this.guns[e.p]?.fired(e.weapon, TUNING.weapons[e.weapon].trauma, e.aimed);
       for (const t of e.tracers) this.fx.tracer(new THREE.Vector3(t.from.x, t.from.y, t.from.z), new THREE.Vector3(t.to.x, t.to.y, t.to.z), t.hit);
-      this.sound.play(({ pistol: "pea", shotgun: "boom", sniper: "krak", copter: "brrt", reaper: "krak", sakura: "revolver", rocket: "lob", grenade: "lob", axe: "lob" } as const)[e.weapon]);
+      this.sound.play(({ pistol: "pea", shotgun: "boom", sniper: "krak", copter: "brrt", reaper: "krak", sakura: "revolver", rocket: "lob", grenade: "lob", axe: "lob", shield: "bonk" } as const)[e.weapon]);
     }
   }
   private cycle(dir: number): void {
     for (let i = 0; i < this.active.length; i++) { this.target = (this.target + dir + this.active.length) % this.active.length; if (this.active[this.target]) break; }
     this.overview = false; this.showToolbar();
   }
+  private profile(i: number): PlayerProfile { return this.room?.profiles[i] ?? this.session?.latest?.profiles?.[i] ?? { name: `Player ${i + 1}`, operator: "navy" }; }
   private spectatorCamera(): void {
     if (!this.active[this.target]) this.cycle(1);
     const p = this.actors[this.target]?.root.position ?? new THREE.Vector3();
@@ -254,6 +277,8 @@ export class ArenaWorld implements World {
     if (this.session || this.finished) button("Back to menu", () => shell.quitToTitle());
   }
   dispose(): void {
+    this.killBanner.remove();
+    this.scoreboard.remove(); window.removeEventListener("keyup", this.scoreUp); for (const guide of this.guides) guide.dispose();
     this.session?.close(); this.controls?.dispose(); this.cinema.dispose(); this.hud.remove(); this.toolbar.remove();
     this.sound.dispose(); this.fx.dispose(); this.pickups.dispose(); this.props.dispose(); this.roomView.dispose();
     for (const op of this.actors) op.dispose(); for (const gun of this.guns) gun.dispose();

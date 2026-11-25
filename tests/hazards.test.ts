@@ -102,6 +102,8 @@ describe("water (Shark Island)", () => {
     victim.lastHitAt = sim.time;
     victim.pos = vec(12, -1.5, 12);
     const ev = sim.step([NO_INPUT, NO_INPUT]);
+    expect(ev.some((e) => e.type === "sharkApproach")).toBe(true); expect(victim.dead).toBe(0);
+    ev.push(...steps(sim, TUNING.shark.approach + TUNING.step));
     expect(ev.find((e) => e.type === "eaten")).toMatchObject({ who: "player", by: 0 });
     expect(victim.dead).toBeGreaterThan(0);
     expect(sim.kos[0]).toBe(1);
@@ -111,6 +113,7 @@ describe("water (Shark Island)", () => {
     const sim = new YeetSim(structuredClone(TUNING), level([], { water: { y: -1 } }));
     sim.player.pos = vec(12, -1.5, 12);
     const ev = sim.step(NO_INPUT);
+    ev.push(...steps(sim, TUNING.shark.approach + TUNING.step));
     expect(ev.find((e) => e.type === "eaten")).toMatchObject({ who: "player", by: -1 });
     expect(sim.player.dead).toBeGreaterThan(0);
   });
@@ -122,7 +125,8 @@ describe("water (Shark Island)", () => {
     victim.lastHitBy = 0;
     victim.lastHitAt = 0;
     victim.pos = vec(12, -1.5, 12);
-    expect(sim.step([NO_INPUT, NO_INPUT]).find((e) => e.type === "eaten")).toMatchObject({ by: -1 });
+    sim.step([NO_INPUT, NO_INPUT]);
+    expect(steps(sim, TUNING.shark.approach + TUNING.step).find((e) => e.type === "eaten")).toMatchObject({ by: -1 });
     expect(PLAYER_CODE).toBeGreaterThan(0);
   });
 });

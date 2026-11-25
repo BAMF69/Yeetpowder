@@ -71,7 +71,7 @@ describe("authoritative Yeet of the match", () => {
     for (let i = 0; i < 70; i++) {
       sim.players[0].vel = { x: i === 30 ? 3 : 1, y: i === 30 ? 4 : 0, z: 0 };
       sim.players[1].vel = { x: 1000, y: 0, z: 0 };
-      recorder.record(i / 10, sim.players, [true, false]);
+      recorder.record(i / 10, sim.players, [true, false], i === 32 ? [{ type: "pvpDown", by: 0, target: 1 }] : []);
     }
     const clip = recorder.clip()!; expect(clip.slot).toBe(0); expect(clip.speed).toBe(5); expect(clip.peak).toBe(3);
     expect(clip.frames[0].time).toBeLessThanOrEqual(0.2); expect(clip.frames.at(-1)!.time).toBeCloseTo(5, 0);
@@ -82,12 +82,17 @@ describe("authoritative Yeet of the match", () => {
   it("keeps a bounded clip even when velocity sets a new record every physics step", () => {
     const sim = new YeetSim(TUNING, levelById("duel")), recorder = new HighlightRecorder();
     for (let i = 0; i < 2400; i++) { sim.player.vel.x = i; recorder.record(i / 120, sim.players, [true]); }
+    expect(recorder.clip()).toBeNull();
+    recorder.record(20, sim.players, [true], [{ type: "down", dummy: 0, p: 0 }]);
     expect(recorder.clip()!.frames.length).toBeLessThan(40);
   });
   it("interpolates the short way around yaw and resets the clip on rematch", () => {
     const room = new Room("TEST", { level: "duel", capacity: 2, botFill: false, scoreLimit: 1 });
     room.join(); room.join(); room.step();
-    room.sim.players[0].vel = { x: 10, y: 20, z: 0 }; room.step(); room.sim.kos[0] = 1; room.step();
+    room.sim.players[0].vel = { x: 10, y: 20, z: 0 }; room.step();
+    room.sim.players[0].pos = { x: -7.5, y: 0, z: 0 }; room.sim.players[0].yaw = 0; room.sim.players[0].pitch = 0;
+    room.sim.players[0].weapon = "sniper"; room.sim.players[0].owned.push("sniper"); room.sim.players[1].pos = { x: -7.5, y: 0, z: -8 };
+    room.push(0, [{ ...NO_INPUT, seq: 1, dYaw: 0, dPitch: 0, firePressed: true }]); room.step();
     const snap = room.snapshot(); expect(snap.replay!.speed).toBeGreaterThan(0); expect(room.snapshot().replay).toBeUndefined();
     expect(room.snapshot(false).replay).toBeTruthy();
     const clip = snap.replay!; const one = clip.frames[0].actors[0]!;

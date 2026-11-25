@@ -54,6 +54,14 @@ Current tier: **Vertical slice**
 Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when the tier's "Done means" is met.
 
 ## Party arena variants (2026-11-24)
+Solo playtest revision: names and four operator color variants are selectable and shared with rooms. Arena setup
+offers 1–7 opponents; Tab exposes scores. Quick Play results automatically rotate to a different map after 30 s
+and provide an immediate next-map action. A highlight requires a credited kill within its moment and begins with
+a two-second frozen winner orbit showing name/score. Health packs heal 50 HP, respawning after 12 s; weapons return
+after 6 s and use their actual spinning models. A directional shield guards while aimed and bashes on fire.
+Grenades have an 8 m blast radius, longer aimed throws and a trajectory/blast guide; shotgun spread is 0.15 rad.
+Sharks visibly approach for 2 s before consuming a victim. Respawns are seeded, varied and avoid occupied points.
+
 The Yeet Coliseum adds an open-air circular arena, 104 m across, with three concentric raised perimeter rings,
 four stairways, eight spawns and distributed weapon pickups. Couch Mode supports 2–4 local split-screen players,
 keyboard/mouse plus gamepads or all gamepads, selectable match rules and optional bot fill. Spectators watch

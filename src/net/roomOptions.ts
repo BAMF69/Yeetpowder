@@ -4,6 +4,7 @@ import { PARTY_LEVELS } from "../core/yeet/levelsParty";
 
 export type MatchMode = "kills" | "lives" | "timed" | "ringout";
 export interface RoomOptions {
+  botSkill?: "mixed" | "easy" | "medium" | "hard";
   level: LevelId;
   capacity: number;
   visibility: "public" | "private";
@@ -30,6 +31,7 @@ export function roomOptions(raw: Partial<RoomOptions> = {}): RoomOptions {
   const botFill = typeof p.botFill === "boolean" ? p.botFill : true;
   if (mode === "ringout" && !levelById(level).water) level = capacity > 2 ? "island-party" : "island";
   return { level, capacity, mode, visibility: p.visibility === "public" && capacity === 8 && botFill && mode !== "lives" ? "public" : "private",
+    botSkill: p.visibility === "public" ? "mixed" : ["easy", "medium", "hard"].includes(p.botSkill ?? "") ? p.botSkill : "mixed",
     botFill,
     scoreLimit: integer(p.scoreLimit, 10, 1, 100), lives: integer(p.lives, 5, 1, 20), minutes: integer(p.minutes, 5, 1, 30) };
 }
@@ -47,6 +49,7 @@ export function roomLevel(options: RoomOptions) {
 }
 
 export interface MatchStatus {
+  nextRoundIn?: number;
   phase: "waiting" | "playing" | "finished";
   elapsed: number;
   remaining: number;

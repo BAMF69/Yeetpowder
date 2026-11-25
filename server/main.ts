@@ -16,6 +16,7 @@ import { TUNING } from "../src/core/yeet/tuning";
 import { cleanCode, DUEL_PORT, SNAP_EVERY, type ClientMsg, type ServerMsg } from "../src/net/protocol";
 import { Room } from "../src/net/room";
 import { RoomDirectory } from "../src/net/roomDirectory";
+import type { PlayerProfile } from "../src/net/profile";
 
 const STEP_MS = TUNING.step * 1000;
 const MAX_STEPS_PER_TICK = 30; // after a long stall, catch up this much and drop the rest
@@ -31,12 +32,13 @@ const rooms = directory.rooms;
 const sockets = new Map<Room, Array<WebSocket | null>>();
 const seats = new Map<WebSocket, Seat>();
 const spectators = new Map<Room, Set<WebSocket>>();
+const announcedRounds = new WeakMap<Room, number>();
 
 const send = (ws: WebSocket, msg: ServerMsg) => {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
 };
 
-function seat(ws: WebSocket, room: Room, spectate = false): void {
+function seat(ws: WebSocket, room: Room, spectate = false, profile?: PlayerProfile): void {
   if (spectate) {
     const watchers = spectators.get(room) ?? new Set<WebSocket>();
     if (watchers.size >= 16) { send(ws, { t: "error", reason: "That room has enough spectators." }); return; }
@@ -44,7 +46,7 @@ function seat(ws: WebSocket, room: Room, spectate = false): void {
     send(ws, { t: "joined", code: room.code, slot: -1, level: room.options.level, options: room.options });
     send(ws, { ...room.snapshot(false), events: [] }); return;
   }
-  const slot = room.join();
+  const slot = room.join(profile);
   if (slot < 0) {
     send(ws, { t: "error", reason: room.match.phase === "finished" ? "That match has ended. Join after the host starts a rematch."
       : !room.full && room.options.mode === "lives" ? "That elimination round has started. Join after the rematch." : "That room is full." });
@@ -92,15 +94,16 @@ function onMessage(ws: WebSocket, raw: string): void {
     return;
   }
   if (msg.t === "rematch") { const s = seats.get(ws); if (s && s.slot >= 0) s.room.restart(s.slot); return; }
+  if (msg.t === "next") { const s = seats.get(ws); if (s && s.slot >= 0) s.room.nextRound(s.slot); return; }
   if (seats.has(ws)) return; // already in a room
   if (msg.t === "create") {
-    seat(ws, directory.create(msg.options));
+    seat(ws, directory.create(msg.options), false, msg.profile);
   } else if (msg.t === "quick") {
-    seat(ws, directory.quick());
+    seat(ws, directory.quick(), false, msg.profile);
   } else if (msg.t === "join") {
     const room = rooms.get(cleanCode(String(msg.code ?? "")));
     if (!room) send(ws, { t: "error", reason: "No room with that code." });
-    else seat(ws, room, msg.spectate === true);
+    else seat(ws, room, msg.spectate === true, msg.profile);
   }
 }
 
@@ -119,6 +122,11 @@ setInterval(() => {
     steps++;
     for (const room of rooms.values()) {
       room.step();
+      if (room.round !== (announcedRounds.get(room) ?? 1)) {
+        announcedRounds.set(room, room.round);
+        const message = JSON.stringify({ t: "round", options: room.options, round: room.round } satisfies ServerMsg);
+        for (const ws of [...(sockets.get(room) ?? []), ...(spectators.get(room) ?? [])]) if (ws && ws.readyState === ws.OPEN) ws.send(message);
+      }
       if (room.tick % SNAP_EVERY !== 0) continue;
       const snap = JSON.stringify(room.snapshot());
       for (const ws of sockets.get(room) ?? []) if (ws && ws.readyState === ws.OPEN) ws.send(snap);

@@ -100,6 +100,7 @@ describe("match modes", () => {
     room.join(); room.join(); room.step();
     room.sim.players[1].pos = { x: 50, y: -2, z: 0 };
     room.step();
+    for (let i = 0; i <= TUNING.shark.approach / TUNING.step; i++) room.step();
     expect(room.match.lives).toEqual([1, 0]);
     expect(room.match.phase).toBe("finished"); expect(room.match.winners).toEqual([0]);
   });
@@ -132,6 +133,7 @@ describe("match modes", () => {
     expect(victim.hp).toBe(TUNING.player.hp); expect(victim.dead).toBe(0);
     expect(Math.hypot(victim.vel.x, victim.vel.y, victim.vel.z)).toBeGreaterThan(0);
     victim.pos.y = -2; room.step();
+    for (let i = 0; i <= TUNING.shark.approach / TUNING.step; i++) room.step();
     expect(room.sim.kos[0]).toBe(1); expect(room.match.winners).toEqual([0]);
   });
 });

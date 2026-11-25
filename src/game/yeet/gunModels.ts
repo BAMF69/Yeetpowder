@@ -331,7 +331,18 @@ function axe(kit: ModelKit): Built {
   return { group, grip: v(0, 0, 0.02), fore: v(0, 0, -0.35), muzzle: v(0, 0, -0.95) };
 }
 
-const BUILDERS: Record<WeaponId, (kit: ModelKit) => Built> = { pistol, shotgun, sniper, copter, reaper, sakura, rocket, grenade, axe };
+function shield(kit: ModelKit): Built {
+  const group = new THREE.Group();
+  const rim = new THREE.Mesh(kit.geo(new THREE.CylinderGeometry(0.7, 0.7, 0.14, 32)), kit.mat("gunmetal"));
+  rim.rotation.x = Math.PI / 2; rim.scale.z = 1.3; group.add(rim);
+  const plate = new THREE.Mesh(kit.geo(new THREE.CylinderGeometry(0.64, 0.64, 0.16, 32)), kit.mat("accent"));
+  plate.rotation.x = Math.PI / 2; plate.scale.z = 1.3; group.add(plate);
+  const { B } = tools(kit, group);
+  B(0.15, 1.2, 0.18, "brass", 0, 0, -0.02); B(0.8, 0.15, 0.18, "brass", 0, 0, -0.02);
+  B(0.12, 0.35, 0.22, "leather", 0, -0.1, 0.18);
+  return { group, grip: v(0, -0.15, 0.2), fore: null, muzzle: v(0, 0, -0.2) };
+}
+const BUILDERS: Record<WeaponId, (kit: ModelKit) => Built> = { pistol, shotgun, sniper, copter, reaper, sakura, rocket, grenade, axe, shield };
 
 /** Metres per model unit for every gun but the Gatling, which is held bigger (playtest: "too small"). */
 const SCALE = 0.62;

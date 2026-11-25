@@ -33,3 +33,9 @@ and movement balance are unchanged. No new dependencies or third-party assets.
 Validation: `tests/coliseumCouchReplay.test.ts`, existing room/prediction regressions,
 `tools/test_party_network.mjs` (including a watcher in a full room), and `tools/test_couch_browser.mjs` (virtual
 gamepad isolation, split-screen, fastest-player replay, skip/rematch and online spectator cameras).
+
+2026-11-24 playtest revision: speed alone no longer qualifies a highlight. The recorder keeps a bounded, full-step
+two-second recent window and a sampled history; a credited knockout selects that killer's fastest recent living
+moment. This rejects faster no-kill launches while retaining the exact speed peak and the knockout inside the clip.
+The authority attaches the winner's name, score and frozen final transforms. Playback first orbits that frozen
+winner for two seconds, then plays the qualifying clip. Swallowed actors are hidden in both play and recording.

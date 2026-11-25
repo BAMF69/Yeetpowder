@@ -28,6 +28,7 @@ import { roomQrSvg } from "./roomQr";
 import { joinStage } from "../../net/joinStatus";
 import { Log } from "../../core/log";
 import type { ReplayClip } from "../../net/highlight";
+import type { PlayerProfile } from "../../net/profile";
 
 const CSS = `
 .yd { position: fixed; inset: 0; z-index: 8; /* over the touch controls (6) and HUD (7): the lobby needs taps */ display: flex; align-items: center; justify-content: center;
@@ -86,6 +87,7 @@ export class DuelLink {
   active = [false, false];
   bots: (BotSkill | null)[] = [null, null];
   match: MatchStatus | null = null;
+  profiles: PlayerProfile[] = [];
   replay: ReplayClip | null = null;
   onReplay: (() => void) | null = null;
   setReplayPlaying(playing: boolean): void { this.root.style.visibility = playing ? "hidden" : "visible"; }
@@ -93,6 +95,10 @@ export class DuelLink {
   private rosterStamp = "";
   private detailsOpen = false;
   private inviteOpen = false;
+  private countdownLine: HTMLParagraphElement | null = null;
+  private modeLine: HTMLDivElement | null = null;
+  private readonly scoreDown = (e: KeyboardEvent) => { if (e.code === "Tab" && shell.top?.gameplay) { e.preventDefault(); this.detailsOpen = true; this.showParty(true); } };
+  private readonly scoreUp = (e: KeyboardEvent) => { if (e.code === "Tab") { this.detailsOpen = false; this.showParty(true); } };
   readonly remote = new RemoteBuffer();
   slot = -1;
   code = "";
@@ -112,6 +118,7 @@ export class DuelLink {
   private corrections: number[] = [];
 
   constructor(params: URLSearchParams, party: PartySession | null = null) {
+    window.addEventListener("keydown", this.scoreDown); window.addEventListener("keyup", this.scoreUp);
     this.party = party;
     this.predictor = new Predictor(0, party?.options);
     this.serverMode = params.get("net") === "server";
@@ -160,6 +167,7 @@ export class DuelLink {
   stepLocal(input: YeetInput, dYaw: number, dPitch: number): TaggedEvent[] {
     if (!this.ready || this.net?.status !== "open" || this.party && (this.match?.phase === "finished" || !this.active[this.slot])) return [];
     const { msg, events } = this.predictor.local(input, dYaw, dPitch);
+    msg.round = this.party?.round ?? 1;
     this.net?.queue(msg);
     // only your own moves: the other player's (their landing, pickups, bonks) come from the server, and hits are its call
     return events.filter((e) => e.p === this.slot && e.type !== "pvpHit" && e.type !== "pvpDown");
@@ -190,6 +198,7 @@ export class DuelLink {
   }
 
   dispose(): void {
+    window.removeEventListener("keydown", this.scoreDown); window.removeEventListener("keyup", this.scoreUp);
     if (this.party) this.party.close(); else this.net?.close();
     this.root.remove();
     this.netLine?.remove();
@@ -219,6 +228,7 @@ export class DuelLink {
     this.serverEvents.push(...s.events);
     const wasFull = this.full;
     this.present = s.present;
+    this.profiles = s.profiles ?? [];
     this.bots = s.bots ?? s.present.map(() => null);
     this.active = s.active ?? s.present;
     const wasFinished = this.match?.phase === "finished";
@@ -355,8 +365,14 @@ export class DuelLink {
     const humans = this.present.filter(Boolean).length;
     const bots = this.bots.filter(Boolean).length;
     const finished = this.match?.phase === "finished";
-    const state = JSON.stringify([humans, bots, this.bots, this.match?.phase, this.party.options.mode === "timed" ? Math.ceil(this.match?.remaining ?? 0) : 0,
-      this.predictor.sim.kos, this.match?.lives, this.detailsOpen, this.inviteOpen, this.owner]);
+    const mode = { kills: "Deathmatch", lives: "Last player standing", timed: "Timed", ringout: "Ring Out · unlimited HP" }[party.options.mode];
+    const modeText = `${mode} · ${this.match?.phase === "waiting" ? "Waiting for players" : party.options.mode === "timed" ? Math.ceil(this.match?.remaining ?? party.options.minutes * 60) + "s left" : party.options.mode === "lives" ? party.options.lives + " lives" : "First to " + party.options.scoreLimit}`;
+    const countdownText = `Next match on a new map in ${Math.ceil(this.match?.nextRoundIn ?? 0)}s`;
+    if (this.modeLine) this.modeLine.textContent = modeText;
+    if (this.countdownLine) this.countdownLine.textContent = countdownText;
+    // Clock ticks must preserve the buttons and keyboard focus, even on a slow renderer.
+    const state = JSON.stringify([humans, bots, this.bots, this.match?.phase,
+      this.predictor.sim.kos, this.match?.lives, this.detailsOpen, this.inviteOpen, this.owner, this.profiles]);
     if (!force && state === this.rosterStamp) return;
     this.rosterStamp = state;
     this.root.style.display = "flex";
@@ -364,22 +380,24 @@ export class DuelLink {
     // Room controls stay usable after focus loss opens the shell's pause overlay (z-index 10).
     this.root.style.zIndex = finished ? "50" : "12";
     this.panel.replaceChildren();
+    this.countdownLine = null;
     const title = document.createElement("h2");
     title.textContent = finished ? "Match complete" : `${party.offline ? "Offline" : "Room " + this.code} · ${humans} player${humans === 1 ? "" : "s"} + ${bots} bots`;
     this.panel.append(title);
-    const note = document.createElement("div"); note.className = "yd-note";
-    const mode = { kills: "Deathmatch", lives: "Last player standing", timed: "Timed", ringout: "Ring Out · unlimited HP" }[party.options.mode];
-    note.textContent = `${mode} · ${this.match?.phase === "waiting" ? "Waiting for players" : party.options.mode === "timed" ? Math.ceil(this.match?.remaining ?? party.options.minutes * 60) + "s left" : party.options.mode === "lives" ? party.options.lives + " lives" : "First to " + party.options.scoreLimit}`;
+    const note = document.createElement("div"); note.className = "yd-note"; this.modeLine = note;
+    note.textContent = modeText;
     this.panel.append(note);
     if (finished) {
       const result = document.createElement("p");
       result.textContent = this.match!.winners.length === 1 ? `Winner: ${this.name(this.match!.winners[0])}` : "Draw";
       this.panel.append(result);
+      if (this.match?.nextRoundIn !== undefined) { const countdown = document.createElement("p"); this.countdownLine = countdown; countdown.textContent = countdownText; this.panel.append(countdown); }
     }
     const button = (label: string, action: () => void) => {
       const b = document.createElement("button"); b.textContent = label; b.onclick = action; this.panel.append(b);
     };
     if (finished && this.replay) button("Yeet of the match", () => { shell.resumeGame(); this.onReplay?.(); });
+    if (finished && party.options.visibility === "public") button("Next match · new map", () => { this.net?.send({ t: "next" }); shell.resumeGame(); });
     if (!finished) button(this.detailsOpen ? "Hide players" : "Players", () => { this.detailsOpen = !this.detailsOpen; this.showParty(true); });
     if (this.detailsOpen || finished) {
       this.predictor.sim.players.forEach((_, slot) => {
@@ -408,6 +426,7 @@ export class DuelLink {
   }
 
   name(slot: number): string {
+    if (this.profiles[slot]) return this.profiles[slot].name;
     const skill = this.bots[slot];
     return skill ? `${skill === "easy" ? "Easy" : "Medium"} bot ${slot + 1}` : `Player ${slot + 1}`;
   }

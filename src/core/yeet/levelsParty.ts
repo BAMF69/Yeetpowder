@@ -2,7 +2,7 @@
 // Each arena has multiple cross-routes, protected edge spawns and contested elevated pickups.
 import { box, type Box } from "./arena";
 import type { Decor, Level } from "./levels";
-import { bounds, drum, fence, stack, tank, truck, ISLAND_WATER } from "./levelsOutdoor";
+import { bounds, drum, fence, yardFence, stack, tank, truck, ISLAND_WATER } from "./levelsOutdoor";
 import type { Vec3 } from "./vec";
 
 export const PARTY_LEVELS = ["island-party", "industrial-party", "junkyard-party"] as const;
@@ -71,7 +71,7 @@ export function industrialPartyLevel(): Level {
     arena: { boxes: [
       box(-65, -1, -41, 0, 0, 41, "floor"),
       painted(box(0, -1, -41, 65, 0, 41, "floor"), "asphalt"),
-      ...fence(-64, 64, -40, 40, 5, "corrugated"),
+      ...yardFence(64, -40, 40),
       wall(box(-65, 0, -41, -64, 400, 41)), wall(box(-64, 0, -41, 0, 400, -40)),
       wall(box(-64, 0, 40, 0, 400, 41)), box(-65, 12, -41, 0, 13, 41, "ceiling"),
       ...cover,

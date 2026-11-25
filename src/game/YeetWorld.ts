@@ -63,6 +63,10 @@ import { Viewmodel } from "./yeet/viewmodel";
 import { fovForAspect } from "../core/yeet/view";
 import { ART_WEAPONS, loadMeshyArt, operativeArt } from "./yeet/meshyArt";
 import { MatchReplay } from "./yeet/matchReplay";
+import { localProfile } from "./playerProfile";
+import { OPERATORS } from "../net/profile";
+import { GrenadeGuide } from "./yeet/grenadeGuide";
+import { ScoreOverlay } from "./yeet/scoreOverlay";
 
 // ---- Tunables (presentation only; gameplay numbers are in tuning.ts) ----------
 const SUITS: Array<[string, string]> = [
@@ -72,11 +76,13 @@ const PLAYER_SUIT = "#3d4b75"; // the keyframes' navy (tints the operative's fab
 /** Duel: how each player looks to the other (blue and orange read apart for colour-blind players too). */
 const DUEL_SUITS = ["#1e88e5", "#fb8c00"];
 const DOWN_VERB: Record<WeaponId, string> = {
+  shield: "BASHED",
   pistol: "PEA'D", shotgun: "BLASTED", sniper: "YEETED", copter: "SHREDDED", reaper: "REAPED", sakura: "SLICED",
   rocket: "ROCKETED", grenade: "FRAGGED", axe: "AXED",
 };
 const FIRE_POP: Partial<Record<WeaponId, string>> = { shotgun: "BLAM!", sniper: "KRAK!", reaper: "KRAK!" };
 const FIRE_SOUND: Record<WeaponId, string> = {
+  shield: "bonk",
   pistol: "pea", shotgun: "boom", sniper: "krak", copter: "brrt", reaper: "krak", sakura: "revolver",
   rocket: "lob", grenade: "lob", axe: "lob",
 };
@@ -127,6 +133,7 @@ export class YeetWorld implements World {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   private readonly cinema: MatchReplay;
+  private readonly grenadeGuide: GrenadeGuide;
   private readonly partySession = takeParty();
   private readonly autoplay = !this.partySession && shell.params.has("autoplay");
   /** Duel vs bot (menu "Duel vs bot", or ?level=duel&bot=easy|medium|hard): offline, the bot is player 2. */
@@ -169,6 +176,7 @@ export class YeetWorld implements World {
   private readonly fx: Effects;
   private readonly sound = new YeetSound();
   private readonly hud: YeetHud;
+  private readonly scoreOverlay: ScoreOverlay | null;
   private readonly fps: FpsInput;
   /** Phones and tablets (or ?touch): the on-screen stick and buttons, else null. */
   private readonly touch: TouchControls | null;
@@ -257,6 +265,7 @@ export class YeetWorld implements World {
     this.scene.fog = new THREE.Fog("#30343a", 55, 170); // light fog: the keyframe has almost none, and the 24 m ceiling must not vanish
     this.camera = new THREE.PerspectiveCamera(fovForAspect(TUNING.aim.hipFov, aspect), aspect, 0.05, 300);
     this.camera.rotation.order = "YXZ";
+    this.grenadeGuide = new GrenadeGuide(this.scene, TUNING.projectile.grenade.blast.radius);
     this.cinema = new MatchReplay(this.scene, this.camera, this.sim.arena);
     if (this.link) this.link.onReplay = () => {
       if (!this.link?.replay) return;
@@ -312,7 +321,8 @@ export class YeetWorld implements World {
         this.otherAnim.push({ flipT: 99, kind: "backflip", side: 1, slashT: 99 });
       });
     }
-    this.body = makeOperative(PLAYER_SUIT);
+    this.body = makeOperative(OPERATORS[localProfile().operator].color || PLAYER_SUIT);
+    this.body.setOperator(localProfile().operator);
     this.body.setHp(1);
     this.body.root.visible = false;
     this.scene.add(this.body.root);
@@ -322,6 +332,7 @@ export class YeetWorld implements World {
     const host = document.getElementById("game")!;
     this.canvas = host.querySelector("canvas") ?? host;
     this.hud = new YeetHud(host, TUNING.weaponOrder.map((w) => TUNING.weapons[w].name));
+    this.scoreOverlay = this.link ? null : new ScoreOverlay(() => this.sim.players.map((_, i) => `${i === 0 ? localProfile().name : this.playerName(i)} · ${this.sim.kos[i] + (i === 0 ? this.kos : 0)} KOs`));
     this.hud.setVisible(!shell.params.has("mapview"));
     this.fps = new FpsInput(this.canvas);
     this.touch = TouchControls.wanted(shell.params) && !this.autoplay
@@ -354,6 +365,7 @@ export class YeetWorld implements World {
     for (const id of ART_WEAPONS) this.vm.rebuildGun(id); // the first-person guns were built before the art loaded
     const skin = operativeArt();
     if (skin) for (const op of [this.body, ...this.others]) op.useSkin(skin);
+    this.pickups.rebuildModels();
     progress(0.8);
     if (shell.params.has("operative")) {
       // the dummies only: your body is the code-built operative (operative.ts) since art pass 3
@@ -365,6 +377,8 @@ export class YeetWorld implements World {
   }
 
   dispose(): void {
+    this.scoreOverlay?.dispose();
+    this.grenadeGuide.dispose();
     this.cinema.dispose();
     this.link?.dispose();
     for (const f of this.others) f.dispose();
@@ -403,6 +417,7 @@ export class YeetWorld implements World {
 
   update(realDt: number): void {
     if (this.cinema.playing) {
+      this.grenadeGuide.root.visible = false;
       this.vm.root.visible = this.body.root.visible = false;
       for (const op of this.others) op.root.visible = false;
       for (const view of this.views) view.fig.root.visible = false;
@@ -419,6 +434,7 @@ export class YeetWorld implements World {
 
     // input that happens once per frame goes into the first fixed step only
     const f = this.fps.take();
+    this.scoreOverlay?.update();
     this.touch?.holdMove(pl.stance || pl.hook >= 0);
     this.touch?.setZoneFires(pl.weapon === "copter"); // Gatling: hold anywhere on the right to fire, drag to aim
     this.mergeTouch(f);
@@ -553,8 +569,12 @@ export class YeetWorld implements World {
       for (const e of this.link.takeServerEvents()) this.onServerEvent(e);
     }
     this.placeCamera(dt);
+    this.grenadeGuide.update(this.sim, pl, aiming, dt);
     this.drawDummies(dt);
     this.drawOthers(dt);
+    this.body.setOperator(this.link?.profiles[this.link.slot]?.operator ?? localProfile().operator);
+    this.others.forEach((op, i) => { const profile = this.link?.profiles[i]; if (profile) op.setOperator(profile.operator); });
+    if (pl.swallowed) { this.vm.root.visible = false; this.body.root.visible = false; }
     this.drawBalls();
     this.pickups.update(dt, this.sim.pickups);
     this.props.update(dt);
@@ -564,6 +584,7 @@ export class YeetWorld implements World {
     if (copterFiring) this.sound.play("wup"); // its cooldown in the events file sets the chop rate
     this.sound.update(shell.settings.audio);
     this.vm.setReload(pl.reloading > 0 ? 1 - pl.reloading / TUNING.weapons[pl.weapon].reload : 0);
+    if (this.vm.weapon !== pl.weapon) this.vm.show(pl.weapon);
     this.vm.update(dt, copterFiring);
     this.fx.update(dt);
     const speed = len(pl.vel);
@@ -585,7 +606,7 @@ export class YeetWorld implements World {
       scoped: this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
       hp: this.sim.level.infiniteHp ? null : fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
-      banner: pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
+      banner: pl.sharkT > 0 ? "SHARK INCOMING!" : pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : pl.shielding ? "SHIELD UP · FIRE TO BASH" : "",
       kos: fight ? this.kos : null,
       level: duel?.party ? `${this.sim.level.name} · ${duel.party.options.mode === "ringout" ? "HP ∞ · " : ""}You ${this.sim.kos[duel.slot]} KOs` : duel && duel.ready
         ? `Duel · room ${duel.code} · You ${this.sim.kos[duel.slot]} – ${this.sim.kos[other]} Player ${other + 1}`
@@ -770,6 +791,7 @@ export class YeetWorld implements World {
   // ---- events -> effects -------------------------------------------------------
   /** The level's own events (whoever caused them): explosions and the shark. True if it was one. */
   private onWorldEvent(e: TaggedEvent | YeetEvent): boolean {
+    if (e.type === "sharkApproach") { this.props.shark(e.at); return true; }
     if (e.type === "explode") {
       const spec = TUNING.explosive[e.kind];
       this.fx.explosion(this.tmpA.set(e.at.x, e.at.y + 0.4, e.at.z), spec.radius);
@@ -795,7 +817,7 @@ export class YeetWorld implements World {
       return true;
     }
     if (e.type === "eaten") {
-      this.props.shark(e.at);
+      if (e.who !== "player") this.props.shark(e.at);
       this.sound.play("splat");
       const me = this.link?.slot ?? 0;
       if (e.who === "player" && (e as TaggedEvent).p === me) {
@@ -949,6 +971,7 @@ export class YeetWorld implements World {
         this.vm.setHold("none"); // respawning ends any hold move
         this.vm.show(pl.weapon);
         break;
+      case "heal": this.hud.pop(`+${Math.round(e.amount)} HEALTH`); this.sound.play("loaded"); break;
       case "reload":
         this.sound.play("reload");
         break;
@@ -1075,7 +1098,7 @@ export class YeetWorld implements World {
     this.camera.rotation.set(pl.pitch + flipPitch + s.y * SHAKE_TO_RAD, pl.yaw + s.x * SHAKE_TO_RAD, roll);
 
     // tumbling or knocked out: swing out behind you (from the direction you faced as it began) and watch
-    const wantThird = (pl.tumbling > 0 || pl.dead > 0) && !shell.settings.access.reduce_motion;
+    const wantThird = pl.sharkT > 0 || (pl.tumbling > 0 || pl.dead > 0) && !shell.settings.access.reduce_motion;
     if (wantThird && this.third === 0) {
       this.chaseYaw = pl.yaw;
       this.bodyRoll = 0;
@@ -1231,7 +1254,7 @@ export class YeetWorld implements World {
   /** The bot's figure, straight from the sim (no network smoothing), and the ?debug view. */
   private drawBot(dt: number): void {
     const st = this.sim.players[1];
-    this.others.forEach((fig, j) => (fig.root.visible = j === 1));
+    this.others.forEach((fig, j) => (fig.root.visible = j === 1 && !this.sim.players[j].swallowed));
     const fig = this.others[1];
     if (!fig || !st) return;
     const kneel = this.sim.kneelDepth(st);
@@ -1368,7 +1391,7 @@ export class YeetWorld implements World {
         const st = this.sim.players[j];
         v = { ...v, pos: st.pos, yaw: st.yaw, state: st };
       }
-      fig.root.visible = !!v && link.active[j];
+      fig.root.visible = !!v && link.active[j] && !v.state.swallowed;
       if (!v) return;
       const st = v.state;
       fig.root.position.set(v.pos.x, v.pos.y + PIVOT - this.sim.kneelDepth(st) * 0.6, v.pos.z);
@@ -1434,8 +1457,9 @@ export class YeetWorld implements World {
         this.sound.play("ko");
         this.sound.play("crowd_aww");
       } else if (e.by === me) {
-        this.hud.feedLine("YEETED", this.playerName(e.target));
-        this.sound.play("boing");
+        this.hud.feedLine("KNOCKED OUT", this.playerName(e.target));
+        this.hud.pop(`KNOCKOUT! ${this.playerName(e.target)}`, true);
+        this.sound.play("ko");
         this.sound.play("crowd_cheer");
       }
       return;
