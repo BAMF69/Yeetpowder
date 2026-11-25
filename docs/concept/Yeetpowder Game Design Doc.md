@@ -127,13 +127,13 @@ Streaks reset on death. Assists count as half a kill, so support players can sti
 
 ## Modes, maps and match flow
 
-Matches are short (5 minutes), with 2–8 players, and anyone can join from a link with no account.
+Matches are short (5 minutes), with up to 8 players (the launch target; early prototypes may cap lower), and anyone can join from a link with no account.
 
 **Joining**
 
-1. A host taps "Make a room" and gets a short link and a 4-letter code.
-2. Friends open the link on any device, pick a random silly name (or type one), and land in the lobby.
-3. Or press "Quick Play" to drop into a public match in progress.
+1. **Quick Play:** one tap drops you into the public match with the best ping, preferring the one with the most players. Matches below 8 players accept joiners mid-match. When a match ends, you're automatically queued into the next one. Quick Play rotates through levels and game modes, so every match feels different.
+2. **Make a room:** the host picks the game mode, the level, and public or private. A private room gets a short link and a 4-letter code to share; a public room also shows up in Quick Play.
+3. **Join a room:** friends open the link on any device, pick a random silly name (or type one), and land in the lobby.
 
 No accounts. Name, color and settings are saved on the device. Bots fill empty slots so a match always feels busy.
 
@@ -189,7 +189,7 @@ The game is a web app built on WebGL with a server-authoritative multiplayer set
 
 ## Future systems
 
-The Stuffer and Smith lore opens up three systems for after launch: heavy Smith-built guns that trade mobility for control, weapon durability for scavenging modes, and armor with damage types. A couch mode for TV split-screen is planned alongside them.
+The Stuffer and Smith lore opens up three systems for after launch: heavy Smith-built guns that trade mobility for control, weapon durability for scavenging modes, and armor with damage types. A couch mode for TV split-screen, a skin store, a level designer and a tutorial and story mode are planned alongside them.
 
 **Smith heavy guns**
 
@@ -276,6 +276,34 @@ A TV or laptop shows a classic split-screen match while everyone in the room use
 - A real Bluetooth gamepad connected to the TV also works as a couch player.
 
 **Open questions:** 2 or 4 panes as the maximum? Can a low-end laptop render 4 views at 60 fps? Should each phone also show the player's own HUD (ammo, killstreak meter) to save space on the TV?
+
+**Skin store with player submissions**
+
+A cosmetic-only store sells character, gun and gunblade skins, including skins designed and submitted by players. Skins never change stats, so nobody can pay to win.
+
+- **Accounts stay optional.** Playing never needs an account (Pillar 3). An account is only needed to buy, submit or keep skins across devices.
+- **Submissions:** players upload designs using official templates (character jumpsuit, gun wrap, muzzle-flash trail). Approved skins go on sale and the creator gets a share of each sale.
+- **Moderation is required:** every submission is reviewed before it goes live. Copyrighted characters, brands, real people and offensive content are rejected. A player report button covers anything that slips through.
+- **Payments:** use an established payment provider rather than building one. Rules for selling to under-18 players and creator payouts need legal review before launch.
+
+**Level designer**
+
+A browser-based editor where players build their own maps from a kit of parts: walls, ramps, crates, launch pads, explosive barrels, spawn points and pickup spots.
+
+- **Test as you build:** jump straight into the level with recoil physics to check routes and gaps.
+- **Share by link or code,** and play it in any private or public room.
+- **Featured levels:** the best community maps can be picked to join the Quick Play rotation.
+- **Guardrails:** checks before publishing (enough spawns, reachable pickups, no unescapable pits), plus the same moderation as skins for names and decorations.
+
+**Tutorial and story mode**
+
+A single-player mode that teaches recoil movement through the yeetpowder lore.
+
+- **Tutorial:** short training rooms that each teach one skill: shotgun hop, floor launch, sniper spin recovery, the gunblade flip, and the Gatling Copter. It finishes in under 5 minutes and can be skipped, so instant play stays instant.
+- **Story mode:** you're a new hire caught between the Stuffers and the Smiths in the early days of yeetpowder. Levels mix recoil-platforming challenges, bot fights and boss battles (for example, a Smith in full plate armor).
+- **Rewards:** story progress unlocks cosmetic skins only, saved on the device or to an optional account.
+
+**Open questions:** what share do skin creators get? Does the level designer launch with the game or after? How long should story mode be: 1 hour, or 3–4 hours?
 
 ## Prototype roadmap and open questions
 
