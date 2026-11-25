@@ -12,7 +12,7 @@ import { SKIN, type MaterialBank } from "./materials";
 
 const CUFF_SIDES = 6;
 
-export function buildGlove(bank: MaterialBank, thumbSide: number, cuff: THREE.Material): THREE.Group {
+export function buildGlove(bank: MaterialBank, thumbSide: number, cuff: THREE.Material, triggerFinger = false): THREE.Group {
   const g = new THREE.Group();
   const leather = bank.paint("leather");
   const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, ry = 0) => {
@@ -30,6 +30,11 @@ export function buildGlove(bank: MaterialBank, thumbSide: number, cuff: THREE.Ma
   const skin = bank.plain(SKIN);
   for (let i = 0; i < 4; i++) {
     const x = (i - 1.5) * 0.018;
+    if (triggerFinger && i === (thumbSide > 0 ? 3 : 0)) {
+      add(new THREE.BoxGeometry(0.016, 0.02, 0.043), skin, x, 0.002, 0.053);
+      add(new THREE.BoxGeometry(0.016, 0.028, 0.018), skin, x, -0.013, 0.07);
+      continue;
+    }
     add(new THREE.BoxGeometry(0.016, 0.03, 0.022), skin, x, -0.008, 0.044);
     add(new THREE.BoxGeometry(0.016, 0.02, 0.026), skin, x, -0.036, 0.03);
   }

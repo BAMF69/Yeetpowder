@@ -27,6 +27,7 @@ const HELD_SCALE = 0.62;
 type P3 = readonly [number, number, number];
 interface WeaponArt {
   url: string;
+  scale?: number;
   /**
    * Which way it lies in Meshy's space: "x-" (default) has its business end toward -x and +y up (the scythe, the
    * katana); "x-blade-down" also points -x forward but turns its blade (hanging toward -y) onto the top (the Rocket
@@ -58,7 +59,6 @@ const WEAPONS: Partial<Record<WeaponId, WeaponArt>> = {
 let operative: THREE.Object3D | null = null;
 let rocketPreview: THREE.Object3D | null = null;
 let grenadePreview: (() => WeaponModel) | null = null;
-
 export function rocketPreviewArt(): THREE.Object3D | null {
   return rocketPreview?.clone() ?? null;
 }
@@ -100,7 +100,7 @@ function weaponBuilder(scene: THREE.Object3D, art: WeaponArt): () => WeaponModel
       grip: toGun(art.grip, art.fit, orient),
       fore: art.fore ? toGun(art.fore, art.fit, orient) : null,
       muzzle: toGun(art.muzzle, art.fit, orient),
-      scale: HELD_SCALE,
+      scale: art.scale ?? HELD_SCALE,
     };
   };
 }
@@ -111,13 +111,22 @@ export const ART_WEAPONS = new Set(Object.keys(WEAPONS) as WeaponId[]);
 // Source files are served by Vite in development until provenance and fit are verified.
 const PREVIEW_ROOT = "assets_src/approved-art/weapons/";
 const PREVIEW_WEAPONS = {
-  pistol: { url: PREVIEW_ROOT + "glock-17.glb", fit: 0.18, grip: [0.69, -0.43, 0], fore: null, muzzle: [-1, 0.45, 0] },
+  pistol: { url: PREVIEW_ROOT + "glock-17.glb", fit: 0.18, grip: [0.76, -0.23, 0], fore: null, muzzle: [-1, 0.45, 0] },
   sniper: { url: PREVIEW_ROOT + "sniper.glb", fit: 0.69, grip: [0.43, -0.14, 0], fore: [-0.34, -0.02, 0], muzzle: [-1, 0.09, 0] },
+  copter: { url: PREVIEW_ROOT + "minigun.glb", fit: 0.71, scale: 0.88, grip: [0.9, 0.18, 0], fore: [0.15, 0.29, 0], muzzle: [-1, -0.07, 0.01] },
   rocket: { url: PREVIEW_ROOT + "at-2x-launcher.glb", fit: 0.55, grip: [0.19, -0.29, 0], fore: [-0.32, -0.29, 0], muzzle: [-0.99, 0.09, 0] },
   grenade: { url: "assets_src/additional-art/grenade.glb", orient: "upright", fit: 0.09, grip: [0, -0.12, 0], fore: null, muzzle: [0, 0.06, -1.2] },
 } satisfies Partial<Record<WeaponId, WeaponArt>>;
 
+export function isArtPreview(value: string | null): value is "approved" | "shotgun-existing" | "weathered-shotgun" {
+  return import.meta.env.DEV && (value === "approved" || value === "shotgun-existing" || value === "weathered-shotgun");
+}
+
 function previewShotgun(candidate: string): WeaponArt {
+  if (candidate === "shotgun-existing") {
+    // Palm above the stock neck, with the fingers curled down around it.
+    return { url: PREVIEW_ROOT + candidate + ".glb", fit: 0.58, grip: [0.46, 0.17, 0], fore: [-0.26, 0.075, 0], muzzle: [-1, 0.16, 0] };
+  }
   return { url: PREVIEW_ROOT + candidate + ".glb", fit: 0.58, grip: [0.38, -0.035, 0], fore: [-0.26, 0.075, 0], muzzle: [-1, 0.16, 0] };
 }
 
@@ -131,9 +140,9 @@ export async function loadMeshyArt(progress: (v: number) => void = () => {}, ski
   const loader = new GLTFLoader();
   const weapons = { ...WEAPONS };
   const jobs = [() => loadOperative(loader)];
-  if (import.meta.env.DEV && (preview === "approved" || preview === "shotgun-existing" || preview === "weathered-shotgun")) {
+  if (isArtPreview(preview)) {
     Object.assign(weapons, PREVIEW_WEAPONS);
-    if (preview !== "approved") weapons.shotgun = previewShotgun(preview);
+    weapons.shotgun = previewShotgun(preview === "approved" ? "shotgun-existing" : preview);
     jobs.push(async () => {
       try {
         rocketPreview = (await loader.loadAsync(PREVIEW_ROOT + "at-2x-rocket.glb")).scene;

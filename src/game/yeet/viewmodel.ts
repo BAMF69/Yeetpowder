@@ -24,7 +24,7 @@ import { TUNING, type WeaponId } from "../../core/yeet/tuning";
 
 const TUNING_ORDER = TUNING.weaponOrder;
 import { buildGlove } from "./glove";
-import { buildWeapon } from "./gunModels";
+import { buildWeapon, hasWeaponArt } from "./gunModels";
 import { MaterialBank } from "./materials";
 import { buildMuzzleFlash } from "./muzzleFlash";
 
@@ -127,6 +127,7 @@ export class Viewmodel {
   private readonly mount = new THREE.Group(); // at the right hand: the gun hangs here
   private readonly sleeveR: THREE.Mesh;
   private readonly gloveR: THREE.Group;
+  private readonly pistolGlove: THREE.Group;
   private readonly hand = new THREE.Vector3(); // the right hand, relative to the shoulder pivot
   private readonly dir = new THREE.Vector3();
   private readonly armL = new THREE.Group(); // at the left shoulder, aimed at the foregrip
@@ -182,6 +183,10 @@ export class Viewmodel {
     this.gloveR = this.glove(1);
     this.gloveR.rotation.copy(GLOVE_R_TILT);
     this.mount.add(this.gloveR);
+    this.pistolGlove = this.glove(1, true);
+    this.pistolGlove.rotation.copy(GLOVE_R_TILT);
+    this.pistolGlove.scale.y *= 1.25;
+    this.mount.add(this.pistolGlove);
     this.placeHand(HAND_R.clone().sub(SHOULDER_R));
 
     // left arm: a unit sleeve stretched to reach the foregrip; the glove turns with the forearm each frame
@@ -224,6 +229,8 @@ export class Viewmodel {
   show(id: WeaponId): void {
     this.guns.get(this.current)!.group.visible = false;
     this.current = id;
+    this.pistolGlove.visible = id === "pistol" && hasWeaponArt(id);
+    this.gloveR.visible = !this.pistolGlove.visible;
     const g = this.guns.get(id)!;
     g.group.visible = true;
     this.flash.position.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale);
@@ -444,8 +451,8 @@ export class Viewmodel {
   }
 
   /** The operative's fingerless glove (glove.ts), a little smaller in first person so the Pea Pistol shows. */
-  private glove(thumbSide: number): THREE.Group {
-    const g = buildGlove(this.bank, thumbSide, this.bank.paint("navy"));
+  private glove(thumbSide: number, triggerFinger = false): THREE.Group {
+    const g = buildGlove(this.bank, thumbSide, this.bank.paint("navy"), triggerFinger);
     g.scale.setScalar(GLOVE_SCALE);
     return g;
   }
@@ -453,6 +460,7 @@ export class Viewmodel {
   /** The gun hand's rest position for the current gun (HAND_R plus its HOLD offset). */
   private restHand(out: THREE.Vector3): THREE.Vector3 {
     out.copy(HAND_R);
+    if (this.current === "pistol" && hasWeaponArt("pistol")) out.y -= 0.065;
     const h = HOLD[this.current];
     return h ? out.add(h.hand) : out;
   }
