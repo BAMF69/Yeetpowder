@@ -1,0 +1,18 @@
+{
+ "id": "explosion_cartoon",
+ "title": "Cartoon Explosion",
+ "columns": 8,
+ "rows": 8,
+ "frames": 64,
+ "fps": 30,
+ "loop": false,
+ "blending": "normal",
+ "alpha": "straight (colour bled under transparent pixels)",
+ "order": "row-major from the top-left cell",
+ "note": "One-shot: puffy toon-shaded blast with flat colour bands.",
+ "sheets": {
+  "2048": "explosion_cartoon_sheet_2048.png",
+  "1024": "explosion_cartoon_sheet_1024.png",
+  "512": "explosion_cartoon_sheet_512.png"
+ }
+}

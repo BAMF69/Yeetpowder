@@ -16,11 +16,13 @@ import { box, room, testRoom, type Arena } from "./arena";
 import type { WeaponId } from "./tuning";
 import type { Vec3 } from "./vec";
 import { industrialLevel, islandLevel, junkyardLevel } from "./levelsOutdoor";
+import { industrialPartyLevel, islandPartyLevel, junkyardPartyLevel, PARTY_LEVELS } from "./levelsParty";
+import { coliseumLevel } from "./levelColiseum";
 
-export type LevelId = "sandbox" | "fight" | "duel" | "island" | "industrial" | "junkyard";
+export type LevelId = "sandbox" | "fight" | "duel" | "island" | "industrial" | "junkyard" | "coliseum" | (typeof PARTY_LEVELS)[number];
 
 /** The new levels a bot match can be played on (?bot=easy&level=island): no dummies then, just the two of you. */
-export const BOT_LEVELS: LevelId[] = ["island", "industrial", "junkyard"];
+export const BOT_LEVELS: LevelId[] = ["island", "industrial", "junkyard", "coliseum", ...PARTY_LEVELS];
 
 export interface Pickup {
   weapon: WeaponId;
@@ -30,6 +32,10 @@ export interface Pickup {
 export interface Level {
   id: LevelId;
   name: string;
+  /** Layout capacity; the online lobby's player limit is configured separately. */
+  recommendedPlayers?: number;
+  /** Ring Out: hits and blasts still push players, but only leaving the arena knocks them out. */
+  infiniteHp?: boolean;
   arena: Arena;
   spawn: Vec3;
   spawnYaw: number;
@@ -153,6 +159,10 @@ export function levelById(id: string | null | undefined): Level {
     case "island": return islandLevel();
     case "industrial": return industrialLevel();
     case "junkyard": return junkyardLevel();
+    case "island-party": return islandPartyLevel();
+    case "industrial-party": return industrialPartyLevel();
+    case "junkyard-party": return junkyardPartyLevel();
+    case "coliseum": return coliseumLevel();
     default: return fightLevel();
   }
 }

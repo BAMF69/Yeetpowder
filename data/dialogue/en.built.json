@@ -2,7 +2,7 @@
  "version": 1,
  "locale": "en",
  "built_by": "tools/audio/wavesmith/dialogue.py",
- "source_sha256": "68197c32f403e07158c74b540796a66eb73bab6c602662d437c2644c4e88b2ff",
+ "source_sha256": "6216af1a29e5ca71efc4a954a0483d7d7330484f13886be5820d4f6866b23f65",
  "style": {
   "max_chars_per_line": 40,
   "max_lines": 2,
@@ -589,6 +589,12 @@
   },
   "fizz": {
    "text": "[yeetpowder fizz]",
+   "priority": 30,
+   "min_s": 1.0,
+   "directional": false
+  },
+  "grenade_blast": {
+   "text": "[explosion]",
    "priority": 30,
    "min_s": 1.0,
    "directional": false

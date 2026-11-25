@@ -21,6 +21,10 @@ import { dotworkCheck } from "./game/dotwork/boot";
 import { YeetWorld } from "./game/YeetWorld";
 import { JuiceWorld } from "./game/JuiceWorld";
 import { ThreeHost } from "./game/threeHost";
+import { ArenaWorld } from "./game/ArenaWorld";
+import { takeCouch } from "./game/couchSetup";
+import { peekParty, takeParty } from "./game/net/partySession";
+import { roomOptions } from "./net/roomOptions";
 
 // ?shadercheck=1 (python tools/dev.py smoke --shaders): render every kit shader recipe for the golden-image check
 if (new URLSearchParams(location.search).has("shadercheck")) {
@@ -44,7 +48,14 @@ const aspect = host.clientWidth / Math.max(host.clientHeight, 1);
 export const game = new ThreeHost(
   renderer,
   new Backdrop(aspect),
-  { main: (a) => new YeetWorld(a), juice: (a) => new JuiceWorld(a) },
+  { main: (a) => {
+    const couch = takeCouch();
+    if (couch) return new ArenaWorld(a, couch);
+    if (peekParty()?.slot === -1) return new ArenaWorld(a, takeParty()!);
+    if (shell.params.has("couch")) return new ArenaWorld(a, { options: roomOptions({ level: "coliseum" }),
+      players: Math.max(2, Math.min(4, Number(shell.params.get("couch")) || 2)), keyboard: true });
+    return new YeetWorld(a);
+  }, juice: (a) => new JuiceWorld(a) },
   (err) => shell.crash(err),
 );
 window.addEventListener("resize", () => game.resize(host.clientWidth, host.clientHeight));

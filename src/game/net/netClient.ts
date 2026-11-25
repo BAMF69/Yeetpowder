@@ -24,6 +24,7 @@ export class NetClient implements Transport {
   private readonly ws: WebSocket;
   private outbox: NetInput[] = [];
   private readonly pinger: number;
+  private readonly onPageHide = () => this.close();
 
   constructor(url: string, private readonly lagMs: number, private readonly onMsg: (m: ServerMsg) => void) {
     this.ws = new WebSocket(url);
@@ -51,6 +52,7 @@ export class NetClient implements Transport {
       this.later(() => this.onMsg(msg));
     };
     this.pinger = window.setInterval(() => this.send({ t: "ping", at: performance.now() }), 1000);
+    window.addEventListener("pagehide", this.onPageHide);
   }
 
   /** Runs fn now, or after the simulated lag. */
@@ -79,6 +81,8 @@ export class NetClient implements Transport {
 
   close(): void {
     window.clearInterval(this.pinger);
+    window.removeEventListener("pagehide", this.onPageHide);
+    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ t: "leave" }));
     this.ws.close();
   }
 }

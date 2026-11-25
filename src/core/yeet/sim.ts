@@ -346,6 +346,11 @@ export class YeetSim {
     };
   }
 
+  /** A new occupant gets a fresh life at this slot's own spawn. */
+  resetSlot(i: number): void {
+    if (this.players[i]) this.players[i] = this.makePlayer(i);
+  }
+
   private fullMags(): Record<WeaponId, number> {
     const out = {} as Record<WeaponId, number>;
     for (const id of this.t.weaponOrder) out[id] = this.t.weapons[id].mag;
@@ -466,7 +471,7 @@ export class YeetSim {
       const mine = j === by;
       addScaled(v.vel, r.push, mine && self ? self.force : 1);
       v.onGround = false;
-      v.hp -= r.damage * (mine && self ? self.damage : 1);
+      if (!this.level.infiniteHp) v.hp -= r.damage * (mine && self ? self.damage : 1);
       if (!mine) {
         v.lastHitBy = by; // whoever set it off gets the knockout (and a later fall in the water)
         v.lastHitAt = this.time;
@@ -657,7 +662,7 @@ export class YeetSim {
     addScaled(v.vel, dir, knockback);
     v.vel.y += this.t.dummy.lift * Math.min(1, knockback / 4) + lift;
     v.onGround = false;
-    v.hp -= damage;
+    if (!this.level.infiniteHp) v.hp -= damage;
     ev.push({ type: "pvpHit", by: this.cur, target: j, damage, at });
     if (v.hp <= 0) {
       this.knockOut(v);
@@ -1647,7 +1652,7 @@ export class YeetSim {
     addScaled(pl.vel, dir, ai.knockback);
     pl.vel.y += 1.5;
     pl.onGround = false;
-    pl.hp -= ai.damage;
+    if (!this.level.infiniteHp) pl.hp -= ai.damage;
     ev.push({ type: "playerHit", dummy: b.owner, damage: ai.damage, at: copy(b.pos), p: j });
     if (pl.hp <= 0) {
       this.knockOut(pl);

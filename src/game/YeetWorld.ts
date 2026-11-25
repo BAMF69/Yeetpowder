@@ -45,6 +45,7 @@ import { shell } from "../shell/app";
 import { FpsInput, type FpsFrame } from "./fpsInput";
 import { TouchControls, type TouchFrame } from "./touchControls";
 import { DuelLink } from "./net/duelLink";
+import { takeParty } from "./net/partySession";
 import { BotBrain } from "../core/yeet/bot";
 import { INTERP_MS } from "./net/remote";
 import type { World } from "./threeHost";
@@ -52,6 +53,8 @@ import { makeDummy, makeStars, PIVOT, type DummyFigure, type Stars } from "./yee
 import { makeOperative, type Operative } from "./yeet/operative";
 import { inputFromPlayer, type PoseInput } from "./yeet/operativePose";
 import { Effects } from "./yeet/effects";
+import { loadVinishVfx, disposeVinishVfx } from "./yeet/vinishVfx";
+import { loadTerrainTextures } from "./yeet/terrainMaterials";
 import { YeetHud } from "./yeet/hud";
 import { PickupViews } from "./yeet/pickups";
 import { YeetSound } from "./yeet/sound";
@@ -59,6 +62,7 @@ import { buildRoom } from "./yeet/room";
 import { Viewmodel } from "./yeet/viewmodel";
 import { fovForAspect } from "../core/yeet/view";
 import { ART_WEAPONS, loadMeshyArt, operativeArt } from "./yeet/meshyArt";
+import { MatchReplay } from "./yeet/matchReplay";
 
 // ---- Tunables (presentation only; gameplay numbers are in tuning.ts) ----------
 const SUITS: Array<[string, string]> = [
@@ -122,16 +126,19 @@ interface OtherAnim {
 export class YeetWorld implements World {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
-  private readonly autoplay = shell.params.has("autoplay");
+  private readonly cinema: MatchReplay;
+  private readonly partySession = takeParty();
+  private readonly autoplay = !this.partySession && shell.params.has("autoplay");
   /** Duel vs bot (menu "Duel vs bot", or ?level=duel&bot=easy|medium|hard): offline, the bot is player 2. */
   /** Which level and who against (matchSetup.ts): the menu's world option or ?level / ?opp / ?bot. */
   private readonly match = parseMatch({
     level: shell.params.get("level"), world: shell.worldOption, bot: shell.params.get("bot"), opp: shell.params.get("opp"),
   });
-  private readonly botSkill = this.autoplay ? null : this.match.bot;
-  private readonly levelId = this.autoplay ? "sandbox" : this.match.levelId;
+  private readonly botSkill = this.partySession || this.autoplay ? null : this.match.bot;
+  private readonly levelId = this.partySession?.options.level ?? (this.autoplay ? "sandbox" : this.match.levelId);
   /** Online duel: the connection, prediction and lobby (null in single player and against a bot). */
-  private readonly link = this.levelId === "duel" && !this.botSkill ? new DuelLink(shell.params) : null;
+  private readonly link = this.partySession ? new DuelLink(shell.params, this.partySession)
+    : this.levelId === "duel" && !this.botSkill ? new DuelLink(shell.params) : null;
   private readonly sim = this.link ? this.link.predictor.sim : new YeetSim(TUNING, YeetWorld.levelFor(this.levelId, !!this.botSkill, this.match.stillDummies), this.botSkill ? 2 : 1);
   /** The bot's brain (src/core/yeet/bot.ts). Its seed only varies matches (?botseed=N replays one). */
   private readonly brain = this.botSkill
@@ -149,7 +156,7 @@ export class YeetWorld implements World {
   /** Duel: look changes waiting for the next sim step (they travel with the input). */
   private lookYaw = 0;
   private lookPitch = 0;
-  private readonly room = buildRoom(this.sim.arena);
+  private readonly room = buildRoom(this.sim.arena, { cutaway: shell.params.has("mapview") });
   /** The new levels' cars, trucks, tanks, drums, scenery, water and shark (props.ts). */
   private readonly props = buildProps(this.sim.level, this.sim.explosives, this.sim.projectiles);
   private readonly views: DummyView[] = [];
@@ -201,6 +208,9 @@ export class YeetWorld implements World {
   private readonly forcePose = shell.params.get("pose");
   /** ?flash: hold the muzzle flash on (first person and your operative), for stills of it. */
   private readonly debugFlash = shell.params.has("flash");
+  /** ?vfx=impact|explosion|slash: preview ahead of the camera; ?hold=vfx freezes it for review. */
+  private readonly debugVfx = shell.params.get("vfx");
+  private vfxShown = false;
   /** ?side=<rad>: the showcase camera's angle round you (0 behind, pi in front). */
   private readonly showcaseSide = Number(shell.params.get("side") ?? SHOWCASE.side);
   private tumbled = false;
@@ -238,7 +248,7 @@ export class YeetWorld implements World {
   };
   private readonly onLockChange = () => {
     // Esc frees the mouse: open the pause menu so the game never runs on without you
-    if (!this.fps.locked && !this.autoplay && shell.top?.gameplay) shell.pauseGame();
+    if (!this.fps.locked && !this.autoplay && !this.cinema.playing && shell.top?.gameplay) shell.pauseGame();
   };
 
   constructor(aspect: number) {
@@ -247,6 +257,12 @@ export class YeetWorld implements World {
     this.scene.fog = new THREE.Fog("#30343a", 55, 170); // light fog: the keyframe has almost none, and the 24 m ceiling must not vanish
     this.camera = new THREE.PerspectiveCamera(fovForAspect(TUNING.aim.hipFov, aspect), aspect, 0.05, 300);
     this.camera.rotation.order = "YXZ";
+    this.cinema = new MatchReplay(this.scene, this.camera, this.sim.arena);
+    if (this.link) this.link.onReplay = () => {
+      if (!this.link?.replay) return;
+      shell.resumeGame(); this.link.setReplayPlaying(true);
+      this.cinema.play(this.link.replay, () => { this.link?.setReplayPlaying(false); this.hud.setVisible(true); this.applyFov(); });
+    };
     this.scene.add(this.camera);
     this.camera.add(this.vm.root);
 
@@ -274,6 +290,7 @@ export class YeetWorld implements World {
       sc.right = sc.top = 70;
       sc.far = 180;
     }
+    if (shell.params.has("mapview")) this.scene.fog = null;
 
     this.sim.dummies.forEach((_d, i) => {
       const [color, name] = SUITS[i % SUITS.length];
@@ -305,6 +322,7 @@ export class YeetWorld implements World {
     const host = document.getElementById("game")!;
     this.canvas = host.querySelector("canvas") ?? host;
     this.hud = new YeetHud(host, TUNING.weaponOrder.map((w) => TUNING.weapons[w].name));
+    this.hud.setVisible(!shell.params.has("mapview"));
     this.fps = new FpsInput(this.canvas);
     this.touch = TouchControls.wanted(shell.params) && !this.autoplay
       ? new TouchControls(host, () => this.sound.resume(), shell.params.has("debug"))
@@ -330,7 +348,7 @@ export class YeetWorld implements World {
 
   /** Loads the sounds while the loading screen shows. */
   async load(progress: (v: number) => void): Promise<void> {
-    await this.sound.load((v) => progress(v * 0.6));
+    await Promise.all([this.sound.load((v) => progress(v * 0.6)), loadVinishVfx(), loadTerrainTextures()]);
     // Elaina's Meshy models (the scythe); ?noart keeps the code-built ones
     await loadMeshyArt((v) => progress(0.6 + v * 0.2), shell.params.has("noart"));
     for (const id of ART_WEAPONS) this.vm.rebuildGun(id); // the first-person guns were built before the art loaded
@@ -342,9 +360,12 @@ export class YeetWorld implements World {
       await Promise.all(this.views.map((view) => view.fig.loadOperative?.()));
       progress(1);
     }
+    progress(1);
+    Log.info("yeet", `YEET_LEVEL_READY ${this.sim.level.id}`);
   }
 
   dispose(): void {
+    this.cinema.dispose();
     this.link?.dispose();
     for (const f of this.others) f.dispose();
     this.sound.dispose();
@@ -360,6 +381,7 @@ export class YeetWorld implements World {
     this.props.dispose();
     this.pickups.dispose();
     this.body.dispose();
+    disposeVinishVfx();
     this.ballGeo.dispose();
     this.ballMat.dispose();
     for (const v of this.views) {
@@ -380,6 +402,12 @@ export class YeetWorld implements World {
   }
 
   update(realDt: number): void {
+    if (this.cinema.playing) {
+      this.vm.root.visible = this.body.root.visible = false;
+      for (const op of this.others) op.root.visible = false;
+      for (const view of this.views) view.fig.root.visible = false;
+      this.hud.setVisible(false); this.cinema.update(realDt); return;
+    }
     if (shell.plantedCrash) {
       shell.plantedCrash = false;
       throw new Error("planted crash (dev.py smoke --drive crash)"); // proves the crash hook end to end
@@ -501,7 +529,16 @@ export class YeetWorld implements World {
       this.marks.sort((a, b) => a[0] - b[0]);
     }
     // smoke can stop at these to screenshot a moment: --until YEET_MARK_launch (spin, copter)
-    while ((this.autoplay || this.debugTumble || this.debugHero || this.debugShake || this.debugBoom >= 0 || (this.debugReap && this.reapStart >= 0)) && this.marks.length && this.sim.time >= this.marks[0][0]) {
+    if (this.debugVfx && !this.vfxShown && this.sim.time >= 1) {
+      this.vfxShown = true;
+      this.tmpA.set(0, 0, -1).applyQuaternion(this.camera.quaternion).multiplyScalar(4).add(this.camera.position);
+      if (this.debugVfx === "explosion") this.fx.explosion(this.tmpA, 1.3);
+      else if (this.debugVfx === "slash") this.fx.slash(this.tmpA);
+      else this.fx.puff(this.tmpA);
+      this.marks.push([this.sim.time + 0.08, "vfx"]);
+      this.marks.sort((a, b) => a[0] - b[0]);
+    }
+    while ((this.debugVfx || this.autoplay || this.debugTumble || this.debugHero || this.debugShake || this.debugBoom >= 0 || (this.debugReap && this.reapStart >= 0)) && this.marks.length && this.sim.time >= this.marks[0][0]) {
       const mark = this.marks.shift()![1];
       Log.info("yeet", `YEET_MARK_${mark}`);
       if (shell.params.get("hold") === mark) this.held = true; // ?hold=<mark>: freeze here for a screenshot
@@ -547,10 +584,10 @@ export class YeetWorld implements World {
       reduceMotion: shell.settings.access.reduce_motion,
       scoped: this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
-      hp: fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
+      hp: this.sim.level.infiniteHp ? null : fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
       banner: pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
       kos: fight ? this.kos : null,
-      level: duel && duel.ready
+      level: duel?.party ? `${this.sim.level.name} · ${duel.party.options.mode === "ringout" ? "HP ∞ · " : ""}You ${this.sim.kos[duel.slot]} KOs` : duel && duel.ready
         ? `Duel · room ${duel.code} · You ${this.sim.kos[duel.slot]} – ${this.sim.kos[other]} Player ${other + 1}`
         : vsBot ? `Duel vs ${this.playerName(1)} · You ${this.sim.kos[0]} – ${this.sim.kos[1]}` : this.sim.level.name,
       stamina: pl.stamina / TUNING.sprint.stamina,
@@ -735,7 +772,7 @@ export class YeetWorld implements World {
   private onWorldEvent(e: TaggedEvent | YeetEvent): boolean {
     if (e.type === "explode") {
       const spec = TUNING.explosive[e.kind];
-      this.props.explode(e.at, spec.radius);
+      this.fx.explosion(this.tmpA.set(e.at.x, e.at.y + 0.4, e.at.z), spec.radius);
       this.sound.play("kaboom");
       const pl = this.sim.player;
       const near = Math.hypot(pl.pos.x - e.at.x, pl.pos.z - e.at.z);
@@ -746,8 +783,8 @@ export class YeetWorld implements World {
     if (e.type === "explosiveBack") return true;
     if (e.type === "blast") {
       // a rocket or grenade going off: the same pink fireball, smaller
-      this.props.explode(e.at, e.radius * 0.8);
-      this.sound.play("kaboom");
+      this.fx.explosion(this.tmpA.set(e.at.x, e.at.y, e.at.z), e.radius * 0.8);
+      this.sound.play("grenade_blast");
       const pl = this.sim.player;
       const near = Math.hypot(pl.pos.x - e.at.x, pl.pos.y - e.at.y, pl.pos.z - e.at.z);
       this.shake.addTrauma(near < e.radius * 1.5 ? 0.6 : near < e.radius * 4 ? 0.25 : 0.08);
@@ -774,6 +811,14 @@ export class YeetWorld implements World {
       return true;
     }
     return false;
+  }
+
+  /** The trail follows the attacking figure in third person, or sits ahead of the first-person blade. */
+  private slashTrail(reverse: boolean, figure?: THREE.Object3D): void {
+    const root = figure ?? (this.third > 0.5 ? this.body.root : null);
+    if (root) root.localToWorld(this.tmpA.set(0, 0.7, 1));
+    else this.tmpA.set(0, 0, -1).applyQuaternion(this.camera.quaternion).multiplyScalar(1.5).add(this.camera.position);
+    this.fx.slash(this.tmpA, reverse);
   }
 
   private onEvent(e: YeetEvent): void {
@@ -915,6 +960,7 @@ export class YeetWorld implements World {
         break;
       case "slash":
         this.vm.slashed(e.weapon, e.combo);
+        this.slashTrail(e.combo % 2 === 0);
         this.sound.play(e.hits > 0 ? "shing" : "swish");
         if (e.reap) this.hud.pop("REAP!", true);
         else if (e.weapon === "sakura" && e.combo >= 2 && e.hits > 0) this.hud.pop(`x${e.combo}`);
@@ -969,6 +1015,7 @@ export class YeetWorld implements World {
         break;
       case "ultraslash":
         this.vm.ultra();
+        this.slashTrail(e.round % 2 === 0);
         if (e.round === 1) this.hud.pop("ULTRASLASH!", true);
         this.sound.play("revolver");
         this.sound.play(e.hits > 0 ? "shing" : "swish");
@@ -998,6 +1045,16 @@ export class YeetWorld implements World {
 
   // ---- drawing -----------------------------------------------------------------
   private placeCamera(dt: number): void {
+    if (shell.params.has("mapview")) {
+      this.camera.fov = 48;
+      this.camera.updateProjectionMatrix();
+      const floors = this.sim.level.arena.boxes.filter((b) => b.kind === "floor");
+      const span = Math.max(...floors.flatMap((b) => [Math.abs(b.min.x), Math.abs(b.max.x), Math.abs(b.min.z), Math.abs(b.max.z)]));
+      this.camera.position.set(span * 1.15, span * 1.45, span * 1.4);
+      this.camera.lookAt(0, 0, 0);
+      this.vm.root.visible = this.body.root.visible = false;
+      return;
+    }
     const pl = this.sim.player;
     const eye = this.sim.eye();
     const s = this.shake.update(dt, effectiveShake(shell.settings));
@@ -1159,6 +1216,7 @@ export class YeetWorld implements World {
 
   /** "Player 2", or "Hard bot" for the bot. */
   private playerName(j: number): string {
+    if (this.link?.party) return this.link.name(j);
     if (this.botSkill && j === 1) return `${this.botSkill[0].toUpperCase()}${this.botSkill.slice(1)} bot`;
     return `Player ${j + 1}`;
   }
@@ -1310,7 +1368,7 @@ export class YeetWorld implements World {
         const st = this.sim.players[j];
         v = { ...v, pos: st.pos, yaw: st.yaw, state: st };
       }
-      fig.root.visible = !!v && link.present[j];
+      fig.root.visible = !!v && link.active[j];
       if (!v) return;
       const st = v.state;
       fig.root.position.set(v.pos.x, v.pos.y + PIVOT - this.sim.kneelDepth(st) * 0.6, v.pos.z);
@@ -1357,6 +1415,7 @@ export class YeetWorld implements World {
    * server's call, and the other player's moves are heard and seen from here. */
   private onServerEvent(e: TaggedEvent): void {
     const me = this.link?.slot ?? 0;
+    if (e.p !== me && this.onWorldEvent(e)) return;
     if (e.type === "pvpHit") {
       if (e.target === me) {
         this.hud.hurtFlash();
@@ -1404,6 +1463,7 @@ export class YeetWorld implements World {
         break;
       case "slash":
       case "ultraslash":
+        if (this.others[e.p]) this.slashTrail(false, this.others[e.p].root);
         this.sound.play(e.hits > 0 ? "shing" : "swish");
         break;
       case "yeetreap":

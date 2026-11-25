@@ -16,9 +16,10 @@ import type { Box } from "../../core/yeet/arena";
 import type { ExplosiveState } from "../../core/yeet/hazards";
 import type { Decor, Level } from "../../core/yeet/levels";
 import type { Projectile } from "../../core/yeet/sim";
+import { batchStaticMeshes } from "./staticBatch";
 
 const CAR_COLOURS = ["#8a3b2b", "#3b5a7a", "#7a7a3b", "#5d6b5e", "#a06a2c", "#6b4a6b", "#8c8c86"];
-const WATER = { colour: "#2a7fa8", opacity: 0.86, size: 220 };
+const WATER = { colour: "#2a7fa8", opacity: 0.86, size: 600 };
 /** Shark lunge: s rising out of the water, s at the top, s sinking back. */
 const SHARK = { rise: 0.32, hold: 0.12, sink: 0.55, height: 2.2 };
 const FIREBALL = { grow: 0.18, life: 0.75 };
@@ -115,10 +116,14 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
 
   // ---- the boxes that are props ----
   const views = new Map<number, THREE.Group>();
+  const staticCars: THREE.Group[] = [];
   level.arena.boxes.forEach((b, i) => {
     const g = b.prop === "car" ? car(b) : b.prop === "truck" ? truck(b) : b.prop === "tank" ? tank(b) : b.prop === "drum" ? drum(b) : null;
     if (g) views.set(i, g);
+    if (g && b.prop === "car") staticCars.push(g);
   });
+  // Cars never become wrecks; explosive vehicles retain their own groups and materials.
+  geos.push(...batchStaticMeshes(group, staticCars));
   // a wreck: the prop squashed down to its wreck box and charred
   const charred = mat("#2a2522", 1, 0);
   const whole = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
@@ -160,6 +165,27 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
     // "crusher": its block is in the arena (drawn by room.ts)
   };
   for (const d of level.decor ?? []) decor(d);
+
+  // Worn lane paint distinguishes routes at ground level without adding collision edges.
+  if (level.id.startsWith("industrial") || level.id.startsWith("junkyard")) {
+    const paint = new THREE.MeshBasicMaterial({ color: "#cbb76f", transparent: true, opacity: 0.65, depthWrite: false });
+    mats.set("lane-paint", paint);
+    const markings: THREE.Mesh[] = [];
+    const dash = (x: number, z: number, alongX: boolean) => {
+      const mesh = new THREE.Mesh(geo(new THREE.PlaneGeometry(alongX ? 3 : 0.12, alongX ? 0.12 : 3)), paint);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(x, 0.015, z);
+      group.add(mesh); markings.push(mesh);
+    };
+    const party = level.id.endsWith("-party");
+    if (level.id.startsWith("industrial")) {
+      for (const z of party ? [-22, 0, 22] : [0]) for (let x = 3; x < (party ? 59 : 28); x += 6) dash(x, z + 2, true);
+    } else {
+      const edge = party ? 46 : 21;
+      for (let n = -edge; n <= edge; n += 6) if (Math.abs(n) > 8) { dash(n, 0, true); dash(0, n, false); }
+    }
+    geos.push(...batchStaticMeshes(group, markings));
+  }
 
   // ---- water and the shark ----
   let water: THREE.Mesh | null = null;

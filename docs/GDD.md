@@ -53,6 +53,18 @@ Current tier: **Vertical slice**
 
 Claude scopes work by this line (SOP-08 "Tiers"). Move it with `/next-tier` when the tier's "Done means" is met.
 
+## Party arena variants (2026-11-24)
+The Yeet Coliseum adds an open-air circular arena, 104 m across, with three concentric raised perimeter rings,
+four stairways, eight spawns and distributed weapon pickups. Couch Mode supports 2–4 local split-screen players,
+keyboard/mouse plus gamepads or all gamepads, selectable match rules and optional bot fill. Spectators watch
+rooms by code without occupying a combatant seat. Configured room and couch matches end with a skippable,
+rewatchable “Yeet of the match” selected by highest total speed, including vertical movement. The displayed unit
+is “yeters per second”, numerically identical to the former m/s display. See ADR 0006 for replay scope.
+
+The original Shark Island, Industrial Yard and Junkyard layouts remain for duels. Separate `island-party`, `industrial-party` and `junkyard-party` versions provide eight separated spawns and at least 3x the non-overlapping ground-floor area (about 3.8x each), extra routes and distributed pickups. Quick Play uses eight combatants, filling vacancies with easy and medium bots. Humans replace bots on joining; bots return on departure.
+
+Make a Room selects map, 2–8 combatants, public/private visibility and bot fill. Rules: Deathmatch by kill target or limited lives (last survivor), Timed (highest kills), and Ring Out (infinite HP, knockback and water knockouts on Shark Island). Public matchmaking requires eight seats and bot fill; lives elimination stays private. Results offer an owner-controlled rematch. Internet public matchmaking still requires hosting the room backend; an unavailable backend gives an explicitly labelled offline Quick Play match.
+
 ## Content list (MVP)
 | Item | Count | Status |
 |---|---|---|
@@ -112,6 +124,7 @@ These live in data, not code. File: `src/core/yeet/tuning.ts` (one module; Vite 
 ## Art and audio direction
 - **Visual target:** N64-inspired spy action, using the keyframes in `docs/concept/keyframes/` as the primary visual reference. Angular low-poly people, painted surface detail, industrial architecture and restrained lighting. Match the reference at gameplay distance; literal N64 hardware limits are not required.
 - **Character design:** Human-proportioned operatives with strong angular faces, chunky hands and boots, simple hair, tactical vests and utility clothing. The navy operative and olive guards in the keyframes establish the direction. The toy's stubby figures with helmets and goggles are placeholders, not the final character brief.
+- **Environment materials (2026-11-24):** CC0 Poly Haven sand, rock, asphalt, corrugated iron and concrete with 512 px colour/OpenGL normal/roughness maps; fixed metre-based repeats, restrained normal strength and matte shading. Procedural crates, hazard stripes and prop colours retain the game palette.
 - **Environment:** Concrete bunkers, steel doors, warehouses, shipping containers, tanks, catwalks, chain-link fences and wooden crates. Use modular geometry and repeating painted textures for grime, rivets, seams and grates. Maintain clear routes, ledges and silhouettes for recoil movement.
 - **Palette:** Muted navy, olive, concrete gray, rusty brown and worn teal; yellow hazard markings and warm lights provide accents. Hot-pink yeetpowder muzzle flashes, tracers and impact puffs (the Lore; built 2026-11-22), readable pickups and accessible team identifiers stand out against the subdued scenery. Identify teams through shape or symbols as well as color.
 - **First art pass (2026-11-22):** the rooms now use painted textures made in code (`src/game/yeet/paint.ts`): concrete walls with the orange band and steel doors, a dark floor, a ceiling with fluorescent panels, wooden crates, teal steel cover and hazard trim; dark interior lighting. Rooms have a solid ceiling at 24 m (ceilings stop you without a bonk). Art passes 2 and 3 (same day): first-person arms and all six guns modelled in code to the keyframes, and the third-person operative (segmented, painted face, vest, fingerless gloves) for your body and duel opponents. The target dummies are still the toy figures. Next: the art approval comparison against the shotgun keyframe.
@@ -122,7 +135,8 @@ These live in data, not code. File: `src/core/yeet/tuning.ts` (one module; Vite 
 - **Tone and effects:** Physical comedy comes from absurd recoil, flips, bonks and reactions within the spy-action setting. Oversized muzzle flashes, speed trails, comic "BLAM!" / "YEET!" pops and bonk stars remain readable accents. No blood or gore. UI uses chunky, readable controls and kill-feed verbs "YEETED", "BONKED", "REAPED".
 - **Camera:** First-person play; third person for tumbles and knockouts; a big launch (18 m/s or more) kicks the camera out to your right, low, for ~0.7 s (at most every 6 s, never while zoomed, never for the Boomstick, whose first-person legs sell it; C toggles); a hero landing always pops out for the kneel; reduce motion turns all of it off *(playtests, 2026-11-22)*. Replays remain planned; preserve the motion-reduction option as the presentation develops.
 - **Music:** Surf-rock and spy-jazz. The first match loop is a chiptune written in code (`tools/audio/yeet_music.py`: a tremolo-picked surf melody and a walking-bass spy bridge, original); a menu track and stingers come later.
-- **SFX:** Punchy exaggerated guns, slide-whistle launches, crowd "ooooh" for airtime and comic impacts. Made in code: `tools/audio/yeet_sounds.py` (guns, impacts and a pink yeetpowder fizz on every shot) and `tools/audio/crowd.py` (the crowd: "ooooh" after 1.1 s of airtime, cheers on knockouts, hero landings and YEETREAPs, "awww" on your wipeouts) → `public/assets/audio/sfx/`, events in `data/audio_events.json`. Sound captions follow the access setting. The announcer's lines are in `data/dialogue.json` and play once voice files exist: Elaina records them, `tools/audio/announcer.py` brings them in (trim, level, optional PA and arena echo).
+- **Combat VFX (2026-11-24):** Vinish front-view muzzle flashes, cartoon hit stars and explosions, and sword slash arcs, recoloured hot pink at runtime. Original 1024 px PNG atlases retained; source presets and credits in ASSET_LOG A-0016. Playback shortened for combat readability.
+- **SFX:** Punchy exaggerated guns, slide-whistle launches, crowd "ooooh" for airtime and comic impacts. Made in code: `tools/audio/yeet_sounds.py` (guns, impacts and a pink yeetpowder fizz on every shot) and `tools/audio/crowd.py` (the crowd: "ooooh" after 1.1 s of airtime, cheers on knockouts, hero landings and YEETREAPs, "awww" on your wipeouts) → `public/assets/audio/sfx/`, events in `data/audio_events.json`. Vinish CC BY 4.0 sounds now replace bonks, hard landings, blade swings/clashes and explosions (A-0017); the original procedural gunshots, fizz and crowd stay. Sound captions follow the access setting. The announcer's lines are in `data/dialogue.json` and play once voice files exist: Elaina records them, `tools/audio/announcer.py` brings them in (trim, level, optional PA and arena echo).
 
 ## First-time user experience (FTUE, from E05 in `docs/EVIDENCE.md`)
 | Lesson | Mechanic taught | How we know they got it |

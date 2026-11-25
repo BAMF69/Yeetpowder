@@ -344,7 +344,7 @@ export class YeetHud {
     this.heatFill.style.width = `${Math.round(s.heat * 100)}%`;
     this.heat.classList.toggle("hot", s.overheated);
     this.heatLbl.textContent = s.overheated ? "OVERYEATED: cooling down" : "COPTER YEAT";
-    this.speed.textContent = `${s.speed.toFixed(1)} m/s`;
+    this.speed.textContent = `${s.speed.toFixed(1)} yeters per second`;
     this.rush.style.opacity = s.reduceMotion ? "0" : String(Math.min(0.85, s.rush));
     this.click.style.display = s.locked || s.autoplay ? "none" : "block";
     this.scope.style.display = s.scoped ? "block" : "none";
@@ -359,6 +359,9 @@ export class YeetHud {
       });
     }
   }
+
+  /** Hide the HUD for the level overview used during art/layout review. */
+  setVisible(visible: boolean): void { this.root.style.visibility = visible ? "visible" : "hidden"; }
 
   dispose(): void {
     this.root.remove();

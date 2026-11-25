@@ -138,6 +138,7 @@ export class Viewmodel {
   private readonly legs: THREE.Group[] = [];
   private readonly flash: THREE.Group;
   private readonly flashMats: THREE.Material[];
+  private readonly updateFlash: (age: number) => void;
   private kickAmt = 0;
   private flashT = 0;
   private blowT = 99;
@@ -213,10 +214,11 @@ export class Viewmodel {
     // the guns: low-poly models (gunModels.ts) held by the hand at their grip
     for (const id of TUNING_ORDER) this.addGun(id);
 
-    // muzzle flash: yeetpowder's pink star at the barrel's end, over everything (muzzleFlash.ts)
+    // Animated pink flash at the barrel, over the first-person gun (muzzleFlash.ts).
     const flash = buildMuzzleFlash(this.bank, { overlay: true });
     this.flash = flash.group;
     this.flashMats = flash.materials;
+    this.updateFlash = flash.update;
     this.mount.add(this.flash);
     this.show("pistol");
   }
@@ -409,6 +411,7 @@ export class Viewmodel {
     // visible first, then count down: a shot always shows for at least one drawn frame, even when a frame takes
     // longer than the flash (slow devices, the headless smoke browser)
     this.flash.visible = this.flashT > 0;
+    this.updateFlash(0.05 - this.flashT);
     this.flashT = Math.max(0, this.flashT - dt);
     this.flash.scale.setScalar(this.current === "shotgun" ? 2.2 : this.current === "sniper" ? 1.8 : 1);
     this.spin += (copterFiring ? 30 : 0) * dt;

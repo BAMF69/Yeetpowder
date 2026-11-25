@@ -1,0 +1,180 @@
+[
+  {
+    "surface": "sand",
+    "asset": "aerial_sand",
+    "source": "https://polyhaven.com/a/aerial_sand",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "license": "CC0-1.0",
+    "maps": {
+      "color": {
+        "file": "sand_color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_sand/aerial_sand_diff_1k.jpg",
+        "source_sha256": "d5195c44aec087d2a30d3ca3a3fa3458a1898986e0572e9a8043f8245598557a",
+        "shipped_sha256": "6e0c244d5abed9b7efbdee33b5b5835f129c93a34dd89c073f275b0b0c6cd746",
+        "bytes": 78018,
+        "size": 512
+      },
+      "normal": {
+        "file": "sand_normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_sand/aerial_sand_nor_gl_1k.jpg",
+        "source_sha256": "cba74d670a681dfcdd72db72afbcb9879c7ec9f5854adae24cac8da2c432ad99",
+        "shipped_sha256": "7281fddf0de7d1ecb552519c7257325f64816cd8c7016aae1589c882834faa8b",
+        "bytes": 80696,
+        "size": 512
+      },
+      "roughness": {
+        "file": "sand_roughness.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_sand/aerial_sand_rough_1k.jpg",
+        "source_sha256": "7cccecb1d8d35a5404e1006688e3bd2b6675abe3c95ff26312a872a41d792897",
+        "shipped_sha256": "d8916fd14416d9b0a297dba2c58489c573a32dd3d0bd9a43eb2d77e2d4da3b3d",
+        "bytes": 37932,
+        "size": 512
+      }
+    }
+  },
+  {
+    "surface": "rock",
+    "asset": "rock_face_03",
+    "source": "https://polyhaven.com/a/rock_face_03",
+    "authors": {
+      "Dario Barresi": "Photography",
+      "Rico Cilliers": "Processing"
+    },
+    "license": "CC0-1.0",
+    "maps": {
+      "color": {
+        "file": "rock_color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_diff_1k.jpg",
+        "source_sha256": "ea48e0e47ad42c8bd312476178b1248ec66f0eb19156a26a1c222f2a40caaf2d",
+        "shipped_sha256": "c478cc0e3b75b7d2da946e5a274cd1f858cf566f7db72d4a1e875e18efe41c51",
+        "bytes": 73331,
+        "size": 512
+      },
+      "normal": {
+        "file": "rock_normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_nor_gl_1k.jpg",
+        "source_sha256": "c6423169583f31715cf0636954bad524e806848a5f2861fcea6794275f726ff0",
+        "shipped_sha256": "3f87e2511b3255e7d891ec97cf307fbadc9a87cd62a3f35d52daddf0cadd0e15",
+        "bytes": 99539,
+        "size": 512
+      },
+      "roughness": {
+        "file": "rock_roughness.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_rough_1k.jpg",
+        "source_sha256": "9e3d9a2fd75244892e7acb6bab2eaed1279299510a7970672c0ee27ff1c19fea",
+        "shipped_sha256": "26fa27f92d69a3930ff8dd3763dcc2b41099060539fdfd928b7852c5402b1d0f",
+        "bytes": 53657,
+        "size": 512
+      }
+    }
+  },
+  {
+    "surface": "asphalt",
+    "asset": "asphalt_03",
+    "source": "https://polyhaven.com/a/asphalt_03",
+    "authors": {
+      "Dario Barresi": "processing",
+      "Charlotte Baglioni": "photography"
+    },
+    "license": "CC0-1.0",
+    "maps": {
+      "color": {
+        "file": "asphalt_color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_03/asphalt_03_diff_1k.jpg",
+        "source_sha256": "95ad02e2631c41cf9fdd6a37596cf75adb4fb8a8b6880567cc78ed1c41dc5681",
+        "shipped_sha256": "8a33f5dd96ea67d96a1215d6941dbaff75f9b17c1963ed46125a8b4ad83ba233",
+        "bytes": 41035,
+        "size": 512
+      },
+      "normal": {
+        "file": "asphalt_normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_03/asphalt_03_nor_gl_1k.jpg",
+        "source_sha256": "978de8349ce2e9989325099a6fd1f5ea6b2826528e1264606a5c51296b1e2888",
+        "shipped_sha256": "629f00d43c07c049da7d63f9d9464b9518f9fe97289451a90a976bb60ed80216",
+        "bytes": 41977,
+        "size": 512
+      },
+      "roughness": {
+        "file": "asphalt_roughness.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_03/asphalt_03_rough_1k.jpg",
+        "source_sha256": "069b6ea342aaad04fd1582f59c16fbbe5c7a6f0f3a87bc9d57648ed53336fb3a",
+        "shipped_sha256": "45e7b8bf313b82a5d14ccc17c91e387b1d0aaefe469738688a69c0837f57d659",
+        "bytes": 25863,
+        "size": 512
+      }
+    }
+  },
+  {
+    "surface": "corrugated",
+    "asset": "corrugated_iron",
+    "source": "https://polyhaven.com/a/corrugated_iron",
+    "authors": {
+      "Jenelle van Heerden": "Processing",
+      "Dimitrios Savva": "Photography"
+    },
+    "license": "CC0-1.0",
+    "maps": {
+      "color": {
+        "file": "corrugated_color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_diff_1k.jpg",
+        "source_sha256": "7f3649dd0d056a55a910146f09b1d5298370696a90f511a255fb4c5715bb4b58",
+        "shipped_sha256": "e3e940a5ebe95cd426d9f9c0bdf5c8cc3d775bde2127248d86f44097d30e4f20",
+        "bytes": 61565,
+        "size": 512
+      },
+      "normal": {
+        "file": "corrugated_normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_nor_gl_1k.jpg",
+        "source_sha256": "e98b839ae681ba929eb80f07348c70d0731b48239abe69268effab18420cd271",
+        "shipped_sha256": "826397980e6864e756c975446fb8d3491d98b9cee3555986474d5f72f9135ebc",
+        "bytes": 35759,
+        "size": 512
+      },
+      "roughness": {
+        "file": "corrugated_roughness.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/corrugated_iron/corrugated_iron_rough_1k.jpg",
+        "source_sha256": "1addcfc0210fc101f9f12c8e4dbd7a7d2642a5ef76699a8a485f00b5476af357",
+        "shipped_sha256": "1ca78f3420d37213fcd7bd23f6e46e2b1171010284f7c351a9b76358844d4b49",
+        "bytes": 33384,
+        "size": 512
+      }
+    }
+  },
+  {
+    "surface": "concrete",
+    "asset": "concrete_floor",
+    "source": "https://polyhaven.com/a/concrete_floor",
+    "authors": {
+      "eye-candy.xyz": "All"
+    },
+    "license": "CC0-1.0",
+    "maps": {
+      "color": {
+        "file": "concrete_color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor/concrete_floor_diff_1k.jpg",
+        "source_sha256": "5e06d0fb226f671470f59bf7798954b6965c9ed56dd45084dfd012e15737e444",
+        "shipped_sha256": "16e41df23e58ff8a749261ff95d511749c365a1d04b52c51dd1ab112c039c117",
+        "bytes": 70364,
+        "size": 512
+      },
+      "normal": {
+        "file": "concrete_normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor/concrete_floor_nor_gl_1k.jpg",
+        "source_sha256": "5a403c176361193b785198ab363d3dc3755773ca5b023f19e05874e50caea302",
+        "shipped_sha256": "af6386d5437996c479aea43384d0b6e32d578f7977d15f388b2ddf552c618a82",
+        "bytes": 36855,
+        "size": 512
+      },
+      "roughness": {
+        "file": "concrete_roughness.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor/concrete_floor_rough_1k.jpg",
+        "source_sha256": "342110e685c07af2c56194662a796b2ab4f2a4d992a9745b8fc55943414faead",
+        "shipped_sha256": "8f938ee017017481d6eab05e276d3095a70750c8d4e57471b81a4ef01d680db3",
+        "bytes": 23835,
+        "size": 512
+      }
+    }
+  }
+]

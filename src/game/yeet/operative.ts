@@ -213,7 +213,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     return g;
   };
 
-  // ---- the pink muzzle flash (crossed planes: it reads from any side) ----
+  // ---- animated pink muzzle flash (a billboard reads from any side) ----
   const muzzle = buildMuzzleFlash(bank, { crossed: true });
   extraMats.push(...muzzle.materials);
   let muzzleT = 0;
@@ -327,6 +327,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       worn?.update();
       flashT = Math.max(0, flashT - dt);
       muzzle.group.visible = muzzleT > 0 && input.weapon !== null && !input.dead; // shown before the countdown:
+      muzzle.update(FLASH_TIME - muzzleT);
       muzzleT = Math.max(0, muzzleT - dt); // a shot always gets at least one drawn frame
       pulse += dt * 14;
       const e = flashT > 0 ? 0.9 : 0;

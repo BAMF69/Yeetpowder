@@ -19,7 +19,7 @@ import { Peer, type DataConnection } from "peerjs";
 import { Log } from "../../core/log";
 import { TUNING } from "../../core/yeet/tuning";
 import { makeCode, SNAP_EVERY, type ClientMsg, type NetInput, type ServerMsg } from "../../net/protocol";
-import { Room, SLOTS } from "../../net/room";
+import { Room } from "../../net/room";
 import type { NetStatus, Transport } from "./transport";
 
 const PREFIX = "yeetpowder-v1-";
@@ -73,7 +73,8 @@ export class PeerHost implements Transport {
   private code = "";
   private room: Room | null = null;
   private hostSlot = -1;
-  private readonly conns: Array<DataConnection | null> = Array(SLOTS).fill(null);
+  private readonly conns: Array<DataConnection | null> = Array(8).fill(null);
+  private readonly watchers = new Set<DataConnection>();
   private clock: Worker | null = null;
   private last = 0;
   private acc = 0;
@@ -109,10 +110,11 @@ export class PeerHost implements Transport {
   }
 
   send(msg: ClientMsg): void {
+    if (msg.t === "rematch") { this.room?.restart(this.hostSlot); return; }
     if (msg.t !== "create" || this.room) return; // the host only ever makes its own room
-    this.room = new Room(this.code);
+    this.room = new Room(this.code, msg.options);
     this.hostSlot = this.room.join();
-    this.onMsg({ t: "joined", code: this.code, slot: this.hostSlot, level: "duel" });
+    this.onMsg({ t: "joined", code: this.code, slot: this.hostSlot, level: this.room.options.level, options: this.room.options });
     this.last = performance.now();
     this.clock = tickWorker(() => this.tick());
   }
@@ -126,29 +128,38 @@ export class PeerHost implements Transport {
   close(): void {
     this.clock?.terminate();
     for (const c of this.conns) c?.close();
+    for (const c of this.watchers) c.close();
     this.peer?.destroy();
     this.status = "closed";
   }
 
   private accept(conn: DataConnection): void {
     let slot = -1;
+    let watching = false;
     conn.on("data", (raw) => {
       const msg = parse(raw) as ClientMsg | null;
       if (!msg || !this.room) return;
       if (msg.t === "ping") conn.send(JSON.stringify({ t: "pong", at: msg.at } satisfies ServerMsg));
       else if (msg.t === "in" && slot >= 0 && Array.isArray(msg.inputs)) this.room.push(slot, msg.inputs);
-      else if (msg.t === "join" && slot < 0) {
+      else if (msg.t === "join" && slot < 0 && !watching) {
+        if (msg.spectate) {
+          if (this.watchers.size >= 16) { conn.send(JSON.stringify({ t: "error", reason: "Too many spectators." } satisfies ServerMsg)); return; }
+          watching = true; this.watchers.add(conn);
+          conn.send(JSON.stringify({ t: "joined", code: this.code, slot: -1, level: this.room.options.level, options: this.room.options } satisfies ServerMsg));
+          conn.send(JSON.stringify({ ...this.room.snapshot(false), events: [] })); return;
+        }
         slot = this.room.join();
         if (slot < 0) {
           conn.send(JSON.stringify({ t: "error", reason: "That room is full." } satisfies ServerMsg));
           return;
         }
         this.conns[slot] = conn;
-        conn.send(JSON.stringify({ t: "joined", code: this.code, slot, level: "duel" } satisfies ServerMsg));
+        conn.send(JSON.stringify({ t: "joined", code: this.code, slot, level: this.room.options.level, options: this.room.options } satisfies ServerMsg));
         Log.debug("net", `player ${slot + 1} joined`);
       }
     });
     const gone = () => {
+      if (watching) { this.watchers.delete(conn); watching = false; return; }
       if (slot < 0 || !this.room) return;
       this.room.leave(slot);
       this.conns[slot] = null;
@@ -175,6 +186,7 @@ export class PeerHost implements Transport {
       const snap = room.snapshot();
       const json = JSON.stringify(snap);
       for (const c of this.conns) if (c?.open) c.send(json);
+      for (const c of this.watchers) if (c.open) c.send(json);
       this.onMsg(snap);
     }
     if (steps === MAX_STEPS_PER_TICK) this.acc = 0;

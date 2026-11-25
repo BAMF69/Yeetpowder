@@ -1,0 +1,18 @@
+{
+ "id": "sword_slash_arc",
+ "title": "Sword Slash Arc",
+ "columns": 8,
+ "rows": 8,
+ "frames": 64,
+ "fps": 30,
+ "loop": false,
+ "blending": "additive",
+ "alpha": "straight (colour bled under transparent pixels)",
+ "order": "row-major from the top-left cell",
+ "note": "One-shot: a fast white-blue crescent swipe from upper left to lower right.",
+ "sheets": {
+  "2048": "sword_slash_arc_sheet_2048.png",
+  "1024": "sword_slash_arc_sheet_1024.png",
+  "512": "sword_slash_arc_sheet_512.png"
+ }
+}

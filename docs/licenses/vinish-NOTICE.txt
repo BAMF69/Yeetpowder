@@ -1,0 +1,22 @@
+Vinish assets, retrieved 2026-11-24
+
+Author: vinish.dev
+VFX source: https://vinish.dev/free-vfx/muzzle-flashes
+Sound source: https://vinish.dev/free-sound-effects
+License: Creative Commons Attribution 4.0 International
+License URL: https://creativecommons.org/licenses/by/4.0/
+Legal text: vinish-CC-BY-4.0.txt
+
+The asset pages permit personal and commercial use and modification with attribution.
+The VFX page's recolouring answer states:
+"Yes. Tint, recolour, speed up or cut them. Keep the credit and mention that you changed them."
+
+Yeetpowder modifications: runtime pink colour remapping and adjusted VFX timing;
+runtime pitch and gain variation for sound playback. Original PNG/OGG files retained.
+Individual download URLs and SHA-256 hashes are recorded in vinish-sources.json.
+
+Credits:
+VFX by vinish.dev (https://vinish.dev/free-vfx), CC BY 4.0.
+Recoloured pink at runtime; playback timing adapted.
+Sound effects by vinish.dev (https://vinish.dev/free-sound-effects), CC BY 4.0.
+Playback pitch and volume varied in game.

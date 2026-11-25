@@ -14,14 +14,14 @@
 //           Their events from this copy are not yours to play: DuelLink.stepLocal keeps only your own.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
-import { duelLevel } from "../core/yeet/levels";
+import { roomLevel, roomOptions, type RoomOptions } from "./roomOptions";
 import { NO_INPUT, YeetSim, type TaggedEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING } from "../core/yeet/tuning";
 import type { NetInput, Snapshot } from "./protocol";
-import { SLOTS } from "./room";
+
 
 export class Predictor {
-  readonly sim = new YeetSim(TUNING, duelLevel(), SLOTS);
+  readonly sim: YeetSim;
   /** Inputs sent but not yet acknowledged by the server, oldest first. */
   readonly pending: NetInput[] = [];
   private seq = 0;
@@ -29,11 +29,14 @@ export class Predictor {
   lastError = 0;
   lastTick = -1;
   /** What the other players hold, from the last snapshot (NO_INPUT until one arrives). */
-  private others: YeetInput[] = Array(SLOTS).fill(NO_INPUT);
+  private others: YeetInput[];
 
   slot: number;
 
-  constructor(slot: number) {
+  constructor(slot: number, config?: RoomOptions) {
+    const options = config ?? roomOptions({ level: "duel", capacity: 2, botFill: false });
+    this.sim = new YeetSim(TUNING, roomLevel(options), options.capacity);
+    this.others = Array(options.capacity).fill(NO_INPUT);
     this.slot = slot;
     this.sim.localIndex = slot;
   }
@@ -67,9 +70,11 @@ export class Predictor {
   onSnapshot(snap: Snapshot): number {
     if (snap.tick <= this.lastTick) return 0; // an old or repeated snapshot
     this.lastTick = snap.tick;
-    if (snap.held) this.others = snap.held.map((h, j) => (snap.present[j] ? h : NO_INPUT));
+    if (snap.held) this.others = snap.held.map((h, j) => ((snap.active?.[j] ?? snap.present[j]) ? h : NO_INPUT));
     const before = { ...this.sim.players[this.slot].pos };
     this.sim.importState(snap.state);
+    // Eliminated players and completed rounds cannot accumulate unacknowledged controls indefinitely.
+    if (snap.match?.phase === "finished" || snap.active?.[this.slot] === false) this.pending.length = 0;
     const ack = snap.acks[this.slot] ?? 0;
     while (this.pending.length && this.pending[0].seq <= ack) this.pending.shift();
     for (const p of this.pending) {

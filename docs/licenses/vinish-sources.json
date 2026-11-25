@@ -1,0 +1,107 @@
+[
+  {
+    "file": "public/assets/vfx/vinish/muzzle_flash_front_loop_sheet_1024.png",
+    "url": "https://vinish-vfx.pages.dev/muzzle-flashes/muzzle_flash_front_loop_sheet_1024.png",
+    "source": "https://vinish.dev/free-vfx/muzzle-flashes",
+    "sha256": "e35f67b77ac3f0c49fbfa66681cbb0a54c4218a877d57ac512baca98115bd2cb",
+    "bytes": 312157
+  },
+  {
+    "file": "public/assets/vfx/vinish/muzzle_flash_front_loop.json",
+    "url": "https://vinish-vfx.pages.dev/muzzle-flashes/muzzle_flash_front_loop.json",
+    "source": "https://vinish.dev/free-vfx/muzzle-flashes",
+    "sha256": "bf839c92c7415c985e629e4de560a9beb7d0f748a1f1d118e764464793facbac",
+    "bytes": 570
+  },
+  {
+    "file": "public/assets/vfx/vinish/hit_star_flash_sheet_1024.png",
+    "url": "https://vinish-vfx.pages.dev/hit-flashes-and-impacts/hit_star_flash_sheet_1024.png",
+    "source": "https://vinish.dev/free-vfx/hit-flashes-and-impacts",
+    "sha256": "ae91449c602a77806e16cdae5ddc24dbc11f7449ecace4ca5ed058c634c79d9f",
+    "bytes": 342856
+  },
+  {
+    "file": "public/assets/vfx/vinish/hit_star_flash.json",
+    "url": "https://vinish-vfx.pages.dev/hit-flashes-and-impacts/hit_star_flash.json",
+    "source": "https://vinish.dev/free-vfx/hit-flashes-and-impacts",
+    "sha256": "68365c527991544c59c7fd16e1d13db4ac132bce7a5be31edd4e884f8a3b5cf7",
+    "bytes": 513
+  },
+  {
+    "file": "public/assets/vfx/vinish/explosion_cartoon_sheet_1024.png",
+    "url": "https://vinish-vfx.pages.dev/explosions/explosion_cartoon_sheet_1024.png",
+    "source": "https://vinish.dev/free-vfx/explosions",
+    "sha256": "07e264d31471282538152f0f0eadc013d895cf6bbceca0e33f499a2cef1d3cfb",
+    "bytes": 610802
+  },
+  {
+    "file": "public/assets/vfx/vinish/explosion_cartoon.json",
+    "url": "https://vinish-vfx.pages.dev/explosions/explosion_cartoon.json",
+    "source": "https://vinish.dev/free-vfx/explosions",
+    "sha256": "6aa3dc502e9e34aa5c6f45ae1298e1232bb1508997be7954059be340b1e8276c",
+    "bytes": 483
+  },
+  {
+    "file": "public/assets/vfx/vinish/sword_slash_arc_sheet_1024.png",
+    "url": "https://vinish-vfx.pages.dev/sword-slashes-and-trails/sword_slash_arc_sheet_1024.png",
+    "source": "https://vinish.dev/free-vfx/sword-slashes-and-trails",
+    "sha256": "46e3ebc866548bdead421e05845a2fd2e008a35e50d133ece0eaab5ffe265671",
+    "bytes": 176517
+  },
+  {
+    "file": "public/assets/vfx/vinish/sword_slash_arc.json",
+    "url": "https://vinish-vfx.pages.dev/sword-slashes-and-trails/sword_slash_arc.json",
+    "source": "https://vinish.dev/free-vfx/sword-slashes-and-trails",
+    "sha256": "4877a51757d77d21b8ab65e90d6a9408d22b916b542648f146fb9d5527ed349f",
+    "bytes": 492
+  },
+  {
+    "file": "public/assets/audio/sfx/vinish/bonk_cartoon.ogg",
+    "url": "https://vinish-sounds.pages.dev/impacts-and-punches/bonk_cartoon.ogg",
+    "source": "https://vinish.dev/free-sound-effects/impacts-and-punches",
+    "sha256": "a6fe0c157c251151fa30f5591e120d309282f0fdd22cca7a7067bdead7096351",
+    "bytes": 15044
+  },
+  {
+    "file": "public/assets/audio/sfx/vinish/body_fall.ogg",
+    "url": "https://vinish-sounds.pages.dev/impacts-and-punches/body_fall.ogg",
+    "source": "https://vinish.dev/free-sound-effects/impacts-and-punches",
+    "sha256": "33839a1430f1687760f498e23f309cdbaf605c401fa9747b03d2e1d8d3c0e9ec",
+    "bytes": 20792
+  },
+  {
+    "file": "public/assets/audio/sfx/vinish/sword_clash.ogg",
+    "url": "https://vinish-sounds.pages.dev/impacts-and-punches/sword_clash.ogg",
+    "source": "https://vinish.dev/free-sound-effects/impacts-and-punches",
+    "sha256": "36c92fae7b67669f742cfe281a24a44628eb108bb791b305c9ba666f8bcb4bb9",
+    "bytes": 33452
+  },
+  {
+    "file": "public/assets/audio/sfx/vinish/sword_swing_light.ogg",
+    "url": "https://vinish-sounds.pages.dev/whooshes-and-swings/sword_swing_light.ogg",
+    "source": "https://vinish.dev/free-sound-effects/whooshes-and-swings",
+    "sha256": "dd9eeb8de28e1b84f9d3abce8755bdd0e9003e0a103811017331070d490cb71d",
+    "bytes": 14328
+  },
+  {
+    "file": "public/assets/audio/sfx/vinish/sword_swing_heavy.ogg",
+    "url": "https://vinish-sounds.pages.dev/whooshes-and-swings/sword_swing_heavy.ogg",
+    "source": "https://vinish.dev/free-sound-effects/whooshes-and-swings",
+    "sha256": "bc11a078d432ccd6e354874ecddbfc0cb157b74e14a1f0d5a46e2718ec54a4a3",
+    "bytes": 21031
+  },
+  {
+    "file": "public/assets/audio/sfx/vinish/explosion_cartoon.ogg",
+    "url": "https://vinish-sounds.pages.dev/explosions/explosion_cartoon.ogg",
+    "source": "https://vinish.dev/free-sound-effects/explosions",
+    "sha256": "4f89d54491820b813984d86ef301f82cfaafe3a6078b31ebd7b081f3edaf0516",
+    "bytes": 24666
+  },
+  {
+    "file": "public/assets/audio/sfx/vinish/explosion_grenade.ogg",
+    "url": "https://vinish-sounds.pages.dev/explosions/explosion_grenade.ogg",
+    "source": "https://vinish.dev/free-sound-effects/explosions",
+    "sha256": "418c37b214aaf6ff46a24ccead5e67317c0299b901222d141a8b695275f71e7e",
+    "bytes": 38655
+  }
+]

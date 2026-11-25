@@ -17,10 +17,14 @@
 import * as THREE from "three";
 import type { Arena, Box } from "../../core/yeet/arena";
 import { disposePaint, paintedTexture, type PaintKind } from "./paint";
+import { TERRAIN, terrainMaterial, disposeTerrainTextures, type TerrainKind } from "./terrainMaterials";
+import { batchStaticMeshes } from "./staticBatch";
+type SurfaceKind = PaintKind | TerrainKind;
 
 /** Metres per texture repeat, per surface. */
-const TILE: Partial<Record<PaintKind, number>> = {
-  concrete: 3, floor: 2, ceiling: 3, crate: 1.6, steel: 2, hazard: 0.8, band: 2, light: 1,
+const TILE: Partial<Record<SurfaceKind, number>> = {
+  sand: TERRAIN.sand.tile, rock: TERRAIN.rock.tile, asphalt: TERRAIN.asphalt.tile, corrugated: TERRAIN.corrugated.tile,
+  concrete: TERRAIN.concrete.tile, floor: TERRAIN.concrete.tile, ceiling: 3, crate: 1.6, steel: 2, hazard: 0.8, band: 2, light: 1,
 };
 const BAND = { bottom: 1.15, top: 1.6, inset: 0.02 }; // the orange wall stripe (m above the floor)
 const HAZARD_H = 0.45; // hazard trim round the foot of tall blocks
@@ -44,12 +48,13 @@ function blockKind(b: Box): PaintKind {
 const FITTED = new Set<PaintKind>(["crate", "steel", "light"]);
 
 /** A box's own paint (Box.paint, the outdoor levels): which painted surface it uses and the colour it is tinted. */
-const PAINTS: Record<NonNullable<Box["paint"]>, { kind: PaintKind; tint: string }> = {
-  sand: { kind: "concrete", tint: "#f2dca6" },
-  rock: { kind: "concrete", tint: "#e6d6bd" },
-  asphalt: { kind: "floor", tint: "#9a9ca0" },
-  corrugated: { kind: "steel", tint: "#b4bcc2" },
-  container: { kind: "steel", tint: "#c25a35" },
+const PAINTS: Record<NonNullable<Box["paint"]>, { kind: SurfaceKind; tint: string }> = {
+  sand: { kind: "sand", tint: "#ffffff" },
+  rock: { kind: "rock", tint: "#ffffff" },
+  asphalt: { kind: "asphalt", tint: "#ffffff" },
+  corrugated: { kind: "corrugated", tint: "#ffffff" },
+  container: { kind: "corrugated", tint: "#6b8b86" },
+  concrete: { kind: "concrete", tint: "#e3d9c3" },
 };
 
 /** Copies of a texture across a face `size` metres wide: the nearest whole number to size / tile, at least one. */
@@ -102,27 +107,28 @@ function worldUVs(geo: THREE.BufferGeometry, center: THREE.Vector3, tile: number
   uv.needsUpdate = true;
 }
 
-export function buildRoom(arena: Arena): { group: THREE.Group; dispose(): void } {
+export function buildRoom(arena: Arena, opts: { cutaway?: boolean } = {}): { group: THREE.Group; dispose(): void } {
   const group = new THREE.Group();
   const geos: THREE.BufferGeometry[] = [];
   const mats = new Map<string, THREE.Material>();
-  const mat = (kind: PaintKind, tint = "#ffffff"): THREE.Material => {
+  const mat = (kind: SurfaceKind, tint = "#ffffff"): THREE.Material => {
     let m = mats.get(kind + tint);
     if (!m) {
       // light panels glow, and the ceiling (facing away from every light) shows as painted: both unlit
-      m = kind === "light" || kind === "ceiling"
-        ? new THREE.MeshBasicMaterial({ map: paintedTexture(kind), color: tint })
-        : new THREE.MeshStandardMaterial({ map: paintedTexture(kind), color: tint, roughness: 0.92, metalness: kind === "steel" ? 0.15 : 0 });
+      const terrain = kind === "floor" ? "concrete" : kind;
+      m = terrain in TERRAIN ? terrainMaterial(terrain as TerrainKind, kind === "floor" ? "#a0a29f" : tint) : kind === "light" || kind === "ceiling"
+        ? new THREE.MeshBasicMaterial({ map: paintedTexture(kind as PaintKind), color: tint })
+        : new THREE.MeshStandardMaterial({ map: paintedTexture(kind as PaintKind), color: tint, roughness: 0.92, metalness: kind === "steel" ? 0.15 : 0 });
       mats.set(kind + tint, m);
     }
     return m;
   };
   /** Adds a textured box (world-space min/max) to the group. */
-  const addBox = (min: THREE.Vector3, max: THREE.Vector3, kind: PaintKind, shadows: { cast: boolean; receive: boolean }, tint?: string) => {
+  const addBox = (min: THREE.Vector3, max: THREE.Vector3, kind: SurfaceKind, shadows: { cast: boolean; receive: boolean }, tint?: string) => {
     const size = new THREE.Vector3().subVectors(max, min);
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
     const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
-    if (FITTED.has(kind)) fittedUVs(geo, size, TILE[kind] ?? 1);
+    if (FITTED.has(kind as PaintKind)) fittedUVs(geo, size, TILE[kind] ?? 1);
     else worldUVs(geo, center, TILE[kind] ?? 1);
     geos.push(geo);
     const mesh = new THREE.Mesh(geo, mat(kind, tint));
@@ -135,6 +141,7 @@ export function buildRoom(arena: Arena): { group: THREE.Group; dispose(): void }
   const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
   for (const b of arena.boxes) {
+    if (opts.cutaway && b.kind === "ceiling") continue;
     if (b.prop) continue; // cars, trucks, tanks, drums are drawn by props.ts; "hidden" bounds are not drawn
     const top = b.kind === "wall" ? Math.min(b.max.y, b.drawTop ?? b.max.y) : b.max.y;
     const min = v3(b.min.x, b.min.y, b.min.z);
@@ -166,12 +173,14 @@ export function buildRoom(arena: Arena): { group: THREE.Group; dispose(): void }
       }
     }
   }
+  geos.push(...batchStaticMeshes(group));
   return {
     group,
     dispose() {
       for (const g of geos) g.dispose();
       for (const m of mats.values()) m.dispose();
       disposePaint();
+      disposeTerrainTextures();
     },
   };
 }
