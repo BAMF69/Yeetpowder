@@ -71,6 +71,7 @@ try {
    for(const {op}of window.gallery.items)op.dispose();window.gallery.renderer.dispose();
  });
  await page.goto(`${server.resolvedUrls.local[0]}?play&level=industrial&art-preview=approved`,{waitUntil:"domcontentloaded",timeout:180000});
+ await page.getByRole("button",{name:"No thanks",exact:true}).click();
  await until(()=>page.evaluate(async()=>{const {game}=await import("/src/main.ts");return !!(game.loaded&&game.world?.body?.root.getObjectByName("Spine02"));}),"chosen operator in live arena");
  await page.keyboard.down("KeyW");await page.waitForTimeout(500);await page.keyboard.up("KeyW");
  await page.mouse.down({button:"right"});await page.waitForTimeout(300);await page.mouse.up({button:"right"});await page.keyboard.press("KeyR");
