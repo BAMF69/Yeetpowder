@@ -1,0 +1,543 @@
+<title>Yeetpowder Menu Redesign</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@500;700;900&display=swap">
+<style>
+/* Layout: a phone-landscape (or tablet) game screen scaled to fit, with the mockup's own controls above it.
+   Single dark look on purpose: it is the game's own neon-on-navy menu style. */
+:root {
+  color-scheme: dark;
+  --ink: #070d1c;        /* page ground */
+  --panel: #12203a;      /* tiles */
+  --panel-hi: #1b3152;
+  --line: #2d4d70;
+  --pink: #ff56b1;       /* the game's menu border colour */
+  --cyan: #5ce3ef;       /* focus / secondary */
+  --yellow: #ffd84a;     /* primary action */
+  --text: #eef3fb;
+  --mute: #8fa3c0;
+  --danger: #ff6b5e;
+  --display: "Bungee", "Impact", system-ui, sans-serif;
+  --ui: "Rubik", system-ui, sans-serif;
+}
+html, body { height: 100%; }
+body { background: var(--ink); color: var(--text); font-family: var(--ui); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px; box-sizing: border-box; }
+.top { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; max-width: 1180px; margin: 0 auto 10px; }
+.top h1 { font: 400 18px var(--display); margin: 0; letter-spacing: .02em; }
+.top h1 span { color: var(--pink); }
+.seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.seg button { font: 700 12px var(--ui); color: var(--mute); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+.seg button[aria-pressed="true"] { color: var(--ink); background: var(--cyan); border-color: var(--cyan); }
+.note { max-width: 1180px; margin: 10px auto 0; color: var(--mute); font-size: 13px; line-height: 1.5; }
+.note b { color: var(--text); }
+
+/* the scaled device */
+#fit { width: 100%; max-width: 1180px; margin: 0 auto; position: relative; }
+#device { position: absolute; left: 0; top: 0; transform-origin: 0 0; border-radius: 22px; overflow: hidden; box-shadow: 0 0 0 6px #1a2438, 0 20px 60px #0008; background: var(--ink); }
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 18px 22px; box-sizing: border-box; gap: 14px;
+  background: radial-gradient(120% 90% at 85% 10%, #3a1640 0%, transparent 55%), radial-gradient(90% 80% at 0% 100%, #0d3550 0%, transparent 60%), var(--ink); }
+.screen[hidden] { display: none !important; }
+
+/* header row on every sub screen: big back arrow + one-word title */
+.bar { display: flex; align-items: center; gap: 14px; min-height: 52px; }
+.back { width: 52px; height: 52px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel); color: var(--text); display: grid; place-items: center; cursor: pointer; flex: none; }
+.back svg { width: 26px; height: 26px; }
+.bar h2 { font: 400 26px var(--display); margin: 0; letter-spacing: .01em; }
+.bar .spacer { flex: 1; }
+
+/* tiles: icon first, one word under it */
+.tile { position: relative; border: 2px solid var(--line); background: linear-gradient(160deg, var(--panel-hi), var(--panel)); border-radius: 6px 22px 6px 22px; color: var(--text);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font: 900 15px var(--ui); letter-spacing: .06em; text-transform: uppercase; padding: 10px; min-width: 0; transition: transform .08s, border-color .08s; }
+.tile svg { width: 46%; max-width: 64px; height: auto; aspect-ratio: 1; }
+.tile:hover, .tile:focus-visible { border-color: var(--cyan); outline: none; transform: translateY(-2px); box-shadow: 0 0 0 3px #5ce3ef33; }
+.tile:active { transform: scale(.97); }
+.tile.hero { background: linear-gradient(115deg, var(--pink), #ff9f6a 60%, var(--yellow)); border-color: var(--yellow); color: #160c1c; font: 400 26px var(--display); }
+.tile.hero svg { max-width: 92px; }
+.tile .sub { font: 700 11px var(--ui); letter-spacing: .04em; color: var(--mute); text-transform: none; }
+.tile.hero .sub { color: #3d1b2e; }
+.tile[aria-pressed="true"] { border-color: var(--yellow); box-shadow: inset 0 0 0 2px var(--yellow); }
+.badge { position: absolute; top: 8px; right: 10px; font: 900 11px var(--ui); background: var(--cyan); color: var(--ink); border-radius: 999px; padding: 2px 7px; }
+
+/* home layout */
+.home { display: grid; grid-template-columns: 1.35fr 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; flex: 1; min-height: 0; }
+.home .hero { grid-row: 1 / 3; }
+.home .op { grid-column: 4; grid-row: 1 / 3; }
+.logo { display: flex; align-items: baseline; gap: 12px; }
+.logo b { font: 400 30px var(--display); color: #fff4d6; text-shadow: 3px 3px 0 #ec3296; letter-spacing: -.01em; }
+.logo i { font: 900 11px var(--ui); color: var(--cyan); letter-spacing: .2em; font-style: normal; }
+.portrait { width: 78%; max-width: 120px; aspect-ratio: 1; }
+.portrait svg { width: 100%; max-width: none; height: 100%; }
+.opname { font: 400 15px var(--display); text-transform: none; letter-spacing: 0; }
+
+.row { display: grid; gap: 12px; flex: 1; min-height: 0; }
+.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* setup screens: sections of picker chips, a big GO */
+.setup { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; flex: 1; min-height: 0; }
+.group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.group > .lbl { display: flex; align-items: center; gap: 6px; color: var(--mute); font: 900 11px var(--ui); letter-spacing: .14em; text-transform: uppercase; }
+.group > .lbl svg { width: 14px; height: 14px; }
+.maps { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; gap: 8px; flex: 1; min-height: 0; }
+.map { padding: 0; overflow: hidden; justify-content: flex-end; gap: 0; }
+.map svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; aspect-ratio: auto; }
+.map span { position: relative; width: 100%; background: linear-gradient(transparent, #070d1cee); padding: 14px 6px 6px; font-size: 12px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { width: 58px; height: 58px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel); color: var(--text); display: grid; place-items: center; cursor: pointer; position: relative; }
+.chip svg { width: 28px; height: 28px; }
+.chip[aria-pressed="true"] { border-color: var(--yellow); background: #2a2a1d; color: var(--yellow); }
+.chip small { position: absolute; bottom: -1px; left: 0; right: 0; font: 900 9px var(--ui); letter-spacing: .06em; text-align: center; color: var(--mute); }
+.chip[aria-pressed="true"] small { color: var(--yellow); }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper button { width: 46px; height: 46px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); color: var(--text); font: 900 24px var(--ui); cursor: pointer; }
+.stepper output { font: 400 28px var(--display); min-width: 54px; text-align: center; font-variant-numeric: tabular-nums; }
+.stepper .people { display: flex; gap: 2px; color: var(--cyan); }
+.stepper .people svg { width: 14px; height: 18px; }
+.go { margin-top: auto; height: 64px; border: 0; border-radius: 6px 22px 6px 22px; background: linear-gradient(115deg, var(--pink), var(--yellow)); color: #160c1c; font: 400 26px var(--display); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.go svg { width: 28px; height: 28px; }
+.bar .go { margin: 0; height: 52px; padding: 0 30px; font-size: 22px; }
+.stepper > svg { width: 22px; height: 22px; color: var(--mute); }
+.setup .group { gap: 10px; }
+
+/* join: four big code boxes */
+.code { display: flex; gap: 12px; justify-content: center; }
+.code input { width: 76px; height: 92px; text-align: center; font: 400 48px var(--display); background: var(--panel); color: var(--yellow); border: 2px solid var(--line); border-radius: 14px; text-transform: uppercase; }
+.code input:focus { outline: none; border-color: var(--cyan); }
+
+/* operator screen */
+.opstage { flex: 1; display: grid; grid-template-columns: 64px 1fr 64px; align-items: center; gap: 10px; min-height: 0; }
+.arrow { height: 120px; border-radius: 16px; border: 2px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; display: grid; place-items: center; }
+.arrow svg { width: 30px; height: 30px; }
+.opcenter { display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: center; min-height: 0; }
+.opcenter .big { height: 62%; aspect-ratio: 1; }
+.opcenter .big svg { width: 100%; height: 100%; }
+.dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.dots i.on { background: var(--yellow); }
+.namechip { display: inline-flex; align-items: center; gap: 10px; border: 2px solid var(--line); background: var(--panel); border-radius: 999px; padding: 6px 8px 6px 18px; color: var(--text); font: 700 18px var(--ui); cursor: pointer; }
+.namechip svg { width: 20px; height: 20px; color: var(--cyan); }
+.namechip input { font: 700 18px var(--ui); background: transparent; border: 0; color: var(--text); width: 9em; outline: none; }
+
+/* in-game backdrop for the respawn screen */
+.gameview { position: absolute; inset: 0; }
+.gameview svg { width: 100%; height: 100%; }
+.respawn { background: none; padding: 16px 20px; }
+.respawn::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at center, #070d1c66, #070d1cdd 80%); pointer-events: none; }
+.respawn > * { position: relative; }
+.respawn > .gameview { position: absolute; z-index: -1; }
+.respawn { isolation: isolate; }
+.respawn::before { z-index: -1; }
+.killer { display: flex; align-items: center; gap: 12px; align-self: center; background: #070d1ccc; border: 2px solid var(--danger); border-radius: 999px; padding: 6px 18px 6px 8px; }
+.killer .mini { width: 40px; height: 40px; }
+.killer .mini svg { width: 100%; height: 100%; }
+.killer svg.gun { width: 34px; height: 22px; color: var(--danger); }
+.killer b { font: 400 18px var(--display); }
+.killer em { font: 900 12px var(--ui); font-style: normal; color: var(--danger); letter-spacing: .14em; }
+.rmain { flex: 1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; min-height: 0; }
+.spawnbtn { width: 190px; height: 190px; border-radius: 50%; border: 0; background: none; position: relative; cursor: pointer; color: var(--text); padding: 0; }
+.spawnbtn svg.ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.spawnbtn .face { position: absolute; inset: 16px; border-radius: 50%; background: #1a2238; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: background .2s; }
+.spawnbtn.ready .face { background: linear-gradient(135deg, var(--pink), var(--yellow)); color: #160c1c; animation: pulse 1s ease-in-out infinite; }
+.spawnbtn .face svg { width: 48px; height: 48px; }
+.spawnbtn .face b { font: 400 24px var(--display); }
+.spawnbtn .face small { font: 900 12px var(--ui); letter-spacing: .1em; opacity: .8; font-variant-numeric: tabular-nums; }
+@keyframes pulse { 50% { transform: scale(1.04); } }
+@media (prefers-reduced-motion: reduce) { .spawnbtn.ready .face { animation: none; } .tile { transition: none; } }
+.side { display: flex; flex-direction: column; gap: 10px; align-items: center; min-width: 0; }
+.opcar { display: flex; align-items: center; gap: 8px; }
+.opcar .arrow { width: 44px; height: 84px; }
+.opcar .arrow svg { width: 22px; height: 22px; }
+.opcar .face2 { width: 104px; height: 104px; border-radius: 18px; border: 2px solid var(--line); background: #070d1cbb; }
+.opcar .face2 svg { width: 100%; height: 100%; }
+.side .opname { font-size: 14px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--line); background: #070d1cbb; border-radius: 999px; padding: 8px 14px; color: var(--mute); font: 900 12px var(--ui); letter-spacing: .1em; cursor: pointer; }
+.toggle svg { width: 18px; height: 18px; }
+.toggle[aria-pressed="true"] { color: var(--yellow); border-color: var(--yellow); }
+.scores { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; background: #070d1cbb; border: 2px solid var(--line); border-radius: 14px; padding: 10px 14px; font: 700 13px var(--ui); font-variant-numeric: tabular-nums; min-width: 170px; }
+.scores .me { color: var(--yellow); }
+.scores i { width: 10px; height: 10px; border-radius: 50%; align-self: center; }
+.pads { display: flex; gap: 14px; justify-content: center; color: var(--mute); font: 700 11px var(--ui); letter-spacing: .06em; }
+.pads span { display: inline-flex; align-items: center; gap: 5px; }
+.pads kbd { font: 900 10px var(--ui); background: var(--panel-hi); border: 1px solid var(--line); border-radius: 50%; min-width: 20px; height: 20px; display: inline-grid; place-items: center; color: var(--text); }
+.pads kbd.sq { border-radius: 5px; padding: 0 4px; }
+.toast { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--yellow); color: var(--ink); font: 900 14px var(--ui); padding: 8px 16px; border-radius: 999px; }
+</style>
+
+<!-- shared icons: one <symbol> per idea, drawn in code (no icon font, no asset licence) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13 2 4 14h6l-1 8 9-12h-6z"/></symbol>
+    <symbol id="i-party" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="8" cy="7" r="3"/><circle cx="16.5" cy="8" r="2.5"/><path d="M2 20c0-4 2.7-7 6-7s6 3 6 7z"/><path d="M14.5 20c0-2-.5-3.8-1.6-5.2.9-.8 2.2-1.3 3.6-1.3 3 0 5.5 2.6 5.5 6.5z"/></g></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><g fill="currentColor"><rect x="4" y="7" width="16" height="12" rx="3"/><rect x="11" y="2" width="2" height="5"/><circle cx="12" cy="2.5" r="1.6"/></g><g fill="#070d1c"><circle cx="9" cy="12.5" r="1.8"/><circle cx="15" cy="12.5" r="1.8"/><rect x="8.5" y="15.6" width="7" height="1.6" rx=".8"/></g></symbol>
+    <symbol id="i-couch" viewBox="0 0 24 24"><path fill="currentColor" d="M5 6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4a3 3 0 0 0-3 3H8a3 3 0 0 0-3-3zM1 12a2 2 0 0 1 4 0v3h14v-3a2 2 0 1 1 4 0v6H1zM3 19h2v2H3zm16 0h2v2h-2z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6 1.9.8 2.2-1.5 2.4 2.4-1.5 2.2.8 1.9 2.6.5v3.4l-2.6.5-.8 1.9 1.5 2.2-2.4 2.4-2.2-1.5-1.9.8-.5 2.6h-3.4l-.5-2.6-1.9-.8-2.2 1.5-2.4-2.4 1.5-2.2-.8-1.9L2 13.7v-3.4l2.6-.5.8-1.9-1.5-2.2 2.4-2.4 2.2 1.5 1.9-.8zM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M15 4 7 12l8 8"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="m9 4 8 8-8 8"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" d="M12 4v16M4 12h16"/></symbol>
+    <symbol id="i-door" viewBox="0 0 24 24"><g fill="currentColor"><path d="M4 3h10v18H4z" opacity=".35"/><path d="M14 3l6 2v16l-6-2z"/><path d="M8 12h7m-3-3 3 3-3 3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></g></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5C6.5 5 2.7 9.3 1.5 12c1.2 2.7 5 7 10.5 7s9.3-4.3 10.5-7C21.3 9.3 17.5 5 12 5m0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8"/><circle cx="12" cy="12" r="2" fill="currentColor"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></g><circle cx="12" cy="12" r="1.6" fill="currentColor"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path fill="currentColor" d="m12 2 9 5v10l-9 5-9-5V7zm0 2.3L5.4 8 12 11.6 18.6 8zM4.5 9.6v6.5l6.7 3.7v-6.5zm15 0-6.7 3.7v6.5l6.7-3.7z"/></symbol>
+    <symbol id="i-vs" viewBox="0 0 24 24"><path fill="currentColor" d="M2 5h3l2.5 9L10 5h3l-4 14H6zm17.5 0c2 0 3.2 1 3.5 2.8l-2.6.5c-.1-.7-.5-1-1-1-.6 0-1 .3-1 .8 0 1.6 4.8 1.4 4.8 5.5 0 2.4-1.6 4-4 4-2.3 0-3.7-1.2-4-3.2l2.7-.5c.1.9.6 1.4 1.3 1.4s1.1-.4 1.1-1c0-1.8-4.8-1.5-4.8-5.5C15.5 6.5 17 5 19.5 5"/></symbol>
+    <symbol id="i-skull" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 2c5 0 8.5 3.4 8.5 8 0 2.6-1.2 4.4-2.5 5.4V19a2 2 0 0 1-2 2h-1v-2h-1.5v2h-3v-2H9v2H8a2 2 0 0 1-2-2v-3.6C4.7 14.4 3.5 12.6 3.5 10 3.5 5.4 7 2 12 2M8.5 9.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4M12 13.5l-1.3 2.5h2.6z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-8.5-5.3-8.5-11.2A4.8 4.8 0 0 1 12 6.6a4.8 4.8 0 0 1 8.5 3.2C20.5 15.7 12 21 12 21"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 6.5V12l3.8 2.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-ring" viewBox="0 0 24 24"><ellipse cx="12" cy="15" rx="10" ry="5" fill="none" stroke="currentColor" stroke-width="2.4"/><path fill="currentColor" d="m12 1 2.5 4h-1.7v6h-1.6V5H9.5z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path fill="none" stroke="currentColor" stroke-width="2" d="M2.5 12h19M12 2.5c3 3 3 16 0 19m0-19c-3 3-3 16 0 19"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10V7a5 5 0 0 1 10 0v3h1.5v11h-13V10zm2.5 0h5V7a2.5 2.5 0 0 0-5 0z"/></symbol>
+    <symbol id="i-person" viewBox="0 0 14 18"><circle cx="7" cy="4" r="3.5" fill="currentColor"/><path fill="currentColor" d="M0 18c0-5 3-8 7-8s7 3 7 8z"/></symbol>
+    <symbol id="i-pad" viewBox="0 0 24 24"><path fill="currentColor" d="M7 6h10a5 5 0 0 1 5 5l.8 5.6a2.8 2.8 0 0 1-5 2L15.6 16H8.4l-2.2 2.6a2.8 2.8 0 0 1-5-2L2 11a5 5 0 0 1 5-5"/><path stroke="#070d1c" stroke-width="1.8" stroke-linecap="round" d="M6 11h4M8 9v4"/><circle cx="16" cy="10" r="1.2" fill="#070d1c"/><circle cx="18" cy="12.5" r="1.2" fill="#070d1c"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path fill="currentColor" d="m15.5 3.5 5 5L9 20H4v-5zm-2 3.4L6 14.4V18h3.6l7.5-7.5z"/></symbol>
+    <symbol id="i-respawn" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" d="M19.5 12A7.5 7.5 0 1 1 17 6.4"/><path fill="currentColor" d="M21 3v7h-7z"/></symbol>
+    <symbol id="i-auto" viewBox="0 0 24 24"><path fill="currentColor" d="M13 2 4 14h6l-1 8 9-12h-6z"/><circle cx="19" cy="19" r="4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path fill="currentColor" d="M7 3h10v2h4v3a4 4 0 0 1-4.3 4A5 5 0 0 1 13 15v3h3v3H8v-3h3v-3a5 5 0 0 1-3.7-3A4 4 0 0 1 3 8V5h4zm-2 4v1a2 2 0 0 0 2 2zm14 0-2 3a2 2 0 0 0 2-2z"/></symbol>
+    <symbol id="i-gun" viewBox="0 0 36 22"><path fill="currentColor" d="M2 4h28l2 3h3v4H22l-2 3h-4l-2 8H7l3-11H2z"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path fill="currentColor" d="M3 9h4l5-5v16l-5-5H3z"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M15.5 8.5a5 5 0 0 1 0 7m3-10a9 9 0 0 1 0 13"/></symbol>
+    <symbol id="i-screen" viewBox="0 0 24 24"><path fill="currentColor" d="M2 4h20v13H2zm2 2v9h16V6zm4 13h8v2H8z"/></symbol>
+    <symbol id="i-access" viewBox="0 0 24 24"><circle cx="12" cy="4" r="2.5" fill="currentColor"/><path fill="currentColor" d="M3 7.5 12 9l9-1.5.5 2.3-6.5 1.5V14l2.5 8h-2.6L12 15.5 9.1 22H6.5L9 14v-2.7L2.5 9.8z"/></symbol>
+    <symbol id="i-lang" viewBox="0 0 24 24"><path fill="currentColor" d="M3 4h10v2h-2.2c-.5 2.4-1.5 4.4-3 6 1 .8 2.2 1.4 3.6 1.8l-.7 2c-1.7-.5-3.1-1.3-4.3-2.3A12 12 0 0 1 2.5 16l-.8-1.9a10 10 0 0 0 3.5-1.7A11 11 0 0 1 3.3 8h2.2c.4 1.2 1 2.2 1.8 3 1-1.2 1.7-3 2.1-5H3zm12.5 6h2.2l4.3 11h-2.3l-1-2.7h-4.3L13.4 21h-2.2zm1.1 2.8-1.4 3.6h2.9z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="#070d1c" d="M11 10h2v8h-2zm0-4h2v2h-2z"/></symbol>
+  </defs>
+</svg>
+
+<div class="top">
+  <h1>YEET<span>POWDER</span> · menu mockup</h1>
+  <div class="seg" id="jump" aria-label="Jump to a screen">
+    <button data-go="home" aria-pressed="true">Home</button>
+    <button data-go="party">Party</button>
+    <button data-go="make">Make room</button>
+    <button data-go="solo">Solo</button>
+    <button data-go="operator">Operator</button>
+    <button data-go="respawn">Respawn</button>
+  </div>
+  <div class="seg" id="size" aria-label="Screen size">
+    <button data-size="phone" aria-pressed="true">Phone</button>
+    <button data-size="tablet">Tablet</button>
+  </div>
+</div>
+
+<div id="fit"><div id="device">
+
+  <!-- HOME: six choices, nothing else -->
+  <section class="screen" data-screen="home">
+    <div class="logo"><b>YEETPOWDER</b><i>RECOIL · LAUNCH · REPEAT</i></div>
+    <div class="home">
+      <button class="tile hero" data-go="quick"><svg><use href="#i-bolt"/></svg>PLAY<span class="sub">Jump into a match</span></button>
+      <button class="tile" data-go="party"><svg><use href="#i-party"/></svg>Party</button>
+      <button class="tile" data-go="solo"><svg><use href="#i-bot"/></svg>Solo</button>
+      <button class="tile" data-go="couch"><svg><use href="#i-couch"/></svg>Couch</button>
+      <button class="tile" data-go="settings"><svg><use href="#i-gear"/></svg>Settings</button>
+      <button class="tile op" data-go="operator"><span class="portrait" data-portrait></span><span class="opname" data-opname></span><span class="sub" data-playername></span></button>
+    </div>
+  </section>
+
+  <!-- QUICK: what PLAY does (searching state) -->
+  <section class="screen" data-screen="quick" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Finding a match</h2></div>
+    <div style="flex:1;display:grid;place-items:center">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+        <div style="display:flex;gap:8px;color:var(--cyan)" id="seats"></div>
+        <div style="font:900 13px var(--ui);color:var(--mute);letter-spacing:.12em">5 / 8 · BOTS FILL THE REST</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PARTY: online rooms with friends -->
+  <section class="screen" data-screen="party" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Party</h2></div>
+    <div class="row cols-3">
+      <button class="tile" data-go="make"><svg><use href="#i-plus"/></svg>Make<span class="sub">Get a code to share</span></button>
+      <button class="tile" data-go="join"><svg><use href="#i-door"/></svg>Join<span class="sub">Type a friend's code</span></button>
+      <button class="tile" data-go="join"><svg><use href="#i-eye"/></svg>Watch<span class="sub">Spectate a room</span></button>
+    </div>
+  </section>
+
+  <!-- MAKE ROOM: pictures and icons in place of nine dropdowns -->
+  <section class="screen" data-screen="make" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Make a room</h2><span class="spacer"></span><button class="go" data-go="respawn"><svg><use href="#i-bolt"/></svg>GO</button></div>
+    <div class="setup">
+      <div class="group"><div class="lbl">Map</div><div class="maps" data-maps></div></div>
+      <div class="group">
+        <div class="lbl">Mode</div>
+        <div class="chips" data-pick="mode">
+          <button class="chip" aria-pressed="true" aria-label="Kill target"><svg><use href="#i-skull"/></svg><small>KILLS</small></button>
+          <button class="chip" aria-label="Limited lives"><svg><use href="#i-heart"/></svg><small>LIVES</small></button>
+          <button class="chip" aria-label="Timed"><svg><use href="#i-clock"/></svg><small>TIMED</small></button>
+          <button class="chip" aria-label="Ring out"><svg><use href="#i-ring"/></svg><small>RING</small></button>
+        </div>
+        <div class="stepper" data-step="players" data-min="2" data-max="8" data-val="8"><button aria-label="Fewer">−</button><output></output><span class="people"></span><button aria-label="More">+</button></div>
+        <div class="stepper" data-step="target" data-list="5,10,15,20,30,50" data-val="10"><button aria-label="Less">−</button><output></output><button aria-label="More">+</button><svg><use href="#i-trophy"/></svg></div>
+        <div class="chips">
+          <span data-pick="vis" class="chips"><button class="chip" aria-pressed="true" aria-label="Private"><svg><use href="#i-lock"/></svg><small>CODE</small></button><button class="chip" aria-label="Public"><svg><use href="#i-globe"/></svg><small>OPEN</small></button></span>
+          <button class="chip" data-toggle aria-pressed="true" aria-label="Bots fill empty seats"><svg><use href="#i-bot"/></svg><small>BOTS</small></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- JOIN: four big boxes -->
+  <section class="screen" data-screen="join" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Join</h2></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px">
+      <div class="code" data-code><input id="c1" maxlength="1" value="K" aria-label="Code letter 1"><input id="c2" maxlength="1" value="R" aria-label="Code letter 2"><input id="c3" maxlength="1" aria-label="Code letter 3"><input id="c4" maxlength="1" aria-label="Code letter 4"></div>
+      <button class="go" style="margin:0 auto;width:min(320px,100%)" data-go="respawn"><svg><use href="#i-door"/></svg>JOIN</button>
+    </div>
+  </section>
+
+  <!-- SOLO: play against bots or practise -->
+  <section class="screen" data-screen="solo" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Solo</h2></div>
+    <div class="row cols-4">
+      <button class="tile" data-go="botsetup"><svg><use href="#i-bot"/></svg>Bots<span class="sub">Party vs 1–7 bots</span></button>
+      <button class="tile" data-go="botsetup"><svg><use href="#i-vs"/></svg>Duel<span class="sub">1 vs 1 bot</span></button>
+      <button class="tile" data-go="respawn"><svg><use href="#i-target"/></svg>Fight Back<span class="sub">Dummies shoot back</span></button>
+      <button class="tile" data-go="respawn"><svg><use href="#i-cube"/></svg>Sandbox<span class="sub">Every gun, no rules</span></button>
+    </div>
+  </section>
+
+  <!-- BOT SETUP: map, how many, how hard -->
+  <section class="screen" data-screen="botsetup" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Bots</h2><span class="spacer"></span><button class="go" data-go="respawn"><svg><use href="#i-bolt"/></svg>GO</button></div>
+    <div class="setup">
+      <div class="group"><div class="lbl">Map</div><div class="maps" data-maps></div></div>
+      <div class="group">
+        <div class="stepper" data-step="bots" data-min="1" data-max="7" data-val="5"><button aria-label="Fewer">−</button><output></output><span class="people"></span><button aria-label="More">+</button></div>
+        <div class="lbl">How hard</div>
+        <div class="chips" data-pick="skill">
+          <button class="chip" aria-label="Easy"><svg viewBox="0 0 24 24"><use href="#i-bot"/></svg><small>★</small></button>
+          <button class="chip" aria-pressed="true" aria-label="Medium"><svg><use href="#i-bot"/></svg><small>★★</small></button>
+          <button class="chip" aria-label="Hard"><svg><use href="#i-bot"/></svg><small>★★★</small></button>
+        </div>
+        <div class="lbl">Mode</div>
+        <div class="chips" data-pick="mode2">
+          <button class="chip" aria-pressed="true" aria-label="Kill target"><svg><use href="#i-skull"/></svg><small>KILLS</small></button>
+          <button class="chip" aria-label="Limited lives"><svg><use href="#i-heart"/></svg><small>LIVES</small></button>
+          <button class="chip" aria-label="Timed"><svg><use href="#i-clock"/></svg><small>TIMED</small></button>
+          <button class="chip" aria-label="Ring out"><svg><use href="#i-ring"/></svg><small>RING</small></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COUCH: how many players, then the same map/mode screen -->
+  <section class="screen" data-screen="couch" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Couch</h2></div>
+    <div class="row cols-3">
+      <button class="tile" data-go="botsetup"><span style="display:flex;gap:4px;width:70%;justify-content:center"><svg style="width:40%"><use href="#i-pad"/></svg><svg style="width:40%"><use href="#i-pad"/></svg></span>2<span class="sub">Split screen</span></button>
+      <button class="tile" data-go="botsetup"><span style="display:flex;gap:4px;width:80%;justify-content:center"><svg style="width:30%"><use href="#i-pad"/></svg><svg style="width:30%"><use href="#i-pad"/></svg><svg style="width:30%"><use href="#i-pad"/></svg></span>3<span class="sub">Split screen</span></button>
+      <button class="tile" data-go="botsetup"><span style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:52%"><svg style="width:100%"><use href="#i-pad"/></svg><svg style="width:100%"><use href="#i-pad"/></svg><svg style="width:100%"><use href="#i-pad"/></svg><svg style="width:100%"><use href="#i-pad"/></svg></span>4<span class="sub">Split screen</span></button>
+    </div>
+  </section>
+
+  <!-- SETTINGS: the existing tabs as tiles; credits lives here now -->
+  <section class="screen" data-screen="settings" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Settings</h2></div>
+    <div class="row cols-3" style="grid-template-rows:1fr 1fr">
+      <button class="tile"><svg><use href="#i-sound"/></svg>Sound</button>
+      <button class="tile"><svg><use href="#i-pad"/></svg>Controls</button>
+      <button class="tile"><svg><use href="#i-screen"/></svg>Display</button>
+      <button class="tile"><svg><use href="#i-access"/></svg>Access</button>
+      <button class="tile"><svg><use href="#i-lang"/></svg>Language</button>
+      <button class="tile"><svg><use href="#i-info"/></svg>Credits</button>
+    </div>
+  </section>
+
+  <!-- OPERATOR: big portrait, arrows, name chip -->
+  <section class="screen" data-screen="operator" hidden>
+    <div class="bar"><button class="back" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h2>Operator</h2></div>
+    <div class="opstage">
+      <button class="arrow" data-op="-1" aria-label="Previous operator"><svg><use href="#i-back"/></svg></button>
+      <div class="opcenter">
+        <div class="big" data-portrait></div>
+        <div class="opname" data-opname style="font-size:22px"></div>
+        <div class="dots" data-dots></div>
+        <label class="namechip"><input id="name1" data-name maxlength="20" aria-label="Your name"><svg><use href="#i-pencil"/></svg></label>
+      </div>
+      <button class="arrow" data-op="1" aria-label="Next operator"><svg><use href="#i-next"/></svg></button>
+    </div>
+  </section>
+
+  <!-- RESPAWN: over the live game -->
+  <section class="screen respawn" data-screen="respawn" hidden>
+    <div class="gameview" aria-hidden="true">
+      <svg viewBox="0 0 844 390" preserveAspectRatio="xMidYMid slice">
+        <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a4c7a"/><stop offset="1" stop-color="#e98aa0"/></linearGradient></defs>
+        <rect width="844" height="250" fill="url(#sky)"/><rect y="250" width="844" height="140" fill="#3b5d4a"/>
+        <ellipse cx="422" cy="300" rx="360" ry="60" fill="#c8a56c"/><ellipse cx="422" cy="300" rx="260" ry="40" fill="#b38f5a"/>
+        <rect x="80" y="170" width="120" height="90" fill="#465a6e"/><rect x="640" y="150" width="140" height="110" fill="#3e5064"/>
+        <rect x="380" y="200" width="22" height="52" fill="#64d6b1"/><circle cx="391" cy="190" r="12" fill="#64d6b1"/>
+      </svg>
+    </div>
+    <div class="killer"><span class="mini" data-killer></span><b>Riptide</b><svg class="gun"><use href="#i-gun"/></svg><em>YEETED YOU</em></div>
+    <div class="rmain">
+      <div class="side">
+        <div class="scores" aria-label="Scores">
+          <i style="background:#64d6b1"></i><span>Riptide</span><b>7</b>
+          <i style="background:#ffd84a"></i><span class="me" data-playername></span><b class="me">5</b>
+          <i style="background:#c18df2"></i><span>Bot Ziggy</span><b>4</b>
+          <i style="background:#f3a36c"></i><span>Bot Pip</span><b>2</b>
+        </div>
+        <div style="color:var(--mute);font:900 11px var(--ui);letter-spacing:.12em;display:flex;gap:6px;align-items:center"><svg width="14" height="14"><use href="#i-trophy"/></svg> FIRST TO 10</div>
+      </div>
+      <button class="spawnbtn" data-spawn aria-label="Respawn">
+        <svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#ffffff22" stroke-width="7"/><circle data-arc cx="50" cy="50" r="46" fill="none" stroke="var(--cyan)" stroke-width="7" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/></svg>
+        <span class="face"><svg><use href="#i-respawn"/></svg><b>SPAWN</b><small data-spawnlbl>2.2</small></span>
+      </button>
+      <div class="side">
+        <div class="opcar">
+          <button class="arrow" data-op="-1" aria-label="Previous operator"><svg><use href="#i-back"/></svg></button>
+          <div class="face2" data-portrait></div>
+          <button class="arrow" data-op="1" aria-label="Next operator"><svg><use href="#i-next"/></svg></button>
+        </div>
+        <div class="opname" data-opname></div>
+        <label class="namechip" style="font-size:15px;padding:4px 6px 4px 14px"><input id="name2" data-name maxlength="20" aria-label="Your name" style="font-size:15px;width:8em"><svg><use href="#i-pencil"/></svg></label>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="toggle" data-autotoggle aria-pressed="false"><svg><use href="#i-auto"/></svg>AUTO-SPAWN</button>
+      <div class="pads"><span><kbd>A</kbd>Spawn</span><span><kbd class="sq">LB</kbd><kbd class="sq">RB</kbd>Operator</span><span><kbd>Y</kbd>Name</span><span><kbd class="sq">⏎</kbd><kbd class="sq">Q</kbd><kbd class="sq">E</kbd>keys</span></div>
+      <button class="back" data-go="home" aria-label="Leave match" style="width:auto;padding:0 14px;height:40px;font:900 12px var(--ui);letter-spacing:.1em;gap:6px;display:flex"><svg style="width:18px;height:18px"><use href="#i-door"/></svg>LEAVE</button>
+    </div>
+  </section>
+
+</div></div>
+
+<p class="note">Tap anything: every tile leads somewhere. <b>Home</b> has six choices. <b>Respawn</b> runs the real timing: the button unlocks after 2.2 s (today's respawn delay), then you spawn whenever you tap it. If you do nothing, it spawns you at 10 s, and changing operator or name adds time, up to 30 s. With <b>Auto-spawn</b> on you skip the wait and spawn the moment it unlocks.</p>
+
+<script>
+// Operators: the game's real list (src/net/profile.ts). Portraits here are flat stand-ins; the game would show
+// a rendered head-and-shoulders thumbnail of each 3D model.
+const OPS = [
+  ["Vanguard", "#6286d9"], ["Ember", "#f3a36c"], ["Riptide", "#64d6b1"], ["Spectre", "#c18df2"], ["Alien", "#9be36a"],
+  ["Camo Soldier", "#8a9a5b"], ["Field Survivor", "#c9a26b"], ["Ninja", "#3b3f52"], ["Samurai Titan", "#d9534f"],
+  ["Samurai Warrior", "#e0a04a"], ["Shadow Vanguard", "#5b5f8a"], ["Soldier", "#6d7f5c"], ["Robot", "#b8c4d6"],
+  ["Tactical Operator", "#4f6d8a"], ["Tactical Shadow", "#40465a"],
+];
+const MAPS = [
+  ["Coliseum", "coliseum"], ["Shark Island", "island"], ["Industrial", "industrial"], ["Junkyard", "junkyard"],
+];
+let op = 2, playerName = "Elaina";
+try { op = Number(localStorage.getItem("mock.op") ?? 2) % OPS.length; playerName = localStorage.getItem("mock.name") || playerName; } catch {}
+
+function portrait(color, id) {
+  // helmeted bust: shoulders, head, visor; the colour carries the operator
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="g${id}" cx=".5" cy=".3"><stop offset="0" stop-color="#ffffff22"/><stop offset="1" stop-color="#00000000"/></radialGradient></defs>
+  <circle cx="50" cy="50" r="48" fill="#0b1426"/><circle cx="50" cy="50" r="48" fill="url(#g${id})"/>
+  <path d="M14 100c2-20 16-30 36-30s34 10 36 30z" fill="${color}"/><path d="M38 72h24l-4 10H42z" fill="#00000033"/>
+  <circle cx="50" cy="44" r="20" fill="#e9c9a6"/><path d="M28 44a22 22 0 0 1 44 0v-4H28z" fill="${color}"/><path d="M29 38a21 21 0 0 1 42 0z" fill="${color}"/>
+  <rect x="34" y="40" width="32" height="9" rx="4" fill="#12203a"/><rect x="36" y="41.5" width="12" height="3" rx="1.5" fill="#5ce3ef88"/></svg>`;
+}
+function mapScene(kind) {
+  const s = {
+    coliseum: `<rect width="160" height="100" fill="#2b2140"/><ellipse cx="80" cy="64" rx="74" ry="30" fill="#5a4a6e"/><ellipse cx="80" cy="64" rx="56" ry="22" fill="#77628e"/><ellipse cx="80" cy="64" rx="36" ry="13" fill="#c8a56c"/><g fill="#9b86b5">${[20,44,68,92,116,140].map(x=>`<rect x="${x-4}" y="22" width="8" height="22"/>`).join("")}</g>`,
+    island: `<rect width="160" height="100" fill="#2b74a8"/><ellipse cx="80" cy="58" rx="52" ry="22" fill="#e3c27e"/><ellipse cx="80" cy="54" rx="34" ry="13" fill="#4f9a55"/><path d="M118 82l6-12 6 12z" fill="#cfd8e2"/><path d="M30 26c10-4 20 4 30 0" stroke="#ffffff55" stroke-width="2" fill="none"/>`,
+    industrial: `<rect width="160" height="100" fill="#3a4555"/><rect y="70" width="160" height="30" fill="#55606e"/><rect x="14" y="44" width="40" height="26" fill="#d9534f"/><rect x="58" y="50" width="34" height="20" fill="#e0a04a"/><rect x="100" y="12" width="5" height="58" fill="#ffd84a"/><rect x="100" y="12" width="46" height="5" fill="#ffd84a"/><rect x="138" y="17" width="2" height="18" fill="#cfd8e2"/>`,
+    junkyard: `<rect width="160" height="100" fill="#4a3b2d"/><rect y="72" width="160" height="28" fill="#6b5640"/><rect x="18" y="56" width="44" height="16" rx="4" fill="#5d8aa8"/><rect x="24" y="42" width="40" height="14" rx="4" fill="#a85d5d"/><rect x="92" y="52" width="48" height="20" rx="3" fill="#7a7f6a"/><circle cx="104" cy="74" r="5" fill="#222"/><circle cx="130" cy="74" r="5" fill="#222"/>`,
+  }[kind];
+  return `<svg class="scene" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`;
+}
+
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+function renderOp() {
+  const [n, c] = OPS[op];
+  $$("[data-portrait]").forEach((e, i) => e.innerHTML = portrait(c, "p" + i));
+  $$("[data-opname]").forEach(e => e.textContent = n);
+  $$("[data-playername]").forEach(e => e.textContent = playerName);
+  $$("[data-name]").forEach(e => { if (document.activeElement !== e) e.value = playerName; });
+  $$("[data-dots]").forEach(e => e.innerHTML = OPS.map((_, i) => `<i class="${i === op ? "on" : ""}"></i>`).join(""));
+  $("[data-killer]").innerHTML = portrait("#64d6b1", "k");
+  try { localStorage.setItem("mock.op", op); localStorage.setItem("mock.name", playerName); } catch {}
+}
+$$("[data-maps]").forEach((box, b) => {
+  box.innerHTML = MAPS.map(([n, k], i) => `<button class="tile map" aria-pressed="${i === 0}">${mapScene(k)}<span>${n}</span></button>`).join("");
+});
+// single-choice groups
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-maps] .map, [data-pick] > .chip, [data-pick] .chip");
+  if (t) { const g = t.closest("[data-maps],[data-pick]"); $$(".map,.chip", g).forEach(x => x.setAttribute("aria-pressed", x === t)); }
+  const tg = e.target.closest("[data-toggle]"); if (tg) tg.setAttribute("aria-pressed", tg.getAttribute("aria-pressed") !== "true");
+});
+// steppers
+$$("[data-step]").forEach(st => {
+  const list = st.dataset.list ? st.dataset.list.split(",").map(Number) : null;
+  let v = Number(st.dataset.val);
+  const draw = () => {
+    $("output", st).textContent = v;
+    const p = $(".people", st); if (p) p.innerHTML = Array.from({ length: v }, () => `<svg viewBox="0 0 14 18"><use href="#i-person"/></svg>`).join("");
+  };
+  const [minus, plus] = $$("button", st);
+  const step = (d) => {
+    if (list) v = list[Math.max(0, Math.min(list.length - 1, list.indexOf(v) + d))];
+    else v = Math.max(+st.dataset.min, Math.min(+st.dataset.max, v + d));
+    draw();
+  };
+  minus.onclick = () => step(-1); plus.onclick = () => step(1); draw();
+});
+$("#seats").innerHTML = Array.from({ length: 8 }, (_, i) => `<svg width="28" height="36" viewBox="0 0 14 18" style="opacity:${i < 5 ? 1 : .25}"><use href="#i-person"/></svg>`).join("");
+
+// navigation: a stack, like the shell's push/back
+let stack = ["home"];
+function show(id, push = true) {
+  if (push && stack[stack.length - 1] !== id) stack.push(id);
+  if (id === "home") stack = ["home"];
+  $$(".screen").forEach(s => s.hidden = s.dataset.screen !== id);
+  $$("#jump button").forEach(b => b.setAttribute("aria-pressed", b.dataset.go === id));
+  if (id === "respawn") startDeath(); else stopDeath();
+}
+document.addEventListener("click", (e) => {
+  const g = e.target.closest("[data-go]"); if (g && !g.closest("#jump")) { show(g.dataset.go); return; }
+  const j = e.target.closest("#jump [data-go]"); if (j) { stack = ["home"]; show(j.dataset.go); return; }
+  if (e.target.closest("[data-back]")) { stack.pop(); show(stack[stack.length - 1] || "home", false); }
+  const o = e.target.closest("[data-op]"); if (o) { op = (op + Number(o.dataset.op) + OPS.length) % OPS.length; renderOp(); bump(); }
+});
+$$("[data-name]").forEach(inp => inp.addEventListener("input", () => { playerName = inp.value.trim() || "Player"; renderOp(); bump(); }));
+
+// respawn timing: lock for MIN, then wait for a tap; auto at AUTO, extended by interaction up to CAP
+const MIN = 2.2, AUTO = 10, EXTEND = 5, CAP = 30;
+let t0 = 0, autoAt = AUTO, raf = 0, auto = false;
+const btn = $("[data-spawn]"), arc = $("[data-arc]"), lbl = $("[data-spawnlbl]");
+function startDeath() { t0 = performance.now(); autoAt = AUTO; cancelAnimationFrame(raf); tick(); }
+function stopDeath() { cancelAnimationFrame(raf); }
+function bump() { if (!$("[data-screen=respawn]").hidden) autoAt = Math.min(CAP, Math.max(autoAt, (performance.now() - t0) / 1000 + EXTEND)); }
+function tick() {
+  const t = (performance.now() - t0) / 1000;
+  if (t < MIN) {
+    btn.classList.remove("ready"); arc.style.stroke = "var(--cyan)";
+    arc.setAttribute("stroke-dasharray", `${(t / MIN) * 100} 100`); lbl.textContent = (MIN - t).toFixed(1);
+  } else {
+    if (auto) return spawn();
+    btn.classList.add("ready"); arc.style.stroke = "var(--yellow)";
+    const left = Math.max(0, autoAt - t);
+    arc.setAttribute("stroke-dasharray", `${(left / (autoAt - MIN)) * 100} 100`);
+    lbl.textContent = `AUTO ${Math.ceil(left)}`;
+    if (left <= 0) return spawn();
+  }
+  raf = requestAnimationFrame(tick);
+}
+function spawn() {
+  stopDeath();
+  const tst = document.createElement("div"); tst.className = "toast"; tst.textContent = `Spawned as ${OPS[op][0]} · demo restarts`;
+  $("[data-screen=respawn]").append(tst);
+  setTimeout(() => { tst.remove(); if (!$("[data-screen=respawn]").hidden) startDeath(); }, 1600);
+}
+btn.onclick = () => { if (btn.classList.contains("ready")) spawn(); };
+$("[data-autotoggle]").onclick = (e) => { auto = !auto; e.currentTarget.setAttribute("aria-pressed", auto); };
+document.addEventListener("keydown", (e) => {
+  if ($("[data-screen=respawn]").hidden || e.target.matches("input")) return;
+  if (e.key === "Enter" || e.key === " ") btn.click();
+  if (e.key === "q" || e.key === "e") { op = (op + (e.key === "e" ? 1 : -1) + OPS.length) % OPS.length; renderOp(); bump(); }
+});
+
+// scale the device to the page
+const SIZES = { phone: [844, 390], tablet: [1180, 820] };
+let size = "phone";
+function fit() {
+  const [w, h] = SIZES[size], box = $("#fit"), dev = $("#device");
+  const s = Math.min(box.clientWidth / w, 1);
+  dev.style.width = w + "px"; dev.style.height = h + "px"; dev.style.transform = `scale(${s})`;
+  box.style.height = h * s + "px";
+}
+$$("#size button").forEach(b => b.onclick = () => { size = b.dataset.size; $$("#size button").forEach(x => x.setAttribute("aria-pressed", x === b)); fit(); });
+addEventListener("resize", fit);
+renderOp(); fit(); show(location.hash.slice(1) && $(`[data-screen="${location.hash.slice(1)}"]`) ? location.hash.slice(1) : "home");
+</script>
