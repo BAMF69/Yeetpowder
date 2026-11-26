@@ -7,6 +7,7 @@
 - **AI-generated reference; no third-party model license granted or assumed**: A-0003 (assets_src/experiments/operative_01/front-v1.png)
 - **CC BY 4.0; docs/licenses/vinish-CC-BY-4.0.txt**: A-0016 (public/assets/vfx/vinish/), A-0017 (public/assets/audio/sfx/vinish/), A-0019 (public/assets/models/scenery/vinish/)
 - **CC0 1.0 Universal; docs/licenses/CC0-1.0.txt**: A-0018 (public/assets/textures/terrain/)
+- **CC0 1.0 Universal; docs/licenses/CC0-1.0.txt; user-supplied provenance**: A-0022 (public/assets/models/approved/)
 - **CC0 1.0 Universal; included archive License.txt**: A-0004 (public/assets/models/quaternius/modular_men/Swat.gltf; License.txt)
 - **CC0 1.0 Universal; Meshy Terms 2026-09-19 section 3.3 for Community 3D Customer Output; docs/licenses/CC0-1.0.txt**: A-0021 (public/assets/models/operators/; originals assets_src/approved-art/operators/rigged/)
 - **Meshy terms (verify before any use)**: A-0005 (Meshy_AI_Tactical_Sentinel_1122004834_generate.glb, ..._generate-quads.glb, ..._generate-quads (1).glb (repo root))
@@ -1339,6 +1340,139 @@ Playback pitch and volume varied in game.
     "source": "https://vinish.dev/free-sound-effects/explosions",
     "sha256": "418c37b214aaf6ff46a24ccead5e67317c0299b901222d141a8b695275f71e7e",
     "bytes": 38655
+  }
+]
+```
+
+### weapon-sources.json
+
+```
+[
+  {
+    "source": "assets_src/approved-art/weapons/glock-17.glb",
+    "runtime": "public/assets/models/approved/weapons/glock-17.glb",
+    "sourceSha256": "c5daf7c10f4baa223a3069d140f41b6bc53e4880ed98c4b6b978f8affad983eb",
+    "runtimeSha256": "b90ae24d6069c60d5e729a2511e70004873448777eecbe12071c8360209bc745",
+    "runtimeBytes": 355840,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": "https://www.meshy.ai/posts/019d4448-3c8b-7b72-933a-80dddd856d44",
+    "notes": "Source listing recorded in docs/ASSET_SHOPPING.md.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/sniper.glb",
+    "runtime": "public/assets/models/approved/weapons/sniper.glb",
+    "sourceSha256": "3090dff53c242e13841ce9d48e4056f07230502fac320f1bc3153d6ce6be0210",
+    "runtimeSha256": "3e21c1c71fcd106da615089fa1f688b92f8a1dfa3b4bc88f5b5b2e2c5f245eae",
+    "runtimeBytes": 648472,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": "https://www.meshy.ai/posts/019d6a6f-a0bd-7c52-bbcf-8f385dc7964f",
+    "notes": "Source listing recorded in docs/ASSET_SHOPPING.md.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/minigun.glb",
+    "runtime": "public/assets/models/approved/weapons/minigun.glb",
+    "sourceSha256": "23a8b337a13b979e7371d10979d36c6d91b194d0d7039d0ca57460e18dca0bb2",
+    "runtimeSha256": "a9d30c3470246bc0ed540ea75eca440576dc2534df2ef82af9bf4f8c9f522117",
+    "runtimeBytes": 589292,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": "https://www.meshy.ai/posts/019bb5aa-afb4-71de-9342-fd1942198191",
+    "notes": "Source listing recorded in docs/ASSET_SHOPPING.md.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/at-2x-launcher.glb",
+    "runtime": "public/assets/models/approved/weapons/at-2x-launcher.glb",
+    "sourceSha256": "ee934eb77004144fe8495fe97911f48ce172234f2e0e466d3bdc480c4fb12f6e",
+    "runtimeSha256": "fd1d5f5dd572683593007d1d5b030fe6f35e3ae8193f036f80aa1ab29bc84cd5",
+    "runtimeBytes": 550768,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": null,
+    "notes": "Listing not individually supplied for this export; user-supplied CC0 provenance applies.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/at-2x-rocket.glb",
+    "runtime": "public/assets/models/approved/weapons/at-2x-rocket.glb",
+    "sourceSha256": "ab8bbbe68a852b1f40f38522c0b723a09368690471a713650cd5bb6626a4fd77",
+    "runtimeSha256": "fcaa3e2ec29183862620f96996d82d51514577137c6a0f1c588f5bac2570334f",
+    "runtimeBytes": 392556,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": null,
+    "notes": "Listing not individually supplied for this export; user-supplied CC0 provenance applies.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/shotgun-existing.glb",
+    "runtime": "public/assets/models/approved/weapons/shotgun-existing.glb",
+    "sourceSha256": "2e312c0e795b065b5a3edffa46cb7eed70bc08ebfa23ebba819ea2f676665e5e",
+    "runtimeSha256": "0119fe4266a913f7e06334d6709640122690ab1287af9b0ae57c8ff8e704595a",
+    "runtimeBytes": 731216,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": null,
+    "notes": "Listing not individually supplied for this export; user-supplied CC0 provenance applies.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/ballistic-shield.glb",
+    "runtime": "public/assets/models/approved/weapons/ballistic-shield.glb",
+    "sourceSha256": "422c28dd6ab410aeee3fca05a3dbc931677c677869cce26642400df28b87be17",
+    "runtimeSha256": "73db48dbdc0d1f10d418a01ffe797710b14921988fe992b5c7dad3ac2cda8cda",
+    "runtimeBytes": 458120,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": null,
+    "notes": "Listing not individually supplied for this export; user-supplied CC0 provenance applies.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
+  },
+  {
+    "source": "assets_src/additional-art/grenade.glb",
+    "runtime": "public/assets/models/approved/equipment/grenade.glb",
+    "sourceSha256": "ff19af9b0e0b786ff06992a4792222fe61f473761df897a0c444c9fc6e5e83ed",
+    "runtimeSha256": "b92218f398df7f8befc8999f553fe780916057b6a3299850a0506c18ed06ea46",
+    "runtimeBytes": 434952,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": null,
+    "notes": "Listing not individually supplied for this export; user-supplied CC0 provenance applies.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
+  },
+  {
+    "source": "assets_src/additional-art/health-pack.glb",
+    "runtime": "public/assets/models/approved/equipment/health-pack.glb",
+    "sourceSha256": "0cf573f69e06494ac5e7ed158655e496e50d8d962fb055bd4540582f40f70c71",
+    "runtimeSha256": "953f839a9a308449a00080996f877312e81836027b70575fbb8a0166444a8725",
+    "runtimeBytes": 606816,
+    "license": "CC0-1.0",
+    "releaseEnabled": true,
+    "aiAssisted": "pre-generated",
+    "provenance": "Shane confirmed these approved gun/equipment exports are CC0 Meshy community models on 2026-11-26.",
+    "listing": null,
+    "notes": "Listing not individually supplied for this export; user-supplied CC0 provenance applies.",
+    "modifications": "Textures optimized to 1024 JPEG; original meshes, anchors, materials and metadata retained. Runtime weapon fitting and shield viewport cutout."
   }
 ]
 ```

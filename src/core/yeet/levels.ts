@@ -171,17 +171,27 @@ function baseLevelById(id: string | null | undefined): Level {
 
 export function levelById(id: string | null | undefined): Level {
   const level = baseLevelById(id);
-  if (!level.outdoor) return level;
-  level.scenery = sceneryFor(level.id);
-  level.arena.boxes.push(...level.scenery.filter((p) => p.solid).map(sceneryBox));
+  if (level.outdoor) {
+    level.scenery = sceneryFor(level.id);
+    level.arena.boxes.push(...level.scenery.filter((p) => p.solid).map(sceneryBox));
+  }
+  if (level.id === "sandbox") return level;
+  // Shotguns remain starter gear. Rare supplies never enter the ordinary weapon pool.
+  let grenades = 0;
+  level.pickups = level.pickups.filter(p => p.weapon !== "shotgun" && p.weapon !== "health" && (p.weapon !== "grenade" || ++grenades === 1));
   const clear = (p: Vec3) => level.arena.boxes.some((b) => b.max.y <= p.y + 0.05 && Math.abs(b.max.y - p.y) < 0.1 && p.x >= b.min.x && p.x <= b.max.x && p.z >= b.min.z && p.z <= b.max.z)
     && !level.arena.boxes.some((b) => b.max.y > p.y + 0.1 && b.min.y < p.y + 1.7 && b.min.x < p.x + 0.5 && b.max.x > p.x - 0.5 && b.min.z < p.z + 0.5 && b.max.z > p.z - 0.5);
   const nearby = (p: Vec3) => Array.from({ length: 8 }, (_, i) => ({ x: p.x + Math.sin(i * Math.PI / 4) * 3, y: p.y, z: p.z + Math.cos(i * Math.PI / 4) * 3 })).find(clear);
   const spawns = level.spawns ?? [level.spawn];
-  for (const p of spawns.filter((_, i) => i % 2 === 0)) level.pickups.push({ weapon: "health", pos: { ...p } });
   const shield = nearby(spawns[1] ?? level.spawn); if (shield) level.pickups.push({ weapon: "shield", pos: shield });
   if (level.recommendedPlayers === 8) spawns.forEach((p, i) => {
-    const pos = nearby(p); if (pos && (!shield || pos.x !== shield.x || pos.z !== shield.z)) level.pickups.push({ weapon: ["shotgun", "grenade", "sniper", "rocket"][i % 4] as WeaponId, pos });
+    const pos = nearby(p); if (pos && (!shield || pos.x !== shield.x || pos.z !== shield.z)) level.pickups.push({ weapon: ["sniper", "rocket", "copter", "reaper"][i % 4] as WeaponId, pos });
   });
+  const centre = { x: spawns.reduce((sum,p) => sum+p.x,0)/spawns.length, z: spawns.reduce((sum,p) => sum+p.z,0)/spawns.length };
+  const anchors = [...level.pickups].sort((a,b) => Math.hypot(a.pos.x-centre.x,a.pos.z-centre.z)-Math.hypot(b.pos.x-centre.x,b.pos.z-centre.z));
+  const rareSpot = () => anchors.flatMap(({pos:p}) => Array.from({length:8},(_,i)=>({x:p.x+Math.sin(i*Math.PI/4)*3,y:p.y,z:p.z+Math.cos(i*Math.PI/4)*3})))
+    .find(p => clear(p) && spawns.every(s => Math.hypot(p.x-s.x,p.z-s.z)>6) && level.pickups.every(s => Math.hypot(p.x-s.pos.x,p.z-s.pos.z)>2.5));
+  if (!grenades) { const pos=rareSpot(); if(pos) level.pickups.push({weapon:"grenade",pos}); }
+  const health=rareSpot(); if(health) level.pickups.push({weapon:"health",pos:health});
   return level;
 }

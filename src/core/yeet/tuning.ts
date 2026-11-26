@@ -320,7 +320,7 @@ export const TUNING = {
 
   /** Pick up a gun by walking within this distance of it (m, from your middle). */
   pickupRadius: 1.4,
-  supplies: { weaponRespawn: 6, healthRespawn: 12, healthUses: 3, applyTime: 3, healCooldown: 10 },
+  supplies: { weaponRespawn: 6, grenadeRespawn: 45, healthRespawn: 60, healthUses: 3, applyTime: 3, healCooldown: 10 },
   shield: { hipBlastScale: 0.5, aimedBlastScale: 0, forceScale: 0.5, frontalDot: 0 },
   shark: { approach: 2 },
 

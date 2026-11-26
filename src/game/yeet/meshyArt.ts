@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // meshyArt.ts
-// Purpose : Elaina's Meshy models in the game (2026-11-24): the sniper scythe as Reaper's Kick and the katana
+// Purpose : Approved Meshy weapons and equipment in release and development builds, plus the original Tactical
+//           operative. The sniper scythe is Reaper's Kick and the katana
 //           gunblade as the Six-Shot Sakura, the Rocket Axe (first person and third person), and the rigged tactical character as the operative (your body in third person, duel
 //           opponents and bots; operativeSkin.ts drives its bones from the code figure's poses). Loaded during the world's loading screen; until then, or if a file fails, the code-built
 //           models stay (gunModels.ts), so nothing depends on the art being there.
@@ -134,14 +135,14 @@ function weaponBuilder(scene: THREE.Object3D, art: WeaponArt): () => WeaponModel
 /** The weapons that have art (the first-person view rebuilds these after loading). */
 export const ART_WEAPONS = new Set(Object.keys(WEAPONS) as WeaponId[]);
 
-// Source files are served by Vite in development until provenance and fit are verified.
-const PREVIEW_ROOT = "assets_src/runtime-preview/weapons/";
-const PREVIEW_WEAPONS = {
-  pistol: { url: PREVIEW_ROOT + "glock-17.glb", fit: 0.18, grip: [0.76, -0.23, 0], fore: null, muzzle: [-1, 0.45, 0] },
-  sniper: { url: PREVIEW_ROOT + "sniper.glb", fit: 0.69, grip: [0.43, -0.14, 0], fore: [-0.34, -0.02, 0], muzzle: [-1, 0.09, 0] },
-  copter: { url: PREVIEW_ROOT + "minigun.glb", fit: 0.71, scale: 0.88, grip: [0.9, 0.18, 0], fore: [0.15, 0.29, 0], muzzle: [-1, -0.07, 0.01] },
-  rocket: { url: PREVIEW_ROOT + "at-2x-launcher.glb", fit: 0.55, grip: [0.19, -0.29, 0], fore: [-0.32, -0.29, 0], muzzle: [-0.99, 0.09, 0] },
-  grenade: { url: "assets_src/runtime-preview/equipment/grenade.glb", orient: "upright", fit: 0.09, grip: [0, -0.12, 0], fore: null, muzzle: [0, 0.06, -1.2] },
+// Approved runtime copies are shipped by Vite/Pages in every build.
+const RUNTIME_WEAPON_ROOT = "assets/models/approved/weapons/";
+const STANDARD_WEAPONS = {
+  pistol: { url: RUNTIME_WEAPON_ROOT + "glock-17.glb", fit: 0.18, grip: [0.76, -0.23, 0], fore: null, muzzle: [-1, 0.45, 0] },
+  sniper: { url: RUNTIME_WEAPON_ROOT + "sniper.glb", fit: 0.69, grip: [0.43, -0.14, 0], fore: [-0.34, -0.02, 0], muzzle: [-1, 0.09, 0] },
+  copter: { url: RUNTIME_WEAPON_ROOT + "minigun.glb", fit: 0.71, scale: 0.88, grip: [0.9, 0.18, 0], fore: [0.15, 0.29, 0], muzzle: [-1, -0.07, 0.01] },
+  rocket: { url: RUNTIME_WEAPON_ROOT + "at-2x-launcher.glb", fit: 0.55, grip: [0.19, -0.29, 0], fore: [-0.32, -0.29, 0], muzzle: [-0.99, 0.09, 0] },
+  grenade: { url: "assets/models/approved/equipment/grenade.glb", orient: "upright", fit: 0.09, grip: [0, -0.12, 0], fore: null, muzzle: [0, 0.06, -1.2] },
 } satisfies Partial<Record<WeaponId, WeaponArt>>;
 
 export function isArtPreview(value: string | null): value is "approved" | "shotgun-existing" | "weathered-shotgun" {
@@ -151,9 +152,9 @@ export function isArtPreview(value: string | null): value is "approved" | "shotg
 function previewShotgun(candidate: string): WeaponArt {
   if (candidate === "shotgun-existing") {
     // Palm above the stock neck, with the fingers curled down around it.
-    return { url: PREVIEW_ROOT + candidate + ".glb", fit: 0.58, grip: [0.46, 0.17, 0], fore: [-0.26, 0.075, 0], muzzle: [-1, 0.16, 0] };
+    return { url: RUNTIME_WEAPON_ROOT + candidate + ".glb", fit: 0.58, grip: [0.46, 0.17, 0], fore: [-0.26, 0.075, 0], muzzle: [-1, 0.16, 0] };
   }
-  return { url: PREVIEW_ROOT + candidate + ".glb", fit: 0.58, grip: [0.38, -0.035, 0], fore: [-0.26, 0.075, 0], muzzle: [-1, 0.16, 0] };
+  return { url: "assets_src/runtime-preview/weapons/" + candidate + ".glb", fit: 0.58, grip: [0.38, -0.035, 0], fore: [-0.26, 0.075, 0], muzzle: [-1, 0.16, 0] };
 }
 
 /** Loads the art and registers it with gunModels (a failure logs a warning: the code models stay). */
@@ -165,42 +166,39 @@ export async function loadMeshyArt(progress: (v: number) => void = () => {}, ski
     return;
   }
   const loader = new GLTFLoader();
-  const weapons = { ...WEAPONS };
+  const weapons = { ...WEAPONS, ...STANDARD_WEAPONS, shotgun: previewShotgun("shotgun-existing") };
   const jobs = [() => loadOperative()];
-  if (isArtPreview(preview)) {
-    Object.assign(weapons, PREVIEW_WEAPONS);
-    weapons.shotgun = previewShotgun(preview === "approved" ? "shotgun-existing" : preview);
-    jobs.push(async () => {
-      try { registerHealthPackPreview((await loader.loadAsync("assets_src/runtime-preview/equipment/health-pack.glb")).scene); }
-      catch (err) { Log.warn("art", `Health pack preview unavailable; procedural kit stays (${String(err)})`); }
-    });
-    jobs.push(async () => {
-      try {
-        const source = (await loader.loadAsync(PREVIEW_ROOT + "ballistic-shield.glb")).scene;
-        let bounds = new THREE.Box3().setFromObject(source), size = bounds.getSize(new THREE.Vector3());
-        if (size.x < size.z) { source.rotation.y = Math.PI / 2; source.updateMatrixWorld(true); }
-        bounds = new THREE.Box3().setFromObject(source); size = bounds.getSize(new THREE.Vector3());
-        source.position.sub(bounds.getCenter(new THREE.Vector3()));
-        const normalized = new THREE.Group(); normalized.add(source); normalized.scale.setScalar(1.7 / size.y);
-        openShieldViewport(normalized);
-        registerWeaponArt("shield", () => {
-          const group = new THREE.Group(); group.add(normalized.clone());
-          return { group, grip: new THREE.Vector3(-0.18, -0.1, 0.18),
-            fore: new THREE.Vector3(0.18, -0.1, 0.18), muzzle: new THREE.Vector3(0, 0, -0.2), scale: HELD_SCALE, viewportY: (SHIELD_WINDOW.bottom + SHIELD_WINDOW.top) / 2 };
-        });
-        ART_WEAPONS.add("shield");
-      } catch (err) { Log.warn("art", `Shield preview unavailable; procedural viewport stays (${String(err)})`); }
-    });
-    jobs.push(async () => {
-      try {
-        rocketPreview = (await loader.loadAsync(PREVIEW_ROOT + "at-2x-rocket.glb")).scene;
-        rocketPreview.rotation.y = -Math.PI / 2;
-        rocketPreview.scale.setScalar(0.5);
-      } catch (err) {
-        Log.warn("art", `AT-2X rocket did not load, the code-built one stays (${String(err)})`);
-      }
-    });
-  }
+  if (isArtPreview(preview)) weapons.shotgun = previewShotgun(preview === "approved" ? "shotgun-existing" : preview);
+  jobs.push(async () => {
+    try { registerHealthPackPreview((await loader.loadAsync("assets/models/approved/equipment/health-pack.glb")).scene); }
+    catch (err) { Log.warn("art", `Health pack model unavailable; procedural kit stays (${String(err)})`); }
+  });
+  jobs.push(async () => {
+    try {
+      const source = (await loader.loadAsync(RUNTIME_WEAPON_ROOT + "ballistic-shield.glb")).scene;
+      let bounds = new THREE.Box3().setFromObject(source), size = bounds.getSize(new THREE.Vector3());
+      if (size.x < size.z) { source.rotation.y = Math.PI / 2; source.updateMatrixWorld(true); }
+      bounds = new THREE.Box3().setFromObject(source); size = bounds.getSize(new THREE.Vector3());
+      source.position.sub(bounds.getCenter(new THREE.Vector3()));
+      const normalized = new THREE.Group(); normalized.add(source); normalized.scale.setScalar(1.7 / size.y);
+      openShieldViewport(normalized);
+      registerWeaponArt("shield", () => {
+        const group = new THREE.Group(); group.add(normalized.clone());
+        return { group, grip: new THREE.Vector3(-0.18, -0.1, 0.18),
+          fore: new THREE.Vector3(0.18, -0.1, 0.18), muzzle: new THREE.Vector3(0, 0, -0.2), scale: HELD_SCALE, viewportY: (SHIELD_WINDOW.bottom + SHIELD_WINDOW.top) / 2 };
+      });
+      ART_WEAPONS.add("shield");
+    } catch (err) { Log.warn("art", `Shield model unavailable; procedural viewport stays (${String(err)})`); }
+  });
+  jobs.push(async () => {
+    try {
+      rocketPreview = (await loader.loadAsync(RUNTIME_WEAPON_ROOT + "at-2x-rocket.glb")).scene;
+      rocketPreview.rotation.y = -Math.PI / 2;
+      rocketPreview.scale.setScalar(0.5);
+    } catch (err) {
+      Log.warn("art", `AT-2X rocket did not load, the code-built one stays (${String(err)})`);
+    }
+  });
   for (const [id, art] of Object.entries(weapons)) jobs.push(() => loadWeapon(loader, id as WeaponId, art));
   let done = 0;
   await Promise.all(jobs.map((job) => job().then(() => progress(++done / jobs.length))));
@@ -223,7 +221,7 @@ async function loadWeapon(loader: GLTFLoader, id: WeaponId, art: WeaponArt): Pro
     });
     const build = weaponBuilder(scene, art);
     registerWeaponArt(id, build);
-    if (import.meta.env.DEV && id === "grenade") grenadePreview = build;
+    if (id === "grenade") grenadePreview = build;
     ART_WEAPONS.add(id);
     Log.info("art", `Meshy model in for ${id}`);
   } catch (err) {

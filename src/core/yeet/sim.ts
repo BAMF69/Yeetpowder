@@ -1515,7 +1515,7 @@ export class YeetSim {
         ev.push({ type: "healthPack" }); continue;
       }
       p.taken = true;
-      p.respawn = this.t.supplies.weaponRespawn;
+      p.respawn = p.weapon === "grenade" ? this.t.supplies.grenadeRespawn : this.t.supplies.weaponRespawn;
       if (!pl.owned.includes(p.weapon)) pl.owned.push(p.weapon);
       pl.mag[p.weapon] = this.t.weapons[p.weapon].mag;
       if (!pl.crashing) {
@@ -1572,8 +1572,8 @@ export class YeetSim {
       pl.heat = 0;
       pl.overheated = false;
       if (this.players.length === 1) {
-        // single player: the level resets with you (in a duel the pickups belong to everyone)
-        for (const p of this.pickups) p.taken = false;
+        // Solo common supplies reset; rare supplies keep their timers, as they do in multiplayer.
+        for (const p of this.pickups) if (p.weapon !== "grenade" && p.weapon !== "health") p.taken = false;
         this.balls.length = 0;
       }
     }

@@ -34,7 +34,9 @@ describe("solo playtest fixes", () => {
     for (const id of ["island-party", "industrial-party", "junkyard-party", "coliseum"]) {
       const level = levelById(id);
       expect(level.pickups.some((p) => p.weapon === "shield")).toBe(true);
-      expect(level.pickups.filter((p) => p.weapon === "health").length).toBeGreaterThanOrEqual(4);
+      expect(level.pickups.filter((p) => p.weapon === "health")).toHaveLength(1);
+      expect(level.pickups.filter((p) => p.weapon === "grenade")).toHaveLength(1);
+      expect(level.pickups.some((p) => p.weapon === "shotgun")).toBe(false);
       expect(level.pickups.length).toBeGreaterThan(12);
     }
   });

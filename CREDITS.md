@@ -34,6 +34,10 @@
 
 - none (license: Own work; source: Made in code: tools/make_icons.mjs (SVG rendered by Playwright Chromium))
 
+## Approved production weapons and equipment (9 optimized GLBs)
+
+- Weapons and equipment from the Meshy community (CC0), fitted for Yeetpowder. (license: CC0 1.0 Universal; docs/licenses/CC0-1.0.txt; user-supplied provenance; source: User-approved exports; CC0 community origin confirmed by Shane 2026-11-26; exact source/runtime hashes and available shopping-list links: docs/licenses/weapon-sources.json; made with AI assistance (pre-generated); modified)
+
 ## Arena scenery (8 original GLBs)
 
 - 3D models by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0. Runtime placement and scaling adapted for Yeetpowder. (license: CC BY 4.0; docs/licenses/vinish-CC-BY-4.0.txt; source: https://vinish.dev/free-3d-models/ ; per-file metadata/hashes: docs/licenses/scenery-sources.json; modified)
