@@ -24,6 +24,7 @@ import { TUNING, type WeaponId } from "../../core/yeet/tuning";
 
 const TUNING_ORDER = TUNING.weaponOrder;
 import { buildGlove } from "./glove";
+import type { GripAdjustment, HandAdjustment } from "./gripEditor";
 import { buildWeapon, hasWeaponArt } from "./gunModels";
 import { MaterialBank } from "./materials";
 import { buildMuzzleFlash } from "./muzzleFlash";
@@ -174,6 +175,10 @@ export class Viewmodel {
   private readonly tmp2 = new THREE.Vector3();
   private readonly qRest = new THREE.Quaternion();
   private readonly qAim = new THREE.Quaternion();
+  private editorGrip: GripAdjustment | null = null;
+  private readonly editorRotation = new THREE.Quaternion();
+  private readonly editorEuler = new THREE.Euler();
+  private readonly editorWrist = new THREE.Vector3();
 
   constructor() {
     const suit = this.bank.paint("navy");
@@ -327,6 +332,33 @@ export class Viewmodel {
     this.aim = Math.max(0, Math.min(1, a));
   }
 
+  setEditorGrip(grip: GripAdjustment): void {
+    this.editorGrip = grip;
+  }
+
+  setEditorOperator(id: string): void {
+    const suit = id === "soldier" ? this.bank.plain("#555c45")
+      : id === "robot" ? this.bank.plain("#687681") : this.bank.paint("navy");
+    this.sleeveR.material = this.sleeveL.material = suit;
+    for (const leg of this.legs) (leg.children[0] as THREE.Mesh).material = suit;
+    for (const glove of [this.gloveR, this.pistolGlove, this.gloveL]) {
+      (glove.children[glove.children.length - 1] as THREE.Mesh).material = suit;
+    }
+  }
+
+  resetEditorMotion(): void {
+    this.kickAmt = this.flashT = 0;
+    this.blowT = this.flingT = this.throwT = this.swingT = 99;
+  }
+
+  private applyEditorRotation(object: THREE.Object3D, adjustment: HandAdjustment | undefined): void {
+    if (!adjustment) return;
+    const [x, y, z] = adjustment.rotation;
+    const radians = Math.PI / 180;
+    this.editorEuler.set(x * radians, y * radians, z * radians);
+    object.quaternion.multiply(this.editorRotation.setFromEuler(this.editorEuler));
+  }
+
   /** The gun hand's aimed position for the current gun (centred so the barrel sits under the crosshair). */
   private aimHand(out: THREE.Vector3): THREE.Vector3 {
     const g = this.guns.get(this.current === "shield" ? "pistol" : this.current)!;
@@ -372,6 +404,19 @@ export class Viewmodel {
     hand.z -= up * 0.05;
     this.placeHand(hand);
     this.tiltGun(aimNow);
+    if (this.editorGrip) {
+      const id = this.current;
+      const pivot = this.guns.get(id)!.pivot;
+      const adjust = this.editorGrip.gun;
+      pivot.position.set(0, 0, 0);
+      if (adjust) pivot.position.fromArray(adjust.position);
+      if (!HOLD[id]?.aim) {
+        const tilt = id === "shield" ? undefined : HOLD[id]?.tilt;
+        if (tilt) pivot.rotation.copy(tilt);
+        else pivot.rotation.set(0, 0, 0);
+      }
+      this.applyEditorRotation(pivot, adjust);
+    }
     // reloading: the gun dips down and rolls over, then comes back up (a placeholder reload)
     const dip = this.reloadP > 0 ? Math.sin(Math.PI * this.reloadP) : 0;
     this.armR.rotation.x -= dip * 0.55;
@@ -397,7 +442,7 @@ export class Viewmodel {
       this.armR.rotation.y += this.swingDir * sweep * this.swingAmp * 0.6;
       this.mount.rotation.z += this.swingDir * SWING.tilt * Math.sin(Math.PI * Math.min(1, this.swingT / (SWING.time + SWING.back)));
     }
-    this.scoped = this.current === "sniper" && this.aim > SCOPE_AT;
+    this.scoped = this.editorGrip === null && this.current === "sniper" && this.aim > SCOPE_AT;
     this.armR.visible = !this.scoped;
 
     // left hand: on the foregrip, flung loose by the Boomstick; hidden for the one-handed pistol
@@ -457,6 +502,28 @@ export class Viewmodel {
       }
     } else this.shieldRoot.visible = false;
     if (this.current === "shield") this.shieldRoot.visible = !this.treating;
+    if (this.editorGrip) {
+      const right = this.editorGrip.right;
+      for (const glove of [this.gloveR, this.pistolGlove]) {
+        glove.position.set(0, 0, 0);
+        if (right) glove.position.fromArray(right.position);
+        glove.rotation.copy(GLOVE_R_TILT);
+        this.applyEditorRotation(glove, right);
+      }
+      if (right) {
+        this.editorWrist.fromArray(right.position).applyQuaternion(this.mount.quaternion).add(this.hand);
+        this.sleeveR.scale.z = this.editorWrist.length();
+        this.sleeveR.quaternion.setFromUnitVectors(Z_AXIS, this.editorWrist.normalize());
+      }
+      const left = this.editorGrip.left;
+      if (left && this.gloveL.visible) {
+        this.gloveL.position.add(this.editorWrist.fromArray(left.position));
+        this.sleeveL.scale.z = this.editorWrist.copy(this.gloveL.position).sub(SHOULDER_L).length();
+        this.armL.lookAt(this.root.localToWorld(this.editorWrist.copy(this.gloveL.position)));
+        this.gloveL.quaternion.copy(this.armL.quaternion);
+        this.applyEditorRotation(this.gloveL, left);
+      }
+    }
     if (this.treating) { this.armR.visible = this.armL.visible = this.gloveL.visible = false; this.flash.visible = false; }
     this.medkit.visible = this.treating;
     this.medkit.rotation.z = this.treating ? Math.sin(this.time * 5) * 0.03 : 0;

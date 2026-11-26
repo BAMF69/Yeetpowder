@@ -141,9 +141,12 @@ export class YeetWorld implements World {
   private readonly grenadeGuide: GrenadeGuide;
   private readonly partySession = takeParty();
   private readonly autoplay = !this.partySession && shell.params.has("autoplay");
+  private readonly editingFirstPerson = shell.params.get("grip-editor") === "first-person";
   private readonly editingGrips = !this.partySession && isArtPreview(shell.params.get("art-preview"))
     && shell.params.has("grip-editor") && !shell.params.has("noart");
   private gripEditor: ReturnType<typeof makeGripEditor> | null = null;
+  private gripPreviewTime = 0;
+  private gripPreviewWeapon: WeaponId | null = null;
   /** Duel vs bot (menu "Duel vs bot", or ?level=duel&bot=easy|medium|hard): offline, the bot is player 2. */
   /** Which level and who against (matchSetup.ts): the menu's world option or ?level / ?opp / ?bot. */
   private readonly match = parseMatch({
@@ -226,7 +229,7 @@ export class YeetWorld implements World {
   private reapStart = -1;
   private heroFired = false;
   /** ?showcase: the camera stays in front of your operative; ?pose=...: force a pose (art review stills). */
-  private readonly showcase = shell.params.has("showcase") || this.editingGrips;
+  private readonly showcase = shell.params.has("showcase") || (this.editingGrips && !this.editingFirstPerson);
   private readonly forcePose = shell.params.get("pose");
   /** ?flash: hold the muzzle flash on (first person and your operative), for stills of it. */
   private readonly debugFlash = shell.params.has("flash");
@@ -385,15 +388,22 @@ export class YeetWorld implements World {
     if (skin) for (const op of [this.body, ...this.others]) op.useSkin(skin);
     this.pickups.rebuildModels();
     if (this.editingGrips && !this.gripEditor) {
-      const operators = [{ id: "operative", name: "Current operative", scene: skin }, ...await loadGripOperators()];
+      const operators = this.editingFirstPerson
+        ? [{ id: "operative", name: "Current operative", scene: null },
+          { id: "soldier", name: "Tactical Soldier prototype", scene: null },
+          { id: "robot", name: "Robot prototype", scene: null }]
+        : [{ id: "operative", name: "Current operative", scene: skin }, ...await loadGripOperators()];
       this.gripEditor ??= makeGripEditor(document.getElementById("game")!, this.canvas, (id) => {
         if (!this.sim.player.owned.includes(id)) this.sim.player.owned.push(id);
         this.slotTap = TUNING.weaponOrder.indexOf(id);
       }, (side, pinned) => this.body.gripHandPosition(side, pinned),
       (side, pinned) => this.body.captureGripHand(side, pinned), this.sim.player.weapon, this.showcaseSide, {
-        options: operators.map(({ id, name, scene }) => ({ id, name, available: id === "operative" || scene !== null })),
-        select: (id) => this.body.useSkin(operators.find((operator) => operator.id === id)?.scene ?? skin),
-      }, THIRD_PERSON_GRIPS);
+        options: operators.map(({ id, name, scene }) => ({ id, name, available: this.editingFirstPerson || id === "operative" || scene !== null })),
+        select: (id) => {
+          if (this.editingFirstPerson) this.vm.setEditorOperator(id);
+          else this.body.useSkin(operators.find((operator) => operator.id === id)?.scene ?? skin);
+        },
+      }, this.editingFirstPerson ? undefined : THIRD_PERSON_GRIPS, this.editingFirstPerson);
     }
     progress(0.8);
     if (shell.params.has("operative")) {
@@ -623,6 +633,7 @@ export class YeetWorld implements World {
     this.vm.setTreatment(pl.healing > 0);
     this.touch?.setHealth(pl.healthUses, pl.healing, pl.healCooldown, pl.hp >= TUNING.player.hp);
     if (this.vm.weapon !== pl.weapon) this.vm.show(pl.weapon);
+    if (this.gripEditor && this.editingFirstPerson) this.updateFirstPersonGrip(pl.weapon, dt);
     this.vm.update(dt, copterFiring);
     this.fx.update(dt);
     const speed = len(pl.vel);
@@ -663,7 +674,7 @@ export class YeetWorld implements World {
   private updateAim(held: boolean, dt: number): void {
     const step = dt / TUNING.aim.time;
     this.aim = held ? Math.min(1, this.aim + step) : Math.max(0, this.aim - step);
-    const target = this.editingGrips ? TUNING.aim.hipFov : TUNING.aim.fov[this.sim.player.weapon];
+    const target = this.editingGrips && !this.editingFirstPerson ? TUNING.aim.hipFov : TUNING.aim.fov[this.sim.player.weapon];
     const fov = TUNING.aim.hipFov + (target - TUNING.aim.hipFov) * this.aim;
     if (Math.abs(fov - this.aimFov) > 0.01) {
       this.aimFov = fov;
@@ -1109,6 +1120,25 @@ export class YeetWorld implements World {
   }
 
   // ---- drawing -----------------------------------------------------------------
+  private updateFirstPersonGrip(weapon: WeaponId, dt: number): void {
+    const editor = this.gripEditor!;
+    editor.setWeapon(weapon);
+    this.vm.setEditorGrip(editor.adjustment(weapon) ?? {});
+    if (!editor.animating() || this.gripPreviewWeapon !== weapon) {
+      this.gripPreviewTime = 0;
+      this.vm.resetEditorMotion();
+    }
+    this.gripPreviewWeapon = weapon;
+    if (editor.animating()) {
+      if (this.gripPreviewTime === 0) {
+        this.vm.fired(weapon, TUNING.weapons[weapon].trauma, editor.aiming());
+      }
+      this.gripPreviewTime += dt;
+      if (this.gripPreviewTime >= 3) this.gripPreviewTime = 0;
+    }
+    this.vm.setReload((this.gripPreviewTime - 1.1) / 1.1);
+  }
+
   private placeCamera(dt: number): void {
     if (shell.params.has("mapview")) {
       this.camera.fov = 48;
@@ -1138,6 +1168,11 @@ export class YeetWorld implements World {
       roll -= r * turn * this.flipSide;
     }
     this.camera.rotation.set(pl.pitch + flipPitch + s.y * SHAKE_TO_RAD, pl.yaw + s.x * SHAKE_TO_RAD, roll);
+    if (this.editingGrips && this.editingFirstPerson) {
+      this.vm.root.visible = true;
+      this.body.root.visible = false;
+      return;
+    }
 
     // tumbling or knocked out: swing out behind you (from the direction you faced as it began) and watch
     const wantThird = pl.sharkT > 0 || (pl.tumbling > 0 || pl.dead > 0) && !shell.settings.access.reduce_motion;

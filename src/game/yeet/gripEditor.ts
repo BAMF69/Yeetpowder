@@ -88,13 +88,17 @@ export function makeGripEditor(
   startAngle: number,
   operators: OperatorControls,
   defaults?: EditorPresets,
+  firstPerson = false,
 ) {
+  const editorTitle = firstPerson ? "First-person grip editor" : "Third-person grip editor";
+  const storageKey = firstPerson ? "yeetpowder.first-person-grips.v1" : STORAGE_KEY;
+  const adjustable: AdjustmentTarget[] = firstPerson ? ["right", "left", "gun"] : Object.keys(TARGETS) as AdjustmentTarget[];
   let poses: EditorPresets = defaults ? structuredClone(defaults) : { ready: {}, aimed: {} };
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       poses = readEditorPresets(JSON.parse(saved));
-    } else {
+    } else if (!firstPerson) {
       const legacy: GripPresets = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) ?? "{}") ?? {};
       if (Object.keys(legacy).length) poses = { ready: legacy, aimed: structuredClone(legacy) };
     }
@@ -104,7 +108,7 @@ export function makeGripEditor(
   const history: EditorPresets[] = [];
   let activeEdit: HTMLInputElement | null = null;
   const panel = document.createElement("section");
-  panel.setAttribute("aria-label", "Third-person grip editor");
+  panel.setAttribute("aria-label", editorTitle);
   Object.assign(panel.style, {
     position: "absolute", left: "12px", top: "85px", zIndex: "8", maxHeight: "calc(100% - 165px)", overflow: "auto",
     padding: "12px", borderRadius: "10px", color: "#fff", background: "#131925ee", width: "260px",
@@ -113,10 +117,10 @@ export function makeGripEditor(
   panel.addEventListener("keydown", (event) => event.stopPropagation());
   panel.addEventListener("keyup", (event) => event.stopPropagation());
   const title = document.createElement("strong");
-  title.textContent = "Third-person grip editor";
+  title.textContent = editorTitle;
   panel.append(title);
   const hint = document.createElement("div");
-  hint.textContent = "Drag to orbit. Scroll to zoom.";
+  hint.textContent = firstPerson ? "Animation previews recoil and reload." : "Drag to orbit. Scroll to zoom.";
   hint.style.marginTop = "4px";
   panel.append(hint);
 
@@ -150,27 +154,32 @@ export function makeGripEditor(
   let specialWeapon: WeaponId | undefined;
   let specialStart: number | null = null;
   special.onchange = () => { specialStart = null; refresh(); };
-  const targets = select("Adjust", Object.keys(TARGETS) as AdjustmentTarget[], (id) => TARGETS[id]);
+  const targets = select("Adjust", adjustable, (id) => TARGETS[id]);
   const angles = document.createElement("input");
   angles.type = "range";
   angles.min = "-180";
   angles.max = "180";
   angles.step = "any";
   angles.value = String(Math.atan2(Math.sin(startAngle), Math.cos(startAngle)) * 180 / Math.PI);
-  field("Camera orbit", angles);
+  field("Camera orbit", angles).hidden = firstPerson;
   const distance = document.createElement("input");
   distance.type = "range";
   distance.min = "0.45";
   distance.max = "2.4";
   distance.step = "0.01";
   distance.value = "1";
-  field("Camera distance", distance);
+  field("Camera distance", distance).hidden = firstPerson;
+  if (firstPerson) {
+    angles.parentElement!.style.display = "none";
+    distance.parentElement!.style.display = "none";
+  }
   let elevation = 0;
   let drag: { id: number; x: number; y: number } | null = null;
   const touchAction = canvas.style.touchAction;
   const cursor = canvas.style.cursor;
   const pointerEvents = new AbortController();
   const options = { signal: pointerEvents.signal };
+  if (!firstPerson) {
   canvas.style.touchAction = "none";
   canvas.style.cursor = "grab";
   canvas.addEventListener("pointerdown", (event) => {
@@ -202,6 +211,7 @@ export function makeGripEditor(
     const next = distance.valueAsNumber * Math.exp(event.deltaY * unit * 0.0015);
     distance.value = String(Math.max(Number(distance.min), Math.min(Number(distance.max), next)));
   }, { ...options, passive: false });
+  }
   const aim = document.createElement("input");
   aim.type = "checkbox";
   field("Aimed pose", aim);
@@ -224,7 +234,7 @@ export function makeGripEditor(
   };
   const current = () => adjustment(weapon)?.[target];
   const save = () => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(poses)); } catch { /* export still works */ }
+    try { localStorage.setItem(storageKey, JSON.stringify(poses)); } catch { /* export still works */ }
   };
   const remember = (control: HTMLInputElement | null = null) => {
     if (control && activeEdit === control) return;
@@ -283,7 +293,7 @@ export function makeGripEditor(
     weapons.value = weapon;
     targets.value = target;
     if (weapon !== specialWeapon) {
-      const states = GUNBLADE_STATES[weapon];
+      const states = firstPerson ? undefined : GUNBLADE_STATES[weapon];
       special.replaceChildren(new Option("Normal", ""), ...(states ?? []).map(([id, title]) => new Option(title, id)));
       specialField.style.display = states ? "flex" : "none";
       specialStart = null;
@@ -295,8 +305,8 @@ export function makeGripEditor(
     const preset = current();
     const hand = target === "left" || target === "right";
     const elbow = target === "leftElbow" || target === "rightElbow";
-    pinField.style.display = hand ? "flex" : "none";
-    pin.checked = hand && Boolean(preset?.pinned);
+    pinField.style.display = hand && !firstPerson ? "flex" : "none";
+    pin.checked = hand && !firstPerson && Boolean(preset?.pinned);
     for (const { input, slider, caption, row, axis, kind, index } of controls) {
       row.hidden = elbow ? kind !== "rotation" || index > 1 : kind === "position" && !hand && target !== "gun";
       row.style.display = row.hidden ? "none" : "grid";
@@ -372,15 +382,15 @@ export function makeGripEditor(
     refresh();
   });
   button("Export grips", () => {
-    const file = new Blob([JSON.stringify({ version: 4, poses }, null, 2) + "\n"], { type: "application/json" });
+    const file = new Blob([JSON.stringify({ version: 4, ...(firstPerson ? { view: "first-person" } : {}), poses }, null, 2) + "\n"], { type: "application/json" });
     const url = URL.createObjectURL(file);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "yeetpowder-third-person-grips.json";
+    link.download = firstPerson ? "yeetpowder-first-person-grips.json" : "yeetpowder-third-person-grips.json";
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
-  const copyScope = select("Copy", ["selected", "feet", "stance", "all"] as const, (scope) => ({
+  const copyScope = select("Copy", firstPerson ? ["selected", "all"] as const : ["selected", "feet", "stance", "all"] as const, (scope) => ({
     selected: "Selected adjustment",
     feet: "Both feet",
     stance: "Feet, torso and head",
@@ -395,8 +405,8 @@ export function makeGripEditor(
   const copyToOtherPose = (includeGun: boolean) => {
     const source = adjustment(weapon);
     const connections: GripConnections = {
-      right: captureHand("right", false),
-      left: captureHand("left", false),
+      right: firstPerson ? structuredClone(source?.right ?? { position: [0, 0, 0], rotation: [0, 0, 0] }) : captureHand("right", false),
+      left: firstPerson ? structuredClone(source?.left ?? { position: [0, 0, 0], rotation: [0, 0, 0] }) : captureHand("left", false),
     };
     if (!connections.right && !connections.left) {
       status.textContent = "No hands are gripping this weapon in the preview.";
@@ -419,7 +429,7 @@ export function makeGripEditor(
   button("Copy adjustments", () => {
     const parts: AdjustmentTarget[] = copyScope.value === "feet" ? ["leftFoot", "rightFoot"]
       : copyScope.value === "stance" ? ["leftFoot", "rightFoot", "torso", "head"]
-      : copyScope.value === "all" ? Object.keys(TARGETS) as AdjustmentTarget[] : [target];
+      : copyScope.value === "all" ? adjustable : [target];
     const active = entries(poseName(), special.value);
     const source = active[weapon];
     const edits = parts.flatMap((part) => source?.[part] ? [[part, source[part]] as const] : []);
@@ -460,6 +470,10 @@ export function makeGripEditor(
     const selectedState = special.value;
     try {
       const data = JSON.parse(await file.text());
+      if (firstPerson !== (data?.view === "first-person")) {
+        status.textContent = "Choose a grip file for this view.";
+        return;
+      }
       const shared = readGripPresets(data?.weapons);
       const incoming: EditorPresets = data?.version === 4
         ? readEditorPresets(data.poses)
