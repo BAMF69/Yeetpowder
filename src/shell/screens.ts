@@ -15,9 +15,7 @@
 // Updated : 2026-11-13 with Claude (Opus 5.5, claude-opus-5-5): the HUD note: HTML follows ui_scale and text_scale through
 //           the CSS, text the renderer draws uses core/hud.ts (#309)
 // ---------------------------------------------------------------------------
-import { partyScreen } from "./partyScreen";
-import { profileScreen } from "./profileScreen";
-import type { LevelId } from "../core/yeet/levels";
+import * as iconMenus from "./iconMenus";
 import { glyphName, glyphSet, promptBinding } from "../core/bindings";
 import type { Screen, Shell } from "./app";
 import { creditsText } from "./credits";
@@ -113,105 +111,22 @@ export function consent(shell: Shell): Screen {
   }, { cancel: () => choose("unset") });
 }
 
+/**
+ * The main menu: the icon-first home screen (iconMenus.ts, six choices). The old 15-button list and the
+ * Arenas / opponents / bot-difficulty lists it led to were folded into Party, Solo and Couch (2026-11-26).
+ */
 export function menu(shell: Shell): Screen {
-  return built("menu", "dim", (root, m) => {
-    const p = panel("narrow");
-    p.style.maxHeight = "85vh"; p.style.overflowY = "auto";
-    root.classList.add("yeet-menu");
-    root.style.backgroundImage = "linear-gradient(90deg,rgba(4,8,20,.98),rgba(4,8,20,.88) 40%,rgba(4,8,20,.25)),url(assets/ui/title_logo.jpg)";
-    p.append(tl(shell.i18n, "game.title", "heading", { name: GAME_NAME }, "div"));
-    p.append(tl(shell.i18n, "menu.tagline", "yeet-tagline", {}, "div"));
-    const list = el("div", "list");
-    const add = (key: string, fn: () => void) => list.append(m.add(buttonItem(shell.i18n, key, fn)).el);
-    add("menu.quick", () => shell.push(partyScreen(shell, "quick")));
-    add("menu.profile", () => shell.push(profileScreen(shell)));
-    add("menu.make_room", () => shell.push(partyScreen(shell, "create")));
-    add("menu.join_room", () => shell.push(partyScreen(shell, "join")));
-    add("menu.couch", () => shell.push(partyScreen(shell, "couch")));
-    add("menu.spectate", () => shell.push(partyScreen(shell, "spectate")));
-    add("menu.play", () => {
-      shell.worldOption = ""; // Yeetpowder: Fight Back
-      shell.startGame("main");
-    });
-    add("menu.sandbox", () => {
-      shell.worldOption = "sandbox"; // Yeetpowder: the open test room, every gun
-      shell.startGame("main");
-    });
-    add("menu.duel", () => {
-      shell.worldOption = "duel"; // Yeetpowder: online duel on the home network (npm run duel)
-      shell.startGame("main");
-    });
-    add("menu.duel_bot", () => shell.push(botScreen(shell))); // Yeetpowder: offline duel against a bot
-    add("menu.levels", () => shell.push(levelsScreen(shell))); // Yeetpowder: Shark Island, Industrial Yard, Junkyard
-    add("menu.settings", () => shell.push(settingsScreen(shell)));
-    add("menu.credits", () => shell.push(creditsScreen(shell)));
-    if (shell.debugBuild) add("menu.juice", () => shell.startGame("juice"));
-    add("menu.quit", () => shell.quit());
-    p.append(list);
-    if (shell.drive === "pseudo-plant") {
-      // a label far too small for its text, on one line: .label wraps anywhere, and a wrapped label fits (#175)
-      const planted = tl(shell.i18n, "menu.settings", "label", {}, "div");
-      planted.dataset.id = "plant.too_small"; // the name every engine's pseudo-plant drive reports
-      planted.style.width = "2.5em";
-      planted.style.whiteSpace = "nowrap";
-      planted.style.overflow = "hidden";
-      p.append(planted);
-    }
-    root.append(p, tl(shell.i18n, "version", "corner", { v: GAME_VERSION }, "div"));
-  }, { cancel: () => shell.reset(title(shell)) });
-}
-
-/** Yeetpowder: the new levels (src/core/yeet/levelsOutdoor.ts), played against the dummies. */
-export function levelsScreen(shell: Shell): Screen {
-  return built("levels", "dim", (root, m) => {
-    const p = panel("narrow");
-    p.style.maxHeight = "85vh"; p.style.overflowY = "auto";
-    p.append(tl(shell.i18n, "levels.title", "heading", {}, "div"));
-    const list = el("div", "list");
-    for (const id of ["island", "industrial", "junkyard", "island-party", "industrial-party", "junkyard-party", "coliseum"]) {
-      list.append(m.add(buttonItem(shell.i18n, `level.${id}`, () => shell.push(opponentsScreen(shell, id)))).el);
-    }
-    list.append(m.add(buttonItem(shell.i18n, "credits.back", () => shell.back())).el);
-    p.append(list);
-    root.append(p);
-  }, { cancel: () => shell.back() });
-}
-
-/** Yeetpowder: who you play a new level against (src/core/yeet/matchSetup.ts OPPONENTS). */
-export function opponentsScreen(shell: Shell, level: string): Screen {
-  return built("opponents", "dim", (root, m) => {
-    const p = panel("narrow");
-    p.append(tl(shell.i18n, "opponents.title", "heading", { level: shell.i18n.t(`level.${level}`) }, "div"));
-    const list = el("div", "list");
-    list.append(m.add(buttonItem(shell.i18n, "opponents.custom", () => shell.push(partyScreen(shell, "solo", level as LevelId)))).el);
-    for (const opp of ["static", "fight", "bot-easy", "bot-medium", "bot-hard"]) {
-      list.append(m.add(buttonItem(shell.i18n, `opponents.${opp}`, () => {
-        shell.worldOption = opp === "fight" ? level : `${level}:${opp}`;
-        shell.startGame("main");
-      })).el);
-    }
-    list.append(m.add(buttonItem(shell.i18n, "credits.back", () => shell.back())).el);
-    p.append(list);
-    root.append(p);
-  }, { cancel: () => shell.back() });
-}
-
-/** Yeetpowder: pick the bot's difficulty for an offline duel (src/core/yeet/bot.ts, TUNING.bot). */
-export function botScreen(shell: Shell): Screen {
-  return built("bots", "dim", (root, m) => {
-    const p = panel("narrow");
-    p.append(tl(shell.i18n, "bot.title", "heading", {}, "div"));
-    const list = el("div", "list");
-    for (const skill of ["easy", "medium", "hard"]) {
-      list.append(m.add(buttonItem(shell.i18n, `bot.${skill}`, () => {
-        shell.worldOption = `duel-bot-${skill}`;
-        shell.startGame("main");
-      })).el);
-    }
-    list.append(m.add(buttonItem(shell.i18n, "credits.back", () => shell.back())).el);
-    p.append(list);
-    root.append(p);
-  }, { cancel: () => shell.back() });
+  const s = iconMenus.home(shell);
+  if (shell.drive === "pseudo-plant") {
+    // a label far too small for its text, on one line: .label wraps anywhere, and a wrapped label fits (#175)
+    const planted = tl(shell.i18n, "menu.settings", "label", {}, "div");
+    planted.dataset.id = "plant.too_small"; // the name every engine's pseudo-plant drive reports
+    planted.style.cssText = "width:2.5em;white-space:nowrap;overflow:hidden";
+    planted.dataset.box = "";
+    s.root.append(planted);
+  }
+  s.root.append(tl(shell.i18n, "version", "corner", { v: GAME_VERSION }, "div"));
+  return s;
 }
 
 export function creditsScreen(shell: Shell): Screen {
@@ -393,4 +308,4 @@ export function crashed(shell: Shell, file: string, detail = ""): Screen {
   });
 }
 
-export { partyScreen };
+export { iconMenus };
