@@ -37,7 +37,7 @@ export class MatchReplay {
       this.root.add(op.root); this.actors.push(op);
     }
     this.root.visible = true; this.overlay.style.display = "block";
-    this.actors[clip.slot]?.setOperator(clip.operator ?? "navy");
+    this.actors.forEach((actor, slot) => actor.setOperator(clip.operators?.[slot] ?? (slot === clip.slot ? clip.operator : undefined) ?? "navy"));
     this.overlay.replaceChildren();
     const title = document.createElement("div");
     this.title = title;

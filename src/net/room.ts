@@ -224,6 +224,7 @@ export class Room {
         const winner = this.match.winners[0] ?? snap.replay.slot;
         snap.replay.name = this.profiles[snap.replay.slot].name;
         snap.replay.operator = this.profiles[snap.replay.slot].operator;
+        snap.replay.operators = this.profiles.map(profile => profile.operator);
         snap.replay.winner = { slot: winner, name: this.profiles[winner].name, score: this.sim.kos[winner] };
         snap.replay.intro = { time: this.sim.time, actors: this.sim.players.map((p, i) => this.active[i] ? { x: p.pos.x, y: p.pos.y, z: p.pos.z, yaw: p.yaw, pitch: p.pitch,
           speed: Math.hypot(p.vel.x, p.vel.y, p.vel.z), weapon: p.weapon, dead: p.dead > 0, ground: p.onGround, hidden: p.swallowed } : null) };

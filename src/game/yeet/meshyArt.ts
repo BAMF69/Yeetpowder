@@ -22,7 +22,8 @@ import { registerWeaponArt, type WeaponModel } from "./gunModels";
 import { registerHealthPackPreview } from "./healthPack";
 import { openShieldViewport, SHIELD_WINDOW } from "./shieldViewport";
 
-const OPERATIVE_URL = "assets/models/meshy/operative.glb";
+import { enableOperatorArt, operatorArtEnabled, loadOperatorArt } from "./operatorArt";
+
 /** Metres per model unit when held (gunModels' SCALE for every gun but the Gatling). */
 const HELD_SCALE = 0.62;
 
@@ -71,7 +72,7 @@ export function grenadePreviewArt(): THREE.Object3D | null {
 
 /** The loaded operative (a glTF scene with the skinned body), or null: keep the code-built figure. */
 export function operativeArt(): THREE.Object3D | null {
-  return operative;
+  return operatorArtEnabled() ? operative : null;
 }
 
 /** The turn from Meshy space to gun space (barrel toward -Z, +Y up) for each way a model lies. */
@@ -134,6 +135,7 @@ function previewShotgun(candidate: string): WeaponArt {
 
 /** Loads the art and registers it with gunModels (a failure logs a warning: the code models stay). */
 export async function loadMeshyArt(progress: (v: number) => void = () => {}, skip = false, preview: string | null = null): Promise<void> {
+  enableOperatorArt(!skip);
   if (skip) {
     Log.info("art", "?noart: code-built models");
     progress(1);
@@ -141,7 +143,7 @@ export async function loadMeshyArt(progress: (v: number) => void = () => {}, ski
   }
   const loader = new GLTFLoader();
   const weapons = { ...WEAPONS };
-  const jobs = [() => loadOperative(loader)];
+  const jobs = [() => loadOperative()];
   if (isArtPreview(preview)) {
     Object.assign(weapons, PREVIEW_WEAPONS);
     weapons.shotgun = previewShotgun(preview === "approved" ? "shotgun-existing" : preview);
@@ -181,9 +183,9 @@ export async function loadMeshyArt(progress: (v: number) => void = () => {}, ski
   await Promise.all(jobs.map((job) => job().then(() => progress(++done / jobs.length))));
 }
 
-async function loadOperative(loader: GLTFLoader): Promise<void> {
+async function loadOperative(): Promise<void> {
   try {
-    operative = (await loader.loadAsync(OPERATIVE_URL)).scene;
+    operative = await loadOperatorArt("navy");
     Log.info("art", "Meshy operative in (bones driven by the code figure's poses)");
   } catch (err) {
     Log.warn("art", `Meshy operative did not load, the code-built figure stays (${String(err)})`);

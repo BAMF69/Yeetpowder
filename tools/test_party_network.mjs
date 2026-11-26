@@ -26,14 +26,14 @@ async function connect(request) {
   return client;
 }
 try {
-  const first = await connect({ t: 'quick' });
+  const first = await connect({ t: 'quick', profile: { name: "Ninja QA", operator: "ninja" } });
   first.socket.send('null'); first.socket.send('{invalid');
   first.socket.send(JSON.stringify({ t: 'ping', at: 123 }));
   await waitFor(first, (c) => c.messages.some((m) => m.t === 'pong' && m.at === 123));
   assert.equal(first.joined.options.capacity, 8);
   await waitFor(first, (c) => c.snapshot?.bots.filter(Boolean).length === 7);
   for (let i = 1; i < 8; i++) {
-    const next = await connect({ t: 'quick' }); assert.equal(next.joined.code, first.joined.code);
+    const next = await connect({ t: 'quick', profile: { name: `Operator ${i}`, operator: 'alien-t-pose' } }); assert.equal(next.joined.code, first.joined.code);
   }
   await waitFor(first, (c) => c.snapshot?.present.every(Boolean));
   assert.equal(first.snapshot.state.players.length, 8);
@@ -42,6 +42,10 @@ try {
   assert.equal(watcher.joined.slot, -1);
   await waitFor(watcher, (c) => c.snapshot?.present.every(Boolean));
   assert.equal(watcher.snapshot.present.filter(Boolean).length, 8);
+  assert.equal(first.snapshot.profiles[0].operator, "ninja");
+  assert.equal(first.snapshot.profiles[1].operator, "alien-t-pose");
+  assert.equal(watcher.snapshot.profiles[0].operator, "ninja");
+  assert.equal(watcher.snapshot.profiles[1].operator, "alien-t-pose");
   watcher.socket.send(JSON.stringify({ t: 'in', inputs: [{ seq: 1, moveX: 1, moveZ: 0, dYaw: 0, dPitch: 0, select: -1 }] }));
   watcher.socket.send(JSON.stringify({ t: 'rematch' }));
   watcher.socket.send(JSON.stringify({ t: 'ping', at: 456 }));

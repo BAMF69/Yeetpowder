@@ -4,7 +4,7 @@ import type { OperatorId } from "./profile";
 import type { WeaponId } from "../core/yeet/tuning";
 export interface ReplayActor { x: number; y: number; z: number; yaw: number; pitch: number; speed: number; weapon: WeaponId; dead: boolean; ground: boolean; hidden?: boolean }
 export interface ReplayFrame { time: number; actors: (ReplayActor | null)[] }
-export interface ReplayClip { slot: number; speed: number; peak: number; frames: ReplayFrame[]; killAt?: number; name?: string; operator?: OperatorId; winner?: { slot: number; name: string; score: number }; intro?: ReplayFrame }
+export interface ReplayClip { slot: number; speed: number; peak: number; frames: ReplayFrame[]; killAt?: number; name?: string; operator?: OperatorId; operators?: OperatorId[]; winner?: { slot: number; name: string; score: number }; intro?: ReplayFrame }
 export const HIGHLIGHT = { interval: 0.1, before: 3, after: 2, minSpeed: 0.1 };
 export class HighlightRecorder {
   private history: ReplayFrame[] = [];

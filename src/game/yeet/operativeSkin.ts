@@ -34,6 +34,8 @@ export interface Skin {
   root: THREE.Object3D;
   /** The model's materials (its own copies: the hit flash tints them per figure). */
   materials: THREE.MeshStandardMaterial[];
+  /** New rigs may have oversized heads or shorter torsos; fit the third-person gun to their shoulder height. */
+  shoulderOffset: THREE.Vector3;
   update(): void;
   dispose(): void;
 }
@@ -81,6 +83,33 @@ function boneChild(b: THREE.Object3D): THREE.Object3D | null {
   return b.children.find((c) => (c as THREE.Bone).isBone) ?? null;
 }
 
+/** Fit differing Meshy limb lengths to the code wrist targets without stretching the mesh. */
+function armReach(upper: THREE.Bone, lower: THREE.Bone, hand: THREE.Bone, target: SkinJoints["arms"][number], handLink: Link): () => void {
+  const s = new THREE.Vector3(), e = new THREE.Vector3(), w = new THREE.Vector3(), t = new THREE.Vector3();
+  const axis = new THREE.Vector3(), pole = new THREE.Vector3(), goal = new THREE.Vector3(), from = new THREE.Vector3(), to = new THREE.Vector3();
+  const origin = new THREE.Vector3();
+  const q = new THREE.Quaternion(), world = new THREE.Quaternion(), parent = new THREE.Quaternion();
+  const rotateToward = (bone: THREE.Bone, child: THREE.Bone, point: THREE.Vector3) => {
+    bone.getWorldPosition(origin); child.getWorldPosition(to); to.sub(origin).normalize(); from.copy(point).sub(origin).normalize();
+    q.setFromUnitVectors(to, from); bone.getWorldQuaternion(world).premultiply(q);
+    bone.parent!.getWorldQuaternion(parent).invert(); bone.quaternion.copy(parent.multiply(world)); bone.updateMatrixWorld(true);
+  };
+  return () => {
+    upper.getWorldPosition(s); lower.getWorldPosition(e); hand.getWorldPosition(w); target.wrist.getWorldPosition(t);
+    const a = s.distanceTo(e), b = e.distanceTo(w);
+    axis.copy(t).sub(s); const distance = Math.max(Math.abs(a - b) + 1e-5, Math.min(axis.length(), a + b - 1e-5)); axis.normalize();
+    target.elbow.getWorldPosition(pole).sub(s); pole.addScaledVector(axis, -pole.dot(axis));
+    if (pole.lengthSq() < 1e-8) { pole.copy(e).sub(s); pole.addScaledVector(axis, -pole.dot(axis)); }
+    pole.normalize();
+    const along = (a * a + distance * distance - b * b) / (2 * distance);
+    goal.copy(s).addScaledVector(axis, along).addScaledVector(pole, Math.sqrt(Math.max(0, a * a - along * along)));
+    rotateToward(upper, lower, goal);
+    goal.copy(s).addScaledVector(axis, distance); rotateToward(lower, hand, goal);
+    target.wrist.getWorldQuaternion(world).multiply(handLink.offset); hand.parent!.getWorldQuaternion(parent).invert();
+    hand.quaternion.copy(parent.multiply(world)); hand.updateMatrixWorld(true);
+  };
+}
+
 /**
  * Clones `source` (a loaded glTF scene with a skinned mesh), sizes it to `height` (in `parent`'s units, feet at y 0)
  * and binds its bones to the code figure's joints. Call with the code figure at rest (before its first pose).
@@ -113,6 +142,15 @@ export function attachSkin(parent: THREE.Object3D, joints: SkinJoints, source: T
     if ((o as THREE.Bone).isBone) bones.set(o.name.replace(/^mixamorig:?/, ""), o as THREE.Bone);
   });
 
+  // Meshy's newer 24-joint exports number the spine from the chest downward.
+  if (bones.has("Spine02")) {
+    const upper = bones.get("Spine")!;
+    bones.set("Spine", bones.get("Spine02")!);
+    bones.set("Spine1", bones.get("Spine01")!);
+    bones.set("Spine2", upper);
+    bones.set("Neck", bones.get("neck")!);
+  }
+
   // rest offsets, worked out in parent space so the figure's place in the world does not matter
   const parentQ = parent.getWorldQuaternion(new THREE.Quaternion());
   const parentQi = parentQ.clone().invert();
@@ -141,6 +179,21 @@ export function attachSkin(parent: THREE.Object3D, joints: SkinJoints, source: T
     links.push({ bone, part, offset: partQ.invert().multiply(restQ) });
   }
 
+  const shoulderOffset = new THREE.Vector3();
+  if (bones.has("Spine02")) for (const arm of joints.arms) {
+    const bone = bones.get(arm.side === 1 ? "LeftArm" : "RightArm")!;
+    const actual = parent.worldToLocal(bone.getWorldPosition(new THREE.Vector3()));
+    const reference = parent.worldToLocal(arm.shoulder.getWorldPosition(new THREE.Vector3()));
+    shoulderOffset.add(actual.sub(reference).multiplyScalar(0.5));
+  }
+
+  // Keep the accepted classic rig unchanged; the new rigs have different arm proportions.
+  const reaches = bones.has("Spine02") ? joints.arms.map(arm => {
+    const side = arm.side === 1 ? "Left" : "Right";
+    const hand = bones.get(`${side}Hand`)!;
+    return armReach(bones.get(`${side}Arm`)!, bones.get(`${side}ForeArm`)!, hand, arm, links.find(link => link.bone === hand)!);
+  }) : [];
+
   // the hips follow the pelvis's movement too
   const hipsBone = bones.get("Hips");
   const pelvisRest = parent.worldToLocal(joints.hips.getWorldPosition(new THREE.Vector3()));
@@ -149,6 +202,7 @@ export function attachSkin(parent: THREE.Object3D, joints: SkinJoints, source: T
   return {
     root,
     materials,
+    shoulderOffset,
     update() {
       parent.updateMatrixWorld(true); // the code figure's pose of this frame
       if (hipsBone && hipsRest) {
@@ -164,6 +218,7 @@ export function attachSkin(parent: THREE.Object3D, joints: SkinJoints, source: T
         l.bone.quaternion.copy(tq2.multiply(tq));
         l.bone.updateMatrixWorld(true);
       }
+      for (const reach of reaches) reach();
     },
     dispose() {
       root.removeFromParent();

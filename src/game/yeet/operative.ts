@@ -1,3 +1,5 @@
+import { OPERATOR_MODELS } from "../../net/profile";
+import { loadOperatorArt, operatorArtEnabled } from "./operatorArt";
 // ---------------------------------------------------------------------------
 // operative.ts
 // Purpose : The third-person operative (GDD character design, the keyframes' navy operative): a segmented N64-style
@@ -98,11 +100,15 @@ function prism(rTop: number, rBot: number, h: number, sides: number, depth = 1, 
 /** bank: where materials come from (a test passes one without painted textures: Node has no canvas). */
 export function makeOperative(suit: string, bank = new MaterialBank()): Operative {
   let selectedOperator: OperatorId | null = null;
+  let requestedOperator: OperatorId | null = null;
+  let sourceSkin: THREE.Object3D | null = null;
+  let disposed = false;
   const tintSkin = () => {
     if (!worn || !selectedOperator) return;
     for (const m of worn.materials) {
       const base = (m.userData.operatorBase ??= m.color.clone()) as THREE.Color;
-      m.color.copy(base).multiply(new THREE.Color(OPERATORS[selectedOperator].color));
+      m.color.copy(base);
+      if (!OPERATOR_MODELS[selectedOperator]) m.color.multiply(new THREE.Color(OPERATORS[selectedOperator].color));
     }
   };
   const extraMats: THREE.Material[] = [];
@@ -282,7 +288,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       held.holder.visible = true;
       const p = held.holder.position;
       p.x += (t.gun.pos[0] - p.x) * k;
-      p.y += (t.gun.pos[1] - p.y) * k;
+      p.y += (t.gun.pos[1] + (worn?.shoulderOffset.y ?? 0) - p.y) * k;
       p.z += (t.gun.pos[2] - p.z) * k;
       // pose pitch is + up; with the barrel along the holder's +Z, a positive x turn points it down: negate
       easeEuler(held.holder, [-t.gun.rot[0], t.gun.rot[1], t.gun.rot[2]], k);
@@ -309,14 +315,17 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     }
   };
 
-  return {
+  const api: Operative = {
     root,
     setOperator(operator) { if (selectedOperator === operator) return; selectedOperator = operator; cloth.color.set(OPERATORS[operator].color); tintSkin(); },
     setPose(p) {
       input = p;
     },
     useSkin(source) {
-      if (worn) return;
+      if (sourceSkin === source) return;
+      worn?.dispose();
+      sourceSkin = source;
+      hips.position.set(0, HIP_Y, 0);
       // the skin binds to the code figure at rest: its joints as built (no pose has run, or put them back)
       for (const j of [hips, torso, head, ...[armL, armR].flatMap((a) => [a.shoulder, a.elbow, a.wrist]), ...legs.flatMap((l) => [l.hip, l.knee, l.ankle])]) {
         j.quaternion.identity();
@@ -349,6 +358,12 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       alert = Math.max(0, Math.min(1, v));
     },
     update(dt, camera) {
+      if (operatorArtEnabled() && selectedOperator && requestedOperator !== selectedOperator) {
+        const id = selectedOperator; requestedOperator = id;
+        void loadOperatorArt(id).then(source => {
+          if (source && !disposed && selectedOperator === id && operatorArtEnabled()) api.useSkin(source);
+        });
+      }
       time += dt;
       stride += input.speed * POSE.runRate * dt;
       apply(targetPose(input, time, stride), first ? 1 : 1 - Math.exp(-EASE * dt));
@@ -366,11 +381,13 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       barRoot.quaternion.copy(root.quaternion).invert().multiply(camera.quaternion);
     },
     dispose() {
+      disposed = true;
       worn?.dispose();
       bank.dispose();
       for (const m of extraMats) m.dispose();
     },
   };
+  return api;
 }
 
 // ---- arms ----------------------------------------------------------------------
