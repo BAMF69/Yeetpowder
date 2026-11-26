@@ -3,6 +3,28 @@
 > One entry per session. Newest on top. Use `/playtest-report` to add entries and turn them into tasks.
 > Playtest = anyone who is not you playing, or you playing with a specific question.
 
+## Solo Party playtest
+### 2026-11-24  Build 19a8f7f  Tester: self (user)  Duration: not provided
+Question being tested: Is it fun yet? Solo Party playtest.
+Observations reported:
+- Industrial warehouse walls flicker between textures and gray. After dying with grenades, a grenade remained visible while firing pistol shots. Weapon pickups became scarce partway through a match.
+- Island bots walk backward off edges. Respawns repeat the same location. Knockouts are hard to distinguish from nonfatal launches.
+Requests (tester preferences):
+- Name/operator selection; health packs; a shield weapon; actual rotating weapon models for pickups; random respawns; opponent count in arena setup; Tab scoreboard; a more dramatic main menu.
+- Larger grenade AoE and shotgun cone. Aimed grenades throw farther and preview their landing point. Shark approaches for two seconds before eating the player, who then disappears.
+- Highlights require at least one kill in the moment. Start with a two-second frozen winner orbit showing name and score, then play the highlight.
+- Quick Play starts a 30-second next-match countdown at results and offers a new-map button.
+Exact quotes:
+- "the wall inside the industrial warehouse is glitching in and out between textured and plain gray"
+- "when i respawned after dying while using grenades I still saw the grenade in my hand but it was firing like it was the pea pistol"
+- "the ai needs to do a better job of not stepping backwards off the island map"
+Ranked experiments:
+1. Correct duplicate fence/warehouse faces and synchronize displayed weapons to authoritative state each frame (rendering/respawn hypotheses).
+2. Restore weapon availability with timed pickup respawns; add safe randomized spawns, healing and island edge steering.
+3. Tune grenade blast radius 4.2→8 and shotgun spread 0.09→0.15, verifying each independently in simulation.
+4. Add profiles, shield, opponent counts, score access, round rotation and the revised kill-qualified replay flow.
+Implementation outcomes: removed overlapping warehouse/fence faces; display weapons now follow authoritative state after respawn/reconciliation. Weapons return after 6 s, health packs after 12 s, and Party maps have extra weapons. Health packs heal 50 HP. Grenade blast radius is 8 m (was 4.2), aimed throw speed 27 (hip 16), and shotgun spread 0.15 rad (was 0.09). Added the directional Yeet Shield, profiles/operator color variants, opponent-count setup, scores on Tab, a redesigned menu, random safer respawns and island-edge avoidance. Sharks approach for 2 s before knockout/disappearance. Kill-qualified highlights receive a two-second frozen winner orbit; Quick Play rotates maps after a 30 s countdown or the next-map button. See HANDOFF.md for verification. Human balance/feel remains to be replayed.
+
 ## Template (copy)
 ```
 ### YYYY-MM-DD  Build <version/commit>  Tester: <name or "self">  Duration: <min>

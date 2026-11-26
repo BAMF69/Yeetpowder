@@ -39,6 +39,8 @@ export interface WeaponModel {
   /** Metres per model unit when held (the models are drawn larger than life; the Gatling is the big one). */
   scale: number;
   spinner?: THREE.Object3D;
+  /** Shield only: canonical height of the viewport's centre. */
+  viewportY?: number;
 }
 
 /** What a builder returns (buildWeapon adds the scale). */
@@ -331,7 +333,18 @@ function axe(kit: ModelKit): Built {
   return { group, grip: v(0, 0, 0.02), fore: v(0, 0, -0.35), muzzle: v(0, 0, -0.95) };
 }
 
-const BUILDERS: Record<WeaponId, (kit: ModelKit) => Built> = { pistol, shotgun, sniper, copter, reaper, sakura, rocket, grenade, axe };
+function shield(kit: ModelKit): Built {
+  const group = new THREE.Group();
+  const { B } = tools(kit, group);
+  // A real opening, rather than an opaque pane, keeps the aimed viewport usable in noart too.
+  B(0.95, 1.05, 0.1, "gunmetal", 0, -0.325, 0);
+  B(0.95, 0.2, 0.1, "gunmetal", 0, 0.75, 0);
+  for (const x of [-0.36, 0.36]) B(0.23, 0.5, 0.1, "gunmetal", x, 0.4, 0);
+  B(0.75, 0.12, 0.11, "accent", 0, -0.3, -0.015);
+  for (const x of [-0.18, 0.18]) B(0.08, 0.27, 0.18, "leather", x, -0.1, 0.12);
+  return { group, grip: v(-0.18, -0.1, 0.18), fore: v(0.18, -0.1, 0.18), muzzle: v(0, 0, -0.2), viewportY: 0.425 };
+}
+const BUILDERS: Record<WeaponId, (kit: ModelKit) => Built> = { pistol, shotgun, sniper, copter, reaper, sakura, rocket, grenade, axe, shield };
 
 /** Metres per model unit for every gun but the Gatling, which is held bigger (playtest: "too small"). */
 const SCALE = 0.62;

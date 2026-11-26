@@ -23,7 +23,7 @@ const v = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
 const facing = (a: Vec3, b: Vec3) => Math.atan2(-(b.x - a.x), -(b.z - a.z));
 
 /** Four walls round a rectangle, drawn `drawTop` m tall and solid far above, painted `paint`. */
-function fence(x0: number, x1: number, z0: number, z1: number, drawTop: number, paint?: Box["paint"]): Box[] {
+export function fence(x0: number, x1: number, z0: number, z1: number, drawTop: number, paint?: Box["paint"]): Box[] {
   const wall = (b: Box): Box => ({ ...b, kind: "wall", drawTop, ...(paint ? { paint } : {}) });
   return [
     wall(box(x0 - 1, 0, z0 - 1, x1 + 1, SOLID, z0)),
@@ -33,8 +33,13 @@ function fence(x0: number, x1: number, z0: number, z1: number, drawTop: number, 
   ];
 }
 
+/** The warehouse supplies the west walls. Drawing another fence on those exact faces causes z-fighting. */
+export function yardFence(x: number, z0: number, z1: number): Box[] {
+  return fence(0, x, z0, z1, 5, "corrugated").filter((b) => b.max.x > 0).map((b) => ({ ...b, min: { ...b.min, x: Math.max(0, b.min.x) } }));
+}
+
 /** Invisible solid bounds round an open level (and a lid), so nothing leaves it. */
-function bounds(half: number, lid: number): Box[] {
+export function bounds(half: number, lid: number): Box[] {
   const hidden = (b: Box): Box => ({ ...b, kind: "wall", prop: "hidden" });
   return [
     hidden(box(-half - 1, -50, -half - 1, half + 1, SOLID, -half)),
@@ -91,11 +96,11 @@ export function islandLevel(): Level {
 // ---- Industrial Yard -------------------------------------------------------------------
 const HALL_H = 12; // m: the hall's roof
 /** An explosive vehicle or drum: a box the renderer draws as one (hazards.ts gives it health and a blast). */
-const truck = (x: number, z: number, alongX = true): Box => alongX
+export const truck = (x: number, z: number, alongX = true): Box => alongX
   ? { ...box(x - 3.5, 0, z - 1.3, x + 3.5, 3, z + 1.3), prop: "truck" }
   : { ...box(x - 1.3, 0, z - 3.5, x + 1.3, 3, z + 3.5), prop: "truck" };
-const tank = (x: number, z: number): Box => ({ ...box(x - 3.5, 0, z - 1.8, x + 3.5, 2.6, z + 1.8), prop: "tank" });
-const drum = (x: number, z: number): Box => ({ ...box(x - 0.4, 0, z - 0.4, x + 0.4, 1.2, z + 0.4), prop: "drum" });
+export const tank = (x: number, z: number): Box => ({ ...box(x - 3.5, 0, z - 1.8, x + 3.5, 2.6, z + 1.8), prop: "tank" });
+export const drum = (x: number, z: number): Box => ({ ...box(x - 0.4, 0, z - 0.4, x + 0.4, 1.2, z + 0.4), prop: "drum" });
 
 export function industrialLevel(): Level {
   const hallWall = (b: Box): Box => ({ ...b, kind: "wall", drawTop: HALL_H });
@@ -107,7 +112,7 @@ export function industrialLevel(): Level {
       boxes: [
         box(-33, -1, -21, 0, 0, 21, "floor"), // the hall's floor
         { ...box(0, -1, -21, 33, 0, 21, "floor"), paint: "asphalt" }, // the yard
-        ...fence(-32, 32, -20, 20, 5, "corrugated"), // the yard's fence (the hall's walls are drawn taller below)
+        ...yardFence(32, -20, 20),
         hallWall(box(-33, 0, -21, -32, SOLID, 21)), // the hall: west wall, north and south walls drawn to the roof
         hallWall(box(-32, 0, -21, 0, SOLID, -20)),
         hallWall(box(-32, 0, 20, 0, SOLID, 21)),
@@ -156,7 +161,7 @@ export function industrialLevel(): Level {
 const CAR = { l: 4.2, h: 1.5, w: 1.9 };
 
 /** A stack of `n` cars at (x, z), lying along x (or z), each a little offset from the one below. */
-function stack(x: number, z: number, n: number, alongX = true): Box[] {
+export function stack(x: number, z: number, n: number, alongX = true): Box[] {
   const out: Box[] = [];
   for (let i = 0; i < n; i++) {
     const o = (i % 2 ? 0.18 : -0.1) * (alongX ? 1 : -1);

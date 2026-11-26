@@ -1,0 +1,102 @@
+[
+  {
+    "source": "assets_src/approved-art/weapons/glock-17.glb",
+    "preview": "assets_src/runtime-preview/weapons/glock-17.glb",
+    "sourceSha256": "c5daf7c10f4baa223a3069d140f41b6bc53e4880ed98c4b6b978f8affad983eb",
+    "previewSha256": "b90ae24d6069c60d5e729a2511e70004873448777eecbe12071c8360209bc745",
+    "sourceBytes": 5943468,
+    "previewBytes": 355840,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/sniper.glb",
+    "preview": "assets_src/runtime-preview/weapons/sniper.glb",
+    "sourceSha256": "3090dff53c242e13841ce9d48e4056f07230502fac320f1bc3153d6ce6be0210",
+    "previewSha256": "3e21c1c71fcd106da615089fa1f688b92f8a1dfa3b4bc88f5b5b2e2c5f245eae",
+    "sourceBytes": 9324096,
+    "previewBytes": 648472,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/minigun.glb",
+    "preview": "assets_src/runtime-preview/weapons/minigun.glb",
+    "sourceSha256": "23a8b337a13b979e7371d10979d36c6d91b194d0d7039d0ca57460e18dca0bb2",
+    "previewSha256": "a9d30c3470246bc0ed540ea75eca440576dc2534df2ef82af9bf4f8c9f522117",
+    "sourceBytes": 6749100,
+    "previewBytes": 589292,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/at-2x-launcher.glb",
+    "preview": "assets_src/runtime-preview/weapons/at-2x-launcher.glb",
+    "sourceSha256": "ee934eb77004144fe8495fe97911f48ce172234f2e0e466d3bdc480c4fb12f6e",
+    "previewSha256": "fd1d5f5dd572683593007d1d5b030fe6f35e3ae8193f036f80aa1ab29bc84cd5",
+    "sourceBytes": 9280908,
+    "previewBytes": 550768,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/at-2x-rocket.glb",
+    "preview": "assets_src/runtime-preview/weapons/at-2x-rocket.glb",
+    "sourceSha256": "ab8bbbe68a852b1f40f38522c0b723a09368690471a713650cd5bb6626a4fd77",
+    "previewSha256": "fcaa3e2ec29183862620f96996d82d51514577137c6a0f1c588f5bac2570334f",
+    "sourceBytes": 9122692,
+    "previewBytes": 392556,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/shotgun-existing.glb",
+    "preview": "assets_src/runtime-preview/weapons/shotgun-existing.glb",
+    "sourceSha256": "2e312c0e795b065b5a3edffa46cb7eed70bc08ebfa23ebba819ea2f676665e5e",
+    "previewSha256": "0119fe4266a913f7e06334d6709640122690ab1287af9b0ae57c8ff8e704595a",
+    "sourceBytes": 10027012,
+    "previewBytes": 731216,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/weathered-shotgun.glb",
+    "preview": "assets_src/runtime-preview/weapons/weathered-shotgun.glb",
+    "sourceSha256": "8607bfd8a6b167ce8739127e05e31abd33cf0bfeb7ad938bb4cf554587018465",
+    "previewSha256": "afcf362a9e0d5eab0fb7bcd58559e503757ab0623f220b25c5f913202b2aea03",
+    "sourceBytes": 6641932,
+    "previewBytes": 542396,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/approved-art/weapons/ballistic-shield.glb",
+    "preview": "assets_src/runtime-preview/weapons/ballistic-shield.glb",
+    "sourceSha256": "422c28dd6ab410aeee3fca05a3dbc931677c677869cce26642400df28b87be17",
+    "previewSha256": "73db48dbdc0d1f10d418a01ffe797710b14921988fe992b5c7dad3ac2cda8cda",
+    "sourceBytes": 7159452,
+    "previewBytes": 458120,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/additional-art/grenade.glb",
+    "preview": "assets_src/runtime-preview/equipment/grenade.glb",
+    "sourceSha256": "ff19af9b0e0b786ff06992a4792222fe61f473761df897a0c444c9fc6e5e83ed",
+    "previewSha256": "b92218f398df7f8befc8999f553fe780916057b6a3299850a0506c18ed06ea46",
+    "sourceBytes": 7403452,
+    "previewBytes": 434952,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  },
+  {
+    "source": "assets_src/additional-art/health-pack.glb",
+    "preview": "assets_src/runtime-preview/equipment/health-pack.glb",
+    "sourceSha256": "0cf573f69e06494ac5e7ed158655e496e50d8d962fb055bd4540582f40f70c71",
+    "previewSha256": "953f839a9a308449a00080996f877312e81836027b70575fbb8a0166444a8725",
+    "sourceBytes": 7233540,
+    "previewBytes": 606816,
+    "releaseEnabled": false,
+    "licenseStatus": "Exact source/export provenance pending; development review only."
+  }
+]

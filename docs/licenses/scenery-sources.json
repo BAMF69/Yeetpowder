@@ -1,0 +1,110 @@
+{
+  "reviewed": "2026-11-25",
+  "publisherLicense": "https://vinish.dev/free-3d-models/",
+  "assets": [
+    {
+      "sourceFile": "assets_src/approved-art/vinish/industrial/industrial-mixer.glb",
+      "runtimeFile": "public/assets/models/scenery/vinish/industrial/industrial-mixer.glb",
+      "bytes": 159780,
+      "sha256": "3eaa86e95e6dc328fbd06e2428573f6c9a11cf2dd11040e3e8663bac831bc62c",
+      "title": "Industrial Mixer",
+      "author": "vinish.dev",
+      "source": "https://vinish.dev/free-3d-models/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "credit": "\"Industrial Mixer\" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0",
+      "modification": "Original file unchanged. Runtime placement, rotation and uniform scale."
+    },
+    {
+      "sourceFile": "assets_src/approved-art/vinish/industrial/belt-conveyor.glb",
+      "runtimeFile": "public/assets/models/scenery/vinish/industrial/belt-conveyor.glb",
+      "bytes": 178004,
+      "sha256": "9833b28fa34e67af4fe01bd2aa339a7b9ad7ed0d1779db7f4d1d31629cc40c7d",
+      "title": "Belt Conveyor",
+      "author": "vinish.dev",
+      "source": "https://vinish.dev/free-3d-models/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "credit": "\"Belt Conveyor\" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0",
+      "modification": "Original file unchanged. Runtime placement, rotation and uniform scale."
+    },
+    {
+      "sourceFile": "assets_src/approved-art/vinish/industrial/portable-toilet.glb",
+      "runtimeFile": "public/assets/models/scenery/vinish/industrial/portable-toilet.glb",
+      "bytes": 57376,
+      "sha256": "26d78a50c63dfd7966090f462af0d7ebd87582ecececdb1f46578629b027e0d8",
+      "title": "Portable Toilet",
+      "author": "vinish.dev",
+      "source": "https://vinish.dev/free-3d-models/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "credit": "\"Portable Toilet\" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0",
+      "modification": "Original file unchanged. Runtime placement, rotation and uniform scale."
+    },
+    {
+      "sourceFile": "assets_src/approved-art/vinish/industrial/skip.glb",
+      "runtimeFile": "public/assets/models/scenery/vinish/industrial/skip.glb",
+      "bytes": 45584,
+      "sha256": "3771f655f7dc08cbbabe91a5522ec52f8d6be116d002d43faab9f321a762da38",
+      "title": "Skip",
+      "author": "vinish.dev",
+      "source": "https://vinish.dev/free-3d-models/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "credit": "\"Skip\" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0",
+      "modification": "Original file unchanged. Runtime placement, rotation and uniform scale."
+    },
+    {
+      "sourceFile": "assets_src/approved-art/vinish/industrial/wooden-crate.glb",
+      "runtimeFile": "public/assets/models/scenery/vinish/industrial/wooden-crate.glb",
+      "bytes": 611912,
+      "sha256": "d8b920f28249174f17773d78f3407a5737bc6795b889e940667aa64e4e0ed501",
+      "title": "Wooden Crate",
+      "author": "vinish.dev",
+      "source": "https://vinish.dev/free-3d-models/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "credit": "\"Wooden Crate\" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0",
+      "modification": "Original file unchanged. Runtime placement, rotation and uniform scale."
+    },
+    {
+      "sourceFile": "assets_src/approved-art/vinish/junkyard/oil-drum.glb",
+      "runtimeFile": "public/assets/models/scenery/vinish/junkyard/oil-drum.glb",
+      "bytes": 314076,
+      "sha256": "589f0b78bcd19c24bd180e81d6b215d4b9062895206f5194a02747b92247bf89",
+      "title": "Oil Drum",
+      "author": "vinish.dev",
+      "source": "https://vinish.dev/free-3d-models/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "credit": "\"Oil Drum\" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0",
+      "modification": "Original file unchanged. Runtime placement, rotation and uniform scale."
+    },
+    {
+      "sourceFile": "assets_src/approved-art/vinish/island/crab.glb",
+      "runtimeFile": "public/assets/models/scenery/vinish/island/crab.glb",
+      "bytes": 420808,
+      "sha256": "0a038d5ecc263c5485544639b6bb2504afb642c89524a40266e923eda2680ad5",
+      "title": "Crab",
+      "author": "vinish.dev",
+      "source": "https://vinish.dev/free-3d-models/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "credit": "\"Crab\" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0",
+      "modification": "Original file unchanged. Runtime placement, rotation and uniform scale."
+    },
+    {
+      "sourceFile": "assets_src/approved-art/vinish/island/sea-turtle.glb",
+      "runtimeFile": "public/assets/models/scenery/vinish/island/sea-turtle.glb",
+      "bytes": 386404,
+      "sha256": "4d643b6fe4fba6c38ab4aea160df207f2fb28f2d58a42e14a0db72720a2252b5",
+      "title": "Sea Turtle",
+      "author": "vinish.dev",
+      "source": "https://vinish.dev/free-3d-models/",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "credit": "\"Sea Turtle\" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0",
+      "modification": "Original file unchanged. Runtime placement, rotation and uniform scale."
+    }
+  ]
+}

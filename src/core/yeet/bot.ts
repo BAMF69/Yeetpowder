@@ -197,7 +197,7 @@ export class BotBrain {
 
     // fire: semi-auto guns need a press, the Gatling is held
     if (firing && !input.firePressed) {
-      if (this.t.weapons[pl.weapon].auto) input.fireHeld = true;
+      if (this.t.weapons[pl.weapon === "shield" ? "pistol" : pl.weapon].auto) input.fireHeld = true;
       else input.firePressed = true;
       input.aiming = this.aimDown;
     } else if (this.aimDown && visible && (pl.weapon === "sniper" || pl.weapon === "pistol")) {
@@ -220,11 +220,26 @@ export class BotBrain {
     if (holdStill && input.firePressed && Math.hypot(pl.vel.x, pl.vel.z) > PLANT_SPEED && pl.onGround) {
       input.firePressed = false; // still sliding: wait a moment so the shot does not tumble it
     }
+    // Retreat and strafe are checked in world space too: backing away from an enemy must not mean backing into water.
+    if (sim.level.water && pl.onGround) {
+      const safe = (x: number, z: number) => sim.arena.boxes.some((b) => b.max.y >= sim.level.water!.y + 0.2 && b.max.y <= pl.pos.y + 0.7 && b.min.x <= x - 0.6 && b.max.x >= x + 0.6 && b.min.z <= z - 0.6 && b.max.z >= z + 0.6);
+      const yaw = pl.yaw + dYaw, fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+      const dx = Math.cos(yaw) * input.moveX + fx * input.moveZ, dz = -Math.sin(yaw) * input.moveX + fz * input.moveZ;
+      if (!safe(pl.pos.x + dx * 2.5 + pl.vel.x * 0.25, pl.pos.z + dz * 2.5 + pl.vel.z * 0.25)) {
+        const retreat = sim.level.spawns?.filter((p) => safe(p.x, p.z)).sort((a, b) => Math.hypot(a.x - pl.pos.x, a.z - pl.pos.z) - Math.hypot(b.x - pl.pos.x, b.z - pl.pos.z))[0] ?? sim.level.spawn;
+        const keys = keysFor(retreat.x - pl.pos.x, retreat.z - pl.pos.z, yaw);
+        input.moveX = keys.moveX; input.moveZ = keys.moveZ; input.sprint = false; input.jump = false;
+        // A recoil-heavy shot near the edge can be as dangerous as walking backwards.
+        input.firePressed = false; input.fireHeld = false; this.launch = null;
+      }
+    }
 
     this.debug.state = this.state;
     this.debug.target = target;
     this.debug.visible = visible;
     this.debug.goal = goal;
+    if (pl.weapon === "shield") input.aiming = false; // offensive shield use is the hip Pea Pistol
+    input.heal = pl.hp < this.t.player.hp && pl.healthUses > 0 && pl.healCooldown === 0 && pl.healing === 0;
     return { input, dYaw, dPitch };
   }
 
@@ -346,10 +361,10 @@ export class BotBrain {
 
   // ---- action --------------------------------------------------------------------------
   private shouldFire(pl: PlayerState, eye: Vec3, seen: Snap, dist: number, now: number): boolean {
-    const w = this.t.weapons[pl.weapon];
+    const w = this.t.weapons[pl.weapon === "shield" ? "pistol" : pl.weapon];
     if (!BOT_GUNS.includes(pl.weapon)) return false;
     if (now - this.seenSince < this.k.reaction) return false; // still taking in what it just saw
-    if (pl.cooldown > 0 || pl.reloading > 0 || pl.mag[pl.weapon] <= 0 || dist > w.range) return false;
+    if (pl.cooldown > 0 || pl.reloading > 0 || pl.mag[pl.weapon === "shield" ? "pistol" : pl.weapon] <= 0 || dist > w.range) return false;
     const want = lookAngles(eye, v3(seen.pos.x, seen.pos.y + CHEST, seen.pos.z));
     const err = Math.hypot(wrap(want.yaw - pl.yaw), want.pitch - pl.pitch);
     const cone = this.k.fireCone * Math.atan2(HALF_WIDTH, Math.max(1, dist));

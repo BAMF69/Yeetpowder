@@ -54,6 +54,8 @@ export interface YeetInput {
   sprint: boolean;
   /** Reload the current gun (R). */
   reload: boolean;
+  /** Use one charge of a carried health pack (one-shot press). */
+  heal?: boolean;
   /** Slash with a gunblade (F pressed this step). */
   slash: boolean;
   /** F held: past a moment it becomes the hold move (scythe hook, katana dash stance). */
@@ -92,6 +94,10 @@ export type YeetEvent =
   | { type: "tumble" }
   | { type: "recover" }
   | { type: "pickup"; weapon: WeaponId }
+  | { type: "heal"; amount: number }
+  | { type: "healthPack" }
+  | { type: "healing" }
+  | { type: "sharkApproach"; at: Vec3 }
   | { type: "dummyAim"; dummy: number }
   | { type: "dummyFire"; dummy: number }
   | { type: "ballPop"; at: Vec3 }
@@ -125,6 +131,13 @@ export type YeetEvent =
 export type TaggedEvent = YeetEvent & { p?: number };
 
 export interface PlayerState {
+  sharkT: number;
+  sharkBy: number;
+  swallowed: boolean;
+  shielding: boolean;
+  healthUses: number;
+  healing: number;
+  healCooldown: number;
   pos: Vec3;
   vel: Vec3;
   yaw: number;
@@ -244,9 +257,10 @@ export interface Projectile {
 }
 
 export interface PickupState {
-  weapon: WeaponId;
+  weapon: WeaponId | "health";
   pos: Vec3;
   taken: boolean;
+  respawn?: number;
 }
 
 const PM_M = 2147483647; // Park-Miller modulus (2^31 - 1)
@@ -334,6 +348,8 @@ export class YeetSim {
     const level = this.level;
     const sp = this.spawnOf(i);
     return {
+      sharkT: 0, sharkBy: -1, swallowed: false, shielding: false,
+      healthUses: 0, healing: 0, healCooldown: 0,
       pos: sp.pos, vel: vec(), yaw: sp.yaw, pitch: 0, spin: 0, onGround: true, stun: 0,
       weapon: level.startWeapons[0], owned: [...level.startWeapons], cooldown: 0, heat: 0, crashing: false,
       overheated: false, yeeted: false, hp: t.player.hp, dead: 0, tumbling: 0, tumbleAge: 0, tumbleRoll: 0,
@@ -344,6 +360,11 @@ export class YeetSim {
       stanceDashed: false, ultraLeft: 0, ultraT: 0, ultraRound: 0,
       backflipAir: false, heroLand: 0,
     };
+  }
+
+  /** A new occupant gets a fresh life at this slot's own spawn. */
+  resetSlot(i: number): void {
+    if (this.players[i]) this.players[i] = this.makePlayer(i);
   }
 
   private fullMags(): Record<WeaponId, number> {
@@ -370,7 +391,7 @@ export class YeetSim {
   }
 
   get weaponTuning(): WeaponTuning {
-    return this.t.weapons[this.player.weapon];
+    return this.t.weapons[this.player.weapon === "shield" ? "pistol" : this.player.weapon];
   }
 
   /** No control right now (stunned, tumbling or knocked out). */
@@ -398,7 +419,12 @@ export class YeetSim {
     const inputs = Array.isArray(input) ? input : [input];
     const ev: TaggedEvent[] = [];
     const dt = this.t.step;
+    // Establish each defender's aim before any attacker is stepped (no slot-order advantage).
+    this.players.forEach((p, i) => { p.shielding = p.weapon === "shield" && !!inputs[i]?.aiming && p.dead === 0 && p.healing === 0; });
     this.time += dt;
+    for (const p of this.pickups) if (p.taken && p.respawn !== undefined) {
+      p.respawn = Math.max(0, p.respawn - dt); if (p.respawn === 0) p.taken = false;
+    }
     for (let i = 0; i < this.players.length; i++) {
       this.cur = i;
       const start = ev.length;
@@ -460,13 +486,15 @@ export class YeetSim {
     const ev = this.blastEvents;
     const mid = this.t.player.height * 0.55;
     this.players.forEach((v, j) => {
-      if (v.dead > 0) return;
+      if (v.dead > 0 || v.sharkT > 0) return;
       const r = blast(at, vec(v.pos.x, v.pos.y + mid, v.pos.z), spec);
       if (r.damage <= 0) return;
       const mine = j === by;
-      addScaled(v.vel, r.push, mine && self ? self.force : 1);
+      const guarded = this.guarded(v, normalize(copy(r.push)));
+      addScaled(v.vel, r.push, (mine && self ? self.force : 1) * (guarded ? this.t.shield.forceScale : 1));
       v.onGround = false;
-      v.hp -= r.damage * (mine && self ? self.damage : 1);
+      if (!this.level.infiniteHp) v.hp -= r.damage * (mine && self ? self.damage : 1) *
+        (guarded ? (v.shielding ? this.t.shield.aimedBlastScale : this.t.shield.hipBlastScale) : 1);
       if (!mine) {
         v.lastHitBy = by; // whoever set it off gets the knockout (and a later fall in the water)
         v.lastHitAt = this.time;
@@ -581,14 +609,10 @@ export class YeetSim {
     if (pl.dead === 0) {
       const recent = this.time - pl.lastHitAt <= this.t.water.credit;
       const by = pl.lastHitBy >= 0 && pl.lastHitBy !== this.cur && recent ? pl.lastHitBy : -1;
-      ev.push({ type: "eaten", who: "player", by, at: vec(pl.pos.x, w.y, pl.pos.z) });
-      this.knockOut(pl);
-      if (by >= 0) {
-        this.kos[by]++;
-        ev.push({ type: "pvpDown", by, target: this.cur });
-      }
+      pl.sharkT = this.t.shark.approach; pl.sharkBy = by;
+      ev.push({ type: "sharkApproach", at: vec(pl.pos.x, w.y, pl.pos.z) });
     }
-    pl.pos.y = w.y - this.t.water.sink;
+    pl.pos.y = pl.dead > 0 ? w.y - this.t.water.sink : w.y + 0.05;
     pl.vel = vec();
     pl.tumbling = 0;
   }
@@ -643,7 +667,7 @@ export class YeetSim {
   }
 
   /** Damage and knock a target (a dummy, or another player in a duel). lift adds upward speed after the knock. */
-  private hitTarget(code: number, dir: Vec3, damage: number, knockback: number, at: Vec3, ev: YeetEvent[], lift = 0): void {
+  private hitTarget(code: number, dir: Vec3, damage: number, knockback: number, at: Vec3, ev: YeetEvent[], lift = 0, bullet = false): void {
     if (code < PLAYER_CODE) {
       this.hitDummy(code, dir, damage, knockback, at, ev);
       this.dummies[code].vel.y += lift;
@@ -651,13 +675,15 @@ export class YeetSim {
     }
     const j = code - PLAYER_CODE;
     const v = this.players[j];
-    if (!v || v.dead > 0) return;
+    if (!v || v.dead > 0 || v.sharkT > 0) return;
+    let upward = this.t.dummy.lift * Math.min(1, knockback / 4);
+    if (this.guarded(v, dir) && bullet) { damage = 0; knockback *= this.t.shield.forceScale; lift *= this.t.shield.forceScale; upward *= this.t.shield.forceScale; }
     v.lastHitBy = this.cur;
     v.lastHitAt = this.time;
     addScaled(v.vel, dir, knockback);
-    v.vel.y += this.t.dummy.lift * Math.min(1, knockback / 4) + lift;
+    v.vel.y += upward + lift;
     v.onGround = false;
-    v.hp -= damage;
+    if (!this.level.infiniteHp) v.hp -= damage;
     ev.push({ type: "pvpHit", by: this.cur, target: j, damage, at });
     if (v.hp <= 0) {
       this.knockOut(v);
@@ -669,6 +695,7 @@ export class YeetSim {
   /** A player at 0 hp: knocked out, flying off in a tumble the third-person camera can watch, respawn later. */
   private knockOut(v: PlayerState): void {
     v.hp = 0;
+    v.healing = 0; v.shielding = false;
     v.dead = this.t.player.respawnDelay;
     v.crashing = false;
     v.tumbling = this.t.player.respawnDelay;
@@ -677,10 +704,27 @@ export class YeetSim {
     v.vel.y += 5;
   }
 
+  private guarded(v: PlayerState, incoming: Vec3): boolean {
+    const forward = aimDir(v.yaw, 0);
+    return v.weapon === "shield" && v.dead === 0 && v.sharkT === 0 && v.healing === 0 &&
+      forward.x * incoming.x + forward.z * incoming.z < this.t.shield.frontalDot;
+  }
+
   // ---- player ----------------------------------------------------------------
   private stepPlayer(input: YeetInput, dt: number, ev: YeetEvent[]): void {
     const t = this.t;
     const pl = this.player;
+    pl.shielding = pl.weapon === "shield" && input.aiming && !this.helpless && pl.healing === 0;
+    if (pl.sharkT > 0) {
+      pl.sharkT = Math.max(0, pl.sharkT - dt); pl.vel = vec();
+      if (pl.sharkT === 0) {
+        const by = pl.sharkBy;
+        ev.push({ type: "eaten", who: "player", by, at: copy(pl.pos) });
+        this.knockOut(pl); pl.swallowed = true;
+        if (by >= 0) { this.kos[by]++; ev.push({ type: "pvpDown", by, target: this.cur }); }
+      }
+      return;
+    }
     if (input.reset && pl.dead === 0) {
       this.respawnPlayer(false);
       ev.push({ type: "playerRespawn" });
@@ -713,14 +757,16 @@ export class YeetSim {
       }
     }
 
+    this.updateHealing(input, dt, ev);
+    pl.shielding = pl.weapon === "shield" && input.aiming && !this.helpless && pl.healing === 0;
     const speedBefore = lenXZ(pl.vel);
     if (pl.heroLand > 0) pl.heroLand = Math.max(0, pl.heroLand - dt);
     // a hero landing: no moving, sprinting or jumping until you are back up (shooting and slashing still work)
     const legs = control && pl.heroLand === 0 ? input : NO_INPUT;
     this.updateSprint(legs, dt);
     this.runAndJump(legs, dt);
-    this.fireWeapons(control ? input : NO_INPUT, speedBefore, dt, ev);
-    this.melee(control ? input : NO_INPUT, dt, ev);
+    this.fireWeapons(control && pl.healing === 0 ? input : NO_INPUT, speedBefore, dt, ev);
+    this.melee(control && pl.healing === 0 ? input : NO_INPUT, dt, ev);
 
     // recoil twist: the camera and body turn, then settle
     pl.yaw += pl.spin * dt;
@@ -854,19 +900,21 @@ export class YeetSim {
     const t = this.t;
     const pl = this.player;
     const w = this.weaponTuning;
+    const gun = pl.weapon === "shield" ? "pistol" : pl.weapon;
     pl.cooldown = Math.max(0, pl.cooldown - dt);
+    if (pl.healing > 0 || (pl.weapon === "shield" && input.aiming)) return;
     if (pl.weapon === "axe" && input.slashHeld && input.firePressed) input = { ...input, firePressed: false }; // the grenade slash (melee)
     // reloading: count down, then a full magazine (reserve ammo is infinite for now)
     if (pl.reloading > 0) {
       pl.reloading = Math.max(0, pl.reloading - dt);
       if (pl.reloading === 0) {
-        pl.mag[pl.weapon] = w.mag;
-        ev.push({ type: "reloaded", weapon: pl.weapon });
+        pl.mag[gun] = w.mag;
+        ev.push({ type: "reloaded", weapon: gun });
       }
-    } else if (input.reload && pl.mag[pl.weapon] < w.mag && !pl.crashing) {
+    } else if (input.reload && pl.mag[gun] < w.mag && !pl.crashing) {
       this.startReload(ev);
     }
-    const loaded = pl.reloading === 0 && pl.mag[pl.weapon] > 0;
+    const loaded = pl.reloading === 0 && pl.mag[gun] > 0;
 
     const copterFiring = pl.weapon === "copter" && input.fireHeld && !pl.crashing && !pl.overheated && loaded;
     if (copterFiring) {
@@ -908,15 +956,15 @@ export class YeetSim {
     }
     if (pl.weapon === "copter" && !copterFiring) return;
     pl.cooldown = w.cooldown;
-    pl.mag[pl.weapon]--;
+    pl.mag[gun]--;
     this.shoot(w, input, speedBefore, ev);
-    if (pl.mag[pl.weapon] === 0) this.startReload(ev); // the last round: reload on its own
+    if (pl.mag[gun] === 0) this.startReload(ev); // the last round: reload on its own
   }
 
   private startReload(ev: YeetEvent[]): void {
     const pl = this.player;
     pl.reloading = this.weaponTuning.reload;
-    ev.push({ type: "reload", weapon: pl.weapon });
+    ev.push({ type: "reload", weapon: pl.weapon === "shield" ? "pistol" : pl.weapon });
   }
 
   /** One shot of the current gun: recoil and twist on the shooter, hitscan pellets, maybe a run-and-gun tumble. */
@@ -970,9 +1018,9 @@ export class YeetSim {
       else this.launch("rocket", addScaled(copy(from), aim, 0.6), aim, t.projectile.rocket.speed);
     } else if (w.projectile === "grenade") {
       const g = t.projectile.grenade;
-      this.launch("grenade", addScaled(copy(from), aim, 0.5), aim, g.speed, g.up);
+      this.launch("grenade", addScaled(copy(from), aim, 0.5), aim, aimed ? g.aimedSpeed : g.speed, g.up);
     }
-    ev.push({ type: "fire", weapon: pl.weapon, tracers, aimed });
+    ev.push({ type: "fire", weapon: pl.weapon === "shield" ? "pistol" : pl.weapon, tracers, aimed });
     pl.lastShotAt = this.time;
     if (pl.weapon === "reaper") {
       const kind = bigFlip ? "backflip" : this.flipKind(pl.yaw, velBefore, kick);
@@ -1389,7 +1437,7 @@ export class YeetSim {
       }
     });
     const to = addScaled(copy(from), dir, dist);
-    if (target >= 0) this.hitTarget(target, dir, w.damage, w.knockback, to, ev);
+    if (target >= 0) this.hitTarget(target, dir, w.damage, w.knockback, to, ev, 0, true);
     else this.explosives.forEach((ex, i) => {
       // the wall the shot stopped at is an explosive's box: it takes the hit
       if (ex.wreckT > 0) return;
@@ -1434,6 +1482,25 @@ export class YeetSim {
     ev.push({ type: "crash", at: copy(pl.pos), hits });
   }
 
+  /** Damage and movement do not cancel treatment; death does. Cooldown starts on completion. */
+  private updateHealing(input: YeetInput, dt: number, ev: YeetEvent[]): void {
+    const p = this.player, s = this.t.supplies;
+    p.healCooldown = Math.max(0, p.healCooldown - dt);
+    if (p.dead > 0 || p.sharkT > 0) { p.healing = 0; return; }
+    if (p.healing > 0) {
+      p.healing = Math.max(0, p.healing - dt);
+      if (p.healing < 1e-8) {
+        p.healing = 0;
+        const amount = this.t.player.hp - p.hp;
+        p.hp = this.t.player.hp; p.healCooldown = s.healCooldown;
+        ev.push({ type: "heal", amount });
+      }
+    } else if (input.heal && p.healthUses > 0 && p.healCooldown === 0 && p.hp < this.t.player.hp && !this.helpless && !this.level.infiniteHp) {
+      p.healthUses--; p.healing = s.applyTime; p.reloading = 0;
+      this.endHolds(ev); ev.push({ type: "healing" });
+    }
+  }
+
   private checkPickups(ev: YeetEvent[]): void {
     const pl = this.player;
     const mid = vec(pl.pos.x, pl.pos.y + 0.85, pl.pos.z);
@@ -1441,7 +1508,14 @@ export class YeetSim {
       if (p.taken) continue;
       const d = Math.hypot(mid.x - p.pos.x, mid.y - (p.pos.y + 0.5), mid.z - p.pos.z);
       if (d > this.t.pickupRadius) continue;
+      if (p.weapon === "health") {
+        if (pl.healthUses >= this.t.supplies.healthUses) continue;
+        pl.healthUses = this.t.supplies.healthUses;
+        p.taken = true; p.respawn = this.t.supplies.healthRespawn;
+        ev.push({ type: "healthPack" }); continue;
+      }
       p.taken = true;
+      p.respawn = this.t.supplies.weaponRespawn;
       if (!pl.owned.includes(p.weapon)) pl.owned.push(p.weapon);
       pl.mag[p.weapon] = this.t.weapons[p.weapon].mag;
       if (!pl.crashing) {
@@ -1456,7 +1530,12 @@ export class YeetSim {
   respawnPlayer(fullReset: boolean): void {
     const pl = this.player;
     const lv = this.level;
-    const sp = this.spawnOf(this.cur);
+    // Seeded shuffle among the safest candidates, avoiding the last spot and nearby live opponents.
+    const candidates = (lv.spawns ?? [lv.spawn]).map((pos, i) => ({ i, distance: Math.min(...this.players.flatMap((p, j) => j !== this.cur && p.dead === 0 ? [Math.hypot(pos.x - p.pos.x, pos.z - p.pos.z)] : [1000])) }))
+      .filter(({ i }) => Math.hypot((lv.spawns?.[i] ?? lv.spawn).x - pl.pos.x, (lv.spawns?.[i] ?? lv.spawn).z - pl.pos.z) > 1);
+    const safe = candidates.filter((c) => c.distance >= 8);
+    const choices = safe.length ? safe : candidates.sort((a, b) => b.distance - a.distance).slice(0, 2);
+    const sp = this.spawnOf(choices.length ? choices[Math.floor(this.rand() * choices.length)].i : this.cur);
     pl.pos = sp.pos;
     pl.vel = vec();
     pl.yaw = sp.yaw;
@@ -1468,7 +1547,9 @@ export class YeetSim {
     pl.tumbleAge = 0;
     pl.tumbleRoll = 0;
     pl.dead = 0;
+    pl.sharkT = 0; pl.swallowed = false; pl.sharkBy = -1; pl.shielding = false;
     pl.hp = this.t.player.hp;
+    pl.healing = 0; pl.healCooldown = 0;
     pl.onGround = true;
     pl.stamina = this.t.sprint.stamina;
     pl.winded = false;
@@ -1485,6 +1566,7 @@ export class YeetSim {
     pl.backflipAir = false;
     pl.heroLand = 0;
     if (fullReset) {
+      pl.healthUses = 0;
       pl.owned = [...lv.startWeapons];
       if (!pl.owned.includes(pl.weapon)) pl.weapon = pl.owned[0];
       pl.heat = 0;
@@ -1628,7 +1710,7 @@ export class YeetSim {
       b.life -= dt;
       const p = b.pos;
       // any player (a box grown by the ball's radius)
-      const j = this.players.findIndex((pl) => pl.dead === 0 && Math.abs(p.x - pl.pos.x) < hw && Math.abs(p.z - pl.pos.z) < hw && p.y > pl.pos.y - r && p.y < pl.pos.y + t.player.height + r);
+      const j = this.players.findIndex((pl) => pl.dead === 0 && pl.sharkT === 0 && Math.abs(p.x - pl.pos.x) < hw && Math.abs(p.z - pl.pos.z) < hw && p.y > pl.pos.y - r && p.y < pl.pos.y + t.player.height + r);
       if (j >= 0) {
         this.hitPlayer(b, j, ev);
         this.balls.splice(k, 1);
@@ -1644,11 +1726,13 @@ export class YeetSim {
     const ai = this.t.ai;
     const pl = this.players[j];
     const dir = normalize(b.vel);
-    addScaled(pl.vel, dir, ai.knockback);
-    pl.vel.y += 1.5;
+    const guarded = this.guarded(pl, dir);
+    addScaled(pl.vel, dir, ai.knockback * (guarded ? this.t.shield.forceScale : 1));
+    pl.vel.y += 1.5 * (guarded ? this.t.shield.forceScale : 1);
     pl.onGround = false;
-    pl.hp -= ai.damage;
-    ev.push({ type: "playerHit", dummy: b.owner, damage: ai.damage, at: copy(b.pos), p: j });
+    const damage = guarded ? 0 : ai.damage;
+    if (!this.level.infiniteHp) pl.hp -= damage;
+    ev.push({ type: "playerHit", dummy: b.owner, damage, at: copy(b.pos), p: j });
     if (pl.hp <= 0) {
       this.knockOut(pl);
       addScaled(pl.vel, dir, ai.knockback);

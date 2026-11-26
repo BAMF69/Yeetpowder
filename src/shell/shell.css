@@ -156,3 +156,13 @@
 #toasts { position: absolute; left: 0.8em; bottom: 0.8em; display: flex; flex-direction: column; gap: 0.3em; pointer-events: none; }
 .toast { background: var(--panel); border: 2px solid var(--edge); border-radius: 0.3em; padding: 0.25em 0.6em; font-size: calc(0.85em * var(--text-scale)); max-width: 60vw; overflow-wrap: anywhere; }
 
+.yeet-menu { justify-content:flex-start; background-size:cover; background-position:center right; }
+.yeet-menu > .panel { margin-left:5vw; width:min(590px,88vw); box-sizing:border-box; border:2px solid #ff56b1; border-radius:4px 32px 4px 32px; background:linear-gradient(140deg,#152338ed,#080f20f5); box-shadow:12px 12px 0 #26b8dc22,0 0 60px #ff319b22; }
+.yeet-menu .heading { color:#fff4d6; font-size:clamp(28px,4vw,54px); font-weight:950; letter-spacing:-.06em; text-transform:uppercase; text-shadow:3px 3px 0 #ec3296; margin-bottom:4px; }
+.yeet-tagline { color:#5ce3ef; font-size:13px; letter-spacing:.18em; font-weight:850; margin-bottom:20px; }
+.yeet-menu .list { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.yeet-menu .list > :first-child { grid-column:1 / -1; background:linear-gradient(110deg,#ff48aa,#ffcf59); color:#111523; font-size:1.2em; font-weight:950; border-color:#ffd84a; }
+.yeet-menu .list button { border-radius:4px 12px 4px 12px; background:#182c43; border-color:#32556d; text-align:left; padding:.55em .65em; }
+.yeet-menu .list button:focus-visible,.yeet-menu .list button:hover { border-color:#5ce3ef; box-shadow:inset 4px 0 #5ce3ef; }
+@media(max-width:600px) { .yeet-menu > .panel { margin-left:3vw;width:94vw; } .yeet-menu .list {grid-template-columns:1fr;} }
+

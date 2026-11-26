@@ -38,6 +38,7 @@ export interface PoseInput {
   slash?: number;
   /** Reaper's Kick has an enemy hooked: the gunblade turns on its side (as in first person). */
   hook?: boolean;
+  healing?: boolean;
 }
 
 export type V3 = [number, number, number];
@@ -200,6 +201,8 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
     head = lerp(head, 0, n);
   }
 
+  if (p.healing) return { lean, twist, head, legs, gun: null,
+    leftArm: { shoulder: [-1.1, 0, 0.15], elbow: -1.1 }, rightArm: { shoulder: [-1.1, 0, -0.15], elbow: -1.1 } };
   return { lean, twist, head, legs, gun: { pos: gunPos, rot: [pitch, gunYaw, gunRoll] }, leftArm, rightArm: "grip" };
 }
 
@@ -219,7 +222,8 @@ export function inputFromPlayer(pl: PlayerState, simTime: number, aim: number, k
     weapon: pl.weapon,
     speed: Math.hypot(pl.vel.x, pl.vel.z),
     onGround: pl.onGround,
-    aim,
+    aim: pl.weapon === "shield" ? Number(pl.shielding) : aim,
+    healing: pl.healing > 0,
     pitch: pl.pitch,
     fling,
     tumbling: pl.tumbling > 0,

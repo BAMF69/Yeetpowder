@@ -1,0 +1,16 @@
+Development preview exports, A-0020. NOT CLEARED FOR RELEASE.
+
+Original reviewed exports remain in assets_src/approved-art/weapons/ and assets_src/additional-art/.
+art-preview-sources.json records exact source/preview paths and SHA-256 hashes.
+Runtime preview copies live only under assets_src/runtime-preview/; none are copied into public/.
+isArtPreview requires the development environment. The production build cannot enable them through a URL flag.
+
+Modifications:
+- Embedded textures resized/re-encoded to 1024 px JPEG with the existing tools/slim_glb.mjs.
+- Original nodes, meshes, geometry accessors, material definitions, metadata and anchors retained.
+- Ballistic Shield's baked opaque viewport is opened with a runtime shader cutout limited to the existing window.
+- Shield presentation is normalized and anchored for left-hand hip carry and two-handed bracing.
+
+Exact source listing/export chains and license evidence for these exports still require confirmation before release.
+The shopping list is a set of possible sources, not proof of the origin of a particular export.
+No paid generation, re-rigging, Meshy task or upload was performed for this continuation.

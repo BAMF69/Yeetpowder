@@ -336,7 +336,7 @@ describe("sprint (playtest 4)", () => {
 describe("magazines and reloading (playtest 5)", () => {
   it("each gun holds its magazine: pistol 9, shotgun 2, sniper 5, gatling 200", () => {
     const sim = newSim();
-    expect(sim.player.mag).toEqual({ pistol: 9, shotgun: 2, sniper: 5, copter: 200, reaper: 4, sakura: 6, rocket: 1, grenade: 1, axe: 1 });
+    expect(sim.player.mag).toEqual({ pistol: 9, shotgun: 2, sniper: 5, copter: 200, reaper: 4, sakura: 6, rocket: 1, grenade: 1, axe: 1, shield: 9 });
   });
 
   it("emptying the Boomstick reloads it on its own; it cannot fire until the reload is done, then it is full", () => {

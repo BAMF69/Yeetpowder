@@ -15,6 +15,8 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import * as THREE from "three";
+import { buildHealthPack } from "./healthPack";
+import { OPERATORS, type OperatorId } from "../../net/profile";
 import type { WeaponId } from "../../core/yeet/tuning";
 import type { DummyFigure } from "./figures";
 import { PIVOT } from "./figures";
@@ -46,6 +48,7 @@ const FLASH_TIME = 0.06;
 const FLASH_SIZE: Partial<Record<WeaponId, number>> = { shotgun: 3, sniper: 2.6, copter: 2, reaper: 2.6 };
 
 export interface Operative extends DummyFigure {
+  setOperator(operator: OperatorId): void;
   /** What the operative is doing (operativePose.ts): applied, eased, on the next update. */
   setPose(input: PoseInput): void;
   /** A shot: the pink muzzle flash at the held gun's barrel for a moment. */
@@ -94,6 +97,14 @@ function prism(rTop: number, rBot: number, h: number, sides: number, depth = 1, 
 
 /** bank: where materials come from (a test passes one without painted textures: Node has no canvas). */
 export function makeOperative(suit: string, bank = new MaterialBank()): Operative {
+  let selectedOperator: OperatorId | null = null;
+  const tintSkin = () => {
+    if (!worn || !selectedOperator) return;
+    for (const m of worn.materials) {
+      const base = (m.userData.operatorBase ??= m.color.clone()) as THREE.Color;
+      m.color.copy(base).multiply(new THREE.Color(OPERATORS[selectedOperator].color));
+    }
+  };
   const extraMats: THREE.Material[] = [];
   const root = new THREE.Group();
   const body = new THREE.Group();
@@ -191,6 +202,8 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
 
   // guns: built on first use, held at a pose-driven point in torso space
   const guns = new Map<WeaponId, HeldGun>();
+  const treatment = new THREE.Group(); treatment.position.set(0, 0.17, 0.32); torso.add(treatment);
+  let wasHealing = false;
   const gunFor = (id: WeaponId): HeldGun => {
     let g = guns.get(id);
     if (g && g.art !== hasWeaponArt(id)) {
@@ -213,7 +226,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     return g;
   };
 
-  // ---- the pink muzzle flash (crossed planes: it reads from any side) ----
+  // ---- animated pink muzzle flash (a billboard reads from any side) ----
   const muzzle = buildMuzzleFlash(bank, { crossed: true });
   extraMats.push(...muzzle.materials);
   let muzzleT = 0;
@@ -251,6 +264,8 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
   };
 
   const apply = (t: PoseTargets, k: number) => {
+    if (input.healing && !wasHealing) { treatment.clear(); treatment.add(buildHealthPack(bank)); }
+    treatment.visible = !!input.healing && !input.dead; wasHealing = !!input.healing;
     torso.rotation.x += (t.lean - torso.rotation.x) * k;
     torso.rotation.y += (t.twist - torso.rotation.y) * k;
     head.rotation.x += (-t.head - head.rotation.x) * k; // + head looks up: x < 0 tips the face up
@@ -260,9 +275,10 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     });
     // the gun: show the current one where the pose holds it
     let held: HeldGun | null = null;
-    for (const [id, g] of guns) g.holder.visible = id === input.weapon && t.gun !== null;
+    const primary = input.weapon === "shield" ? "pistol" : input.weapon;
+    for (const [id, g] of guns) g.holder.visible = id === primary && t.gun !== null;
     if (input.weapon && t.gun) {
-      held = gunFor(input.weapon);
+      held = gunFor(input.weapon === "shield" ? "pistol" : input.weapon);
       held.holder.visible = true;
       const p = held.holder.position;
       p.x += (t.gun.pos[0] - p.x) * k;
@@ -280,10 +296,22 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       solveArm(armL, held.mount.localToWorld(fore), torso);
     } else if (t.leftArm !== "fore") freeArm(armL, t.leftArm, k);
     else freeArm(armL, { shoulder: [-0.15, 0, -0.12], elbow: -0.35 }, k);
+    if (input.weapon === "shield" && !input.dead && !input.healing) {
+      const shield = gunFor("shield"); shield.holder.visible = true;
+      shield.holder.position.set(0.25 - input.aim * 0.14, 0.18 + input.aim * 0.26, 0.38);
+      shield.holder.rotation.set(0, 0, 0);
+      body.updateMatrixWorld(true);
+      solveArm(armL, shield.holder.localToWorld(tmpA.set(0, 0, 0)), torso);
+      if (input.aim > 0.5 && shield.fore) {
+        if (held) held.holder.visible = false;
+        solveArm(armR, shield.mount.localToWorld(tmpB.copy(shield.fore).sub(shield.grip).multiplyScalar(shield.scale)), torso);
+      }
+    }
   };
 
   return {
     root,
+    setOperator(operator) { if (selectedOperator === operator) return; selectedOperator = operator; cloth.color.set(OPERATORS[operator].color); tintSkin(); },
     setPose(p) {
       input = p;
     },
@@ -295,6 +323,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       }
       const posed = !first;
       worn = attachSkin(body, { hips, torso, head, arms: [armL, armR], legs }, source, SKIN_HEIGHT);
+      tintSkin();
       for (const p of parts) p.visible = false;
       if (posed) first = true; // snap back into the current pose on the next update
     },
@@ -327,6 +356,7 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       worn?.update();
       flashT = Math.max(0, flashT - dt);
       muzzle.group.visible = muzzleT > 0 && input.weapon !== null && !input.dead; // shown before the countdown:
+      muzzle.update(FLASH_TIME - muzzleT);
       muzzleT = Math.max(0, muzzleT - dt); // a shot always gets at least one drawn frame
       pulse += dt * 14;
       const e = flashT > 0 ? 0.9 : 0;

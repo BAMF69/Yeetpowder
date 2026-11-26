@@ -42,6 +42,7 @@ export interface TouchFrame {
   slash: boolean;
   slashHeld: boolean;
   reload: boolean;
+  heal?: boolean;
   reset: boolean;
   pause: boolean;
   /** A shake of the device since the last take (Shake moves on), or null. */
@@ -131,6 +132,8 @@ export class TouchControls {
   /** The finger whose tap ended the latch: its lift does nothing. */
   private unlatchId = -1;
   private reload = false;
+  private heal = false;
+  private healButton: HTMLElement | null = null;
   private reset = false;
   private pause = false;
 
@@ -209,6 +212,7 @@ export class TouchControls {
     const bar = div("yt-bar", this.root);
     this.button("yt-top", "❚❚ Pause", () => (this.pause = true), undefined, bar);
     this.button("yt-top", "↺ Respawn", () => (this.reset = true), undefined, bar);
+    this.healButton = this.button("yt-top yt-heal", "HEAL", () => (this.heal = true), undefined, bar);
     const panel = buildTouchPanel(document.body, this.settings, (s) => this.applySettings(s), () => this.gyro.blockedReason);
     this.button("yt-top", "⚙", () => panel.show(panel.root.style.display === "none"), undefined, bar);
     // fullscreen from a tap (Android, iPad): the finger lifting counts as the tap browsers require
@@ -269,13 +273,22 @@ export class TouchControls {
       shake: this.gyro.running && this.settings.shake ? this.gyro.takeShake() : null,
       firePressed: this.firePressed, fireHeld: this.fireIds.size > 0, aimHeld: this.aim, jump: this.jump,
       slash: this.slash, slashHeld: this.slashId >= 0 || this.latched, reload: this.reload, reset: this.reset, pause: this.pause,
+      heal: this.heal,
     };
     this.dx = this.dy = 0;
     this.firePressed = this.jump = this.slash = this.reload = this.reset = this.pause = false;
+    this.heal = false;
     return f;
   }
 
   /** Turns the Aim toggle off (knocked out of aim, weapon switched, respawned). */
+  setHealth(uses: number, applying: number, cooldown: number, full: boolean): void {
+    if (!this.healButton) return;
+    this.healButton.textContent = applying > 0 ? `HEAL ${applying.toFixed(1)}s` : cooldown > 0 ? `HEAL ${Math.ceil(cooldown)}s` : `HEAL ${uses}/3`;
+    this.healButton.style.opacity = uses === 0 || cooldown > 0 || applying > 0 || full ? "0.5" : "1";
+    this.healButton.setAttribute("aria-label", `Health pack: ${uses} uses, ${Math.ceil(cooldown)} second cooldown`);
+  }
+
   clearAim(): void {
     this.aim = false;
     this.aimBtn.classList.remove("on");

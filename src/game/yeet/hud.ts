@@ -63,13 +63,13 @@ const CSS = `
 .yh-stars { position: absolute; left: 50%; top: 50%; width: 0; height: 0; display: none; }
 .yh-stars span { position: absolute; font-size: calc(26px * var(--s)); color: #ffd84a; text-shadow: 0 0 3px #000;
   transform: translate(-50%, -50%); }
-.yh-slots { position: absolute; right: 18px; bottom: 18px; display: flex; gap: 8px; }
+.yh-slots { position: absolute; left: 18px; right: 18px; bottom: 18px; display: flex; gap: 4px; justify-content: flex-end; }
 /* the shell's subtitle bar (announcer, sound captions) sits above the weapon slots while playing */
 #subtitles { bottom: calc(6vh + 64px); }
 .yh-debugtag { position: absolute; transform: translate(-50%, -100%); font: 12px ui-monospace, monospace; color: #fff;
   background: rgba(0, 0, 0, 0.65); padding: 2px 6px; border-radius: 3px; white-space: nowrap; display: none; }
 .yh-slot { background: rgba(20, 24, 34, 0.65); border: 3px solid rgba(255, 255, 255, 0.25); border-radius: 14px;
-  padding: 6px 12px; font-weight: 800; font-size: calc(15px * var(--s)); }
+  padding: 6px 6px; min-width: 0; text-align:center; font-weight: 800; font-size: calc(clamp(10px,1.1vw,15px) * var(--s)); }
 .yh-slot b { color: #ffd84a; margin-right: 6px; }
 .yh-slot.on { border-color: #ffd84a; background: rgba(60, 50, 10, 0.75); transform: translateY(-4px); }
 .yh-heat { position: absolute; left: 50%; bottom: 70px; width: 260px; transform: translateX(-50%); display: none; }
@@ -77,7 +77,7 @@ const CSS = `
 .yh-heat .fill { height: 100%; width: 0; background: linear-gradient(90deg, #ffd84a, #ff7043, #e53935); }
 .yh-heat .lbl { text-align: center; font-weight: 800; font-size: calc(14px * var(--s)); text-shadow: 0 0 3px #000; }
 .yh-heat.hot .lbl { color: #ff5252; }
-.yh-speed { position: absolute; left: 18px; bottom: 18px; font-weight: 800; font-size: calc(18px * var(--s));
+.yh-speed { position: absolute; left: 18px; bottom: 85px; font-weight: 800; font-size: calc(18px * var(--s));
   background: rgba(20, 24, 34, 0.65); padding: 6px 12px; border-radius: 14px; }
 .yh-hint { position: absolute; left: 18px; top: calc(54px * var(--s)); font-size: calc(13px * var(--s)); opacity: 0.85;
   background: rgba(20, 24, 34, 0.55); padding: 6px 10px; border-radius: 10px; max-width: 46vw; line-height: 1.5; }
@@ -114,7 +114,8 @@ const CSS = `
 .yh-scope::before { left: 50%; top: 17vh; width: 2px; height: 66vh; transform: translateX(-1px); }
 .yh-scope::after { top: 50%; left: calc(50% - 33vh); height: 2px; width: 66vh; transform: translateY(-1px); }
 .yh-slot.locked { opacity: 0.35; filter: grayscale(1); }
-.yh-hp { position: absolute; left: 18px; bottom: 62px; width: 220px; display: none; }
+.yh-hp { position: absolute; left: 18px; bottom: 128px; width: 220px; display: none; }
+.yh.touch .yh-speed { bottom:18px; } .yh.touch .yh-hp { bottom:62px; }
 .yh-hp .bar { height: 16px; border-radius: 8px; background: rgba(0, 0, 0, 0.5); overflow: hidden; border: 2px solid #fff5; }
 .yh-hp .fill { height: 100%; width: 100%; background: linear-gradient(90deg, #43a047, #9ccc65); transition: width 0.15s; }
 .yh-hp.low .fill { background: linear-gradient(90deg, #e53935, #ff7043); }
@@ -138,7 +139,7 @@ const CSS = `
   font-size: calc(30px * var(--s)); text-shadow: 0 0 4px #000; }
 .yh-ammo small { font-size: 0.5em; opacity: 0.8; margin-left: 4px; }
 .yh-ammo.empty { color: #ff5252; }
-.yh-ammo-extra { font-size: 15px; font-weight: 800; opacity: 0.9; margin-top: 2px; }
+.yh-ammo-extra { font-size: 13px; font-weight: 800; color: #a6ffb5; margin-top: 2px; max-width: min(520px, 80vw); }
 .yh-ammo .rl { display: none; height: 6px; width: 150px; margin-left: auto; margin-top: 4px; border-radius: 3px;
   background: rgba(0, 0, 0, 0.5); overflow: hidden; }
 .yh-ammo .rl div { height: 100%; width: 0; background: #ffd84a; }
@@ -221,7 +222,7 @@ export class YeetHud {
     const slots = el("yh-slots", this.root);
     weaponNames.forEach((n, i) => {
       const s = el("yh-slot", slots);
-      s.innerHTML = `<b>${i + 1}</b>`;
+      s.innerHTML = `<b>${(i + 1) % 10}</b>`;
       s.append(n);
       this.slots.push(s);
     });
@@ -244,7 +245,7 @@ export class YeetHud {
     this.hint = el("yh-hint", this.root);
     el("chip", this.hint, "H · controls");
     el("full", this.hint,
-      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim (less twist) · Shift sprint · Firing on the run can tumble you · R reload · F slash, hold F: hook (scythe) / dash stance (katana) · 1-6 or wheel switch weapons · C launch camera on/off · Backspace respawn · Esc pause · H hide");
+      "WASD move · Space jump · Left click fire (aim at the floor to launch!) · Right click aim / brace shield · Shift sprint · R reload · V use health pack · 0 shield + pistol · 1–9 or wheel switch weapons · F slash / hold move · C launch camera · Backspace respawn · Esc pause · H hide");
     this.feed = el("yh-feed", this.root);
     this.pops = el("yh-pops", this.root);
     this.click = el("yh-click", this.root, "Click to play");
@@ -344,7 +345,7 @@ export class YeetHud {
     this.heatFill.style.width = `${Math.round(s.heat * 100)}%`;
     this.heat.classList.toggle("hot", s.overheated);
     this.heatLbl.textContent = s.overheated ? "OVERYEATED: cooling down" : "COPTER YEAT";
-    this.speed.textContent = `${s.speed.toFixed(1)} m/s`;
+    this.speed.textContent = `${s.speed.toFixed(1)} yeters per second`;
     this.rush.style.opacity = s.reduceMotion ? "0" : String(Math.min(0.85, s.rush));
     this.click.style.display = s.locked || s.autoplay ? "none" : "block";
     this.scope.style.display = s.scoped ? "block" : "none";
@@ -359,6 +360,9 @@ export class YeetHud {
       });
     }
   }
+
+  /** Hide the HUD for the level overview used during art/layout review. */
+  setVisible(visible: boolean): void { this.root.style.visibility = visible ? "visible" : "hidden"; }
 
   dispose(): void {
     this.root.remove();

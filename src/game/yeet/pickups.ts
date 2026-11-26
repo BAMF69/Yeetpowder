@@ -9,8 +9,13 @@
 import * as THREE from "three";
 import type { PickupState } from "../../core/yeet/sim";
 import type { WeaponId } from "../../core/yeet/tuning";
+import { buildWeapon } from "./gunModels";
+import { MaterialBank } from "./materials";
+import { buildHealthPack } from "./healthPack";
 
-const LOOK: Record<WeaponId, { color: string; size: [number, number, number] }> = {
+const LOOK: Record<WeaponId | "health", { color: string; size: [number, number, number] }> = {
+  shield: { color: "#48d6fa", size: [0.5, 0.8, 0.1] },
+  health: { color: "#5bff91", size: [0.5, 0.4, 0.3] },
   pistol: { color: "#3fbf5a", size: [0.12, 0.16, 0.4] },
   shotgun: { color: "#8b5a2b", size: [0.14, 0.16, 0.9] },
   sniper: { color: "#7a4fd1", size: [0.12, 0.16, 1.2] },
@@ -24,7 +29,8 @@ const LOOK: Record<WeaponId, { color: string; size: [number, number, number] }> 
 
 interface View {
   root: THREE.Group;
-  gun: THREE.Mesh;
+  gun: THREE.Group;
+  weapon: WeaponId | "health";
 }
 
 export class PickupViews {
@@ -32,6 +38,7 @@ export class PickupViews {
   private readonly geos: THREE.BufferGeometry[] = [];
   private readonly mats: THREE.Material[] = [];
   private t = 0;
+  private readonly bank = new MaterialBank();
 
   constructor(private readonly scene: THREE.Scene, pickups: PickupState[]) {
     const ringGeo = this.geo(new THREE.TorusGeometry(0.7, 0.06, 8, 32));
@@ -49,12 +56,27 @@ export class PickupViews {
       ring.position.y = 0.05;
       const beam = new THREE.Mesh(beamGeo, beamMat);
       beam.position.y = 7;
-      const gun = new THREE.Mesh(this.geo(new THREE.BoxGeometry(...look.size)), gunMat);
+      const gun = new THREE.Group();
       gun.position.y = 0.9;
       gun.castShadow = true;
       root.add(ring, beam, gun);
       scene.add(root);
-      this.views.push({ root, gun });
+      this.views.push({ root, gun, weapon: p.weapon });
+    }
+    this.rebuildModels();
+  }
+
+  rebuildModels(): void {
+    for (const view of this.views) {
+      view.gun.clear();
+      if (view.weapon === "health") {
+        const kit = buildHealthPack(this.bank); kit.scale.setScalar(2);
+        view.gun.add(kit); continue;
+      }
+      const model = buildWeapon(view.weapon, this.bank.gunKit(view.weapon));
+      const bounds = new THREE.Box3().setFromObject(model.group), size = bounds.getSize(new THREE.Vector3()), center = bounds.getCenter(new THREE.Vector3());
+      const scale = 1.25 / Math.max(size.x, size.y, size.z, 0.01);
+      model.group.scale.setScalar(scale); model.group.position.copy(center).multiplyScalar(-scale); view.gun.add(model.group);
     }
   }
 
@@ -69,6 +91,7 @@ export class PickupViews {
   }
 
   dispose(): void {
+    this.bank.dispose();
     for (const v of this.views) this.scene.remove(v.root);
     for (const g of this.geos) g.dispose();
     for (const m of this.mats) m.dispose();

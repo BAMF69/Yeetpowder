@@ -27,6 +27,7 @@ import { buildGlove } from "./glove";
 import { buildWeapon, hasWeaponArt } from "./gunModels";
 import { MaterialBank } from "./materials";
 import { buildMuzzleFlash } from "./muzzleFlash";
+import { buildHealthPack } from "./healthPack";
 
 // ---- Tunables (presentation) --------------------------------------------------
 /** Sleeve radius at the wrist and at the shoulder (a tapered six-sided tube: the GDD's faceted N64 look). */
@@ -106,6 +107,7 @@ interface GunModel {
   /** Model units to metres (from the model). */
   scale: number;
   spinner?: THREE.Object3D;
+  viewportY?: number;
 }
 
 /** 0 -> 1 (ease-out, or smoothstep when smooth), hold, then ease back to 0: a recoil pose over time t (s). */
@@ -123,6 +125,9 @@ export class Viewmodel {
   readonly root = new THREE.Group();
   private readonly guns = new Map<WeaponId, GunModel>();
   private current: WeaponId = "pistol";
+  private readonly shieldRoot = new THREE.Group();
+  private treating = false;
+  private medkit = new THREE.Group();
   private readonly armR = new THREE.Group(); // pivot at the right shoulder
   private readonly mount = new THREE.Group(); // at the right hand: the gun hangs here
   private readonly sleeveR: THREE.Mesh;
@@ -139,6 +144,7 @@ export class Viewmodel {
   private readonly legs: THREE.Group[] = [];
   private readonly flash: THREE.Group;
   private readonly flashMats: THREE.Material[];
+  private readonly updateFlash: (age: number) => void;
   private kickAmt = 0;
   private flashT = 0;
   private blowT = 99;
@@ -217,27 +223,37 @@ export class Viewmodel {
 
     // the guns: low-poly models (gunModels.ts) held by the hand at their grip
     for (const id of TUNING_ORDER) this.addGun(id);
+    this.rebuildHealthPack();
 
-    // muzzle flash: yeetpowder's pink star at the barrel's end, over everything (muzzleFlash.ts)
+    // Animated pink flash at the barrel, over the first-person gun (muzzleFlash.ts).
     const flash = buildMuzzleFlash(this.bank, { overlay: true });
     this.flash = flash.group;
     this.flashMats = flash.materials;
+    this.updateFlash = flash.update;
     this.mount.add(this.flash);
     this.show("pistol");
   }
 
   show(id: WeaponId): void {
     this.guns.get(this.current)!.group.visible = false;
+    this.guns.get("pistol")!.group.visible = false;
     this.current = id;
     this.pistolGlove.visible = id === "pistol" && hasWeaponArt(id);
     this.gloveR.visible = !this.pistolGlove.visible;
     const g = this.guns.get(id)!;
     g.group.visible = true;
-    this.flash.position.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale);
+    const firing = id === "shield" ? this.guns.get("pistol")! : g;
+    this.flash.position.copy(firing.muzzle).sub(firing.grip).multiplyScalar(firing.scale);
     const tilt = HOLD[id]?.tilt;
     if (tilt) this.flash.position.applyEuler(tilt); // the gun is tilted about the grip
     this.kickAmt = -0.4; // a little dip as the new gun comes up
     this.blowT = this.flingT = 99;
+  }
+  get weapon(): WeaponId { return this.current; }
+  setTreatment(on: boolean): void { this.treating = on; }
+  rebuildHealthPack(): void {
+    this.medkit.removeFromParent(); this.medkit = buildHealthPack(this.bank);
+    this.medkit.position.set(0, -0.24, -0.55); this.medkit.visible = false; this.root.add(this.medkit);
   }
 
   /** A shot of weapon: the general kick plus that gun's pose (smaller when aimed). trauma ~0..1. */
@@ -313,7 +329,7 @@ export class Viewmodel {
 
   /** The gun hand's aimed position for the current gun (centred so the barrel sits under the crosshair). */
   private aimHand(out: THREE.Vector3): THREE.Vector3 {
-    const g = this.guns.get(this.current)!;
+    const g = this.guns.get(this.current === "shield" ? "pistol" : this.current)!;
     const own = HOLD[this.current]?.aim;
     if (own) return out.copy(own.hand);
     return out.set(0, -(g.muzzle.y - g.grip.y) * g.scale - AIM_BELOW, AIM_Z);
@@ -321,7 +337,7 @@ export class Viewmodel {
 
   /** Where tracers start, in world space: the gun's muzzle at its rest (or aimed) pose, never the animated one. */
   muzzleWorld(out: THREE.Vector3): THREE.Vector3 {
-    const g = this.guns.get(this.current)!;
+    const g = this.guns.get(this.current === "shield" ? "pistol" : this.current)!;
     const hand = this.aimHand(new THREE.Vector3()).lerp(this.restHand(this.tmp2), 1 - this.aim);
     out.copy(g.muzzle).sub(g.grip).multiplyScalar(g.scale).applyQuaternion(g.pivot.quaternion).add(hand);
     return this.root.localToWorld(out);
@@ -334,7 +350,7 @@ export class Viewmodel {
     this.kickAmt *= Math.exp(-10 * dt);
     const k = this.kickAmt;
     const blow = envelope(this.blowT, BLOW.rise, BLOW.hold, BLOW.back, true) * (this.blowAmp / BLOW.angle);
-    const flip = this.current === "pistol" ? envelope(this.blowT, FLIP.rise, FLIP.hold, FLIP.back) : 0;
+    const flip = this.current === "pistol" || this.current === "shield" ? envelope(this.blowT, FLIP.rise, FLIP.hold, FLIP.back) : 0;
     const flung = envelope(this.flingT, FLING.rise, FLING.hold, FLING.back);
     const fling = flung * this.flingAmp; // the arms: half as much when aimed (braced)
     const wig = Math.sin(this.time * 24) * FLING.wiggle * fling;
@@ -385,7 +401,7 @@ export class Viewmodel {
     this.armR.visible = !this.scoped;
 
     // left hand: on the foregrip, flung loose by the Boomstick; hidden for the one-handed pistol
-    const g = this.guns.get(this.current)!;
+    const g = this.guns.get(this.current === "shield" ? "pistol" : this.current)!;
     const twoHanded = g.fore !== null;
     this.armL.visible = this.gloveL.visible = (twoHanded || fling > 0.05) && !this.scoped;
     if (this.armL.visible) {
@@ -416,10 +432,34 @@ export class Viewmodel {
     // visible first, then count down: a shot always shows for at least one drawn frame, even when a frame takes
     // longer than the flash (slow devices, the headless smoke browser)
     this.flash.visible = this.flashT > 0;
+    this.updateFlash(0.05 - this.flashT);
     this.flashT = Math.max(0, this.flashT - dt);
     this.flash.scale.setScalar(this.current === "shotgun" ? 2.2 : this.current === "sniper" ? 1.8 : 1);
     this.spin += (copterFiring ? 30 : 0) * dt;
     if (g.spinner) g.spinner.rotation.z = this.spin;
+    if (this.current === "shield") {
+      this.pistolGlove.visible = this.aim < 0.55 && hasWeaponArt("pistol");
+      this.gloveR.visible = !this.pistolGlove.visible;
+      const shield = this.guns.get("shield")!;
+      this.shieldRoot.position.set(-0.38 * (1 - this.aim) - 0.18 * shield.scale, -((shield.viewportY ?? 0.4) + 0.1) * shield.scale, -0.55);
+      this.shieldRoot.rotation.set(0, -0.18 * (1 - this.aim), 0);
+      shield.group.visible = !this.treating;
+      g.group.visible = this.aim < 0.55 && !this.treating;
+      this.root.updateMatrixWorld(true);
+      const target = shield.group.localToWorld(shield.grip.clone()); this.root.worldToLocal(target);
+      this.armL.visible = this.gloveL.visible = !this.treating;
+      this.sleeveL.scale.z = target.clone().sub(SHOULDER_L).length();
+      this.armL.lookAt(this.root.localToWorld(target.clone()));
+      this.gloveL.position.copy(target); this.gloveL.quaternion.copy(this.armL.quaternion);
+      if (this.aim > 0.55 && shield.fore) {
+        const right = shield.group.localToWorld(shield.fore.clone()); this.root.worldToLocal(right);
+        this.armR.rotation.set(0, 0, 0); this.placeHand(right.sub(SHOULDER_R));
+      }
+    } else this.shieldRoot.visible = false;
+    if (this.current === "shield") this.shieldRoot.visible = !this.treating;
+    if (this.treating) { this.armR.visible = this.armL.visible = this.gloveL.visible = false; this.flash.visible = false; }
+    this.medkit.visible = this.treating;
+    this.medkit.rotation.z = this.treating ? Math.sin(this.time * 5) * 0.03 : 0;
   }
 
   dispose(): void {
@@ -460,8 +500,8 @@ export class Viewmodel {
   /** The gun hand's rest position for the current gun (HAND_R plus its HOLD offset). */
   private restHand(out: THREE.Vector3): THREE.Vector3 {
     out.copy(HAND_R);
-    if (this.current === "pistol" && hasWeaponArt("pistol")) out.y -= 0.065;
-    const h = HOLD[this.current];
+    if ((this.current === "pistol" || this.current === "shield") && hasWeaponArt("pistol")) out.y -= 0.065;
+    const h = HOLD[this.current === "shield" ? "pistol" : this.current];
     return h ? out.add(h.hand) : out;
   }
 
@@ -471,7 +511,7 @@ export class Viewmodel {
    */
   rebuildGun(id: WeaponId): void {
     const old = this.guns.get(id);
-    if (old) this.mount.remove(old.pivot);
+    if (old) old.pivot.removeFromParent();
     this.addGun(id);
     if (this.current === id) this.show(id);
   }
@@ -488,8 +528,9 @@ export class Viewmodel {
     group.position.copy(grip).multiplyScalar(-scale); // the grip sits in the hand
     group.visible = false;
     pivot.add(group);
-    this.mount.add(pivot);
-    this.guns.set(id, { group, grip, fore, muzzle, pivot, scale, spinner: model.spinner });
+    if (id === "shield") { this.root.add(this.shieldRoot); this.shieldRoot.add(pivot); pivot.rotation.set(0, 0, 0); }
+    else this.mount.add(pivot);
+    this.guns.set(id, { group, grip, fore, muzzle, pivot, scale, spinner: model.spinner, viewportY: model.viewportY });
   }
 
   /** Eases the current gun's tilt from its rest hold to its aimed hold (only guns with HOLD.aim change). */

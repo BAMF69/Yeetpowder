@@ -29,6 +29,7 @@ export interface FpsFrame {
   reset: boolean;
   /** R: reload. */
   reload: boolean;
+  heal?: boolean;
   /** F: gunblade slash (pressed since the last take). */
   slash: boolean;
   /** F held right now (the hold moves). */
@@ -40,7 +41,7 @@ export interface FpsFrame {
 }
 
 const WEAPON_KEYS: Record<string, number> = {
-  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
+  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8, Digit0: 9,
 };
 
 export class FpsInput {
@@ -54,6 +55,7 @@ export class FpsInput {
   private cycle = 0;
   private reset = false;
   private reload = false;
+  private heal = false;
   private slash = false;
   private slashHeld = false;
   private cameraToggle = false;
@@ -102,6 +104,7 @@ export class FpsInput {
       if (k.repeat) return;
       if (k.code in WEAPON_KEYS) this.select = WEAPON_KEYS[k.code];
       if (k.code === "KeyR") this.reload = true; // playtest 5: R reloads (respawn moved to Backspace)
+      if (k.code === "KeyV") this.heal = true;
       if (k.code === "Backspace") this.reset = true;
       if (k.code === "KeyF") this.slash = this.slashHeld = true;
       if (k.code === "KeyC") this.cameraToggle = true;
@@ -136,6 +139,7 @@ export class FpsInput {
       aimHeld: this.aimHeld && this.locked,
       sprintHeld: this.sprintHeld,
       select: this.select, cycle: this.cycle, reset: this.reset, reload: this.reload, slash: this.slash,
+      heal: this.heal && this.locked,
       slashHeld: this.slashHeld && this.locked,
       cameraToggle: this.cameraToggle,
       hintToggle: this.hintToggle,
@@ -146,6 +150,7 @@ export class FpsInput {
     this.cycle = 0;
     this.reset = false;
     this.reload = false;
+    this.heal = false;
     this.slash = false;
     this.cameraToggle = false;
     this.hintToggle = false;

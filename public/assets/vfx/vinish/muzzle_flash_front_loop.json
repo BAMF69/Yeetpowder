@@ -1,0 +1,18 @@
+{
+ "id": "muzzle_flash_front_loop",
+ "title": "Front-View Rapid Fire Loop",
+ "columns": 8,
+ "rows": 8,
+ "frames": 64,
+ "fps": 30,
+ "loop": true,
+ "blending": "additive",
+ "alpha": "straight (colour bled under transparent pixels)",
+ "order": "row-major from the top-left cell",
+ "note": "Seamless loop: a gun firing towards the camera, a star-shaped flash every 4 frames with a new shape each time.",
+ "sheets": {
+  "2048": "muzzle_flash_front_loop_sheet_2048.png",
+  "1024": "muzzle_flash_front_loop_sheet_1024.png",
+  "512": "muzzle_flash_front_loop_sheet_512.png"
+ }
+}
