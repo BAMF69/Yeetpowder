@@ -21,7 +21,7 @@ import { playerProfile, type PlayerProfile } from "./profile";
 export const SLOTS = 2;
 
 const quiet = (i: NetInput): NetInput => ({
-  ...i, jump: false, firePressed: false, select: -1, reset: false, reload: false, slash: false, heal: false, dYaw: 0, dPitch: 0,
+  ...i, jump: false, firePressed: false, select: -1, reset: false, reload: false, slash: false, heal: false, spawn: false, dYaw: 0, dPitch: 0,
 });
 
 /** The held part of an input as a plain YeetInput (no seq or look), for the snapshot's `held`. */
@@ -99,6 +99,12 @@ export class Room {
     return slot;
   }
 
+  /** A seated human renames or swaps operator; the next snapshot's roster carries it to everyone. */
+  setProfile(slot: number, profile: unknown): void {
+    if (slot < 0 || slot >= this.present.length || !this.present[slot] || !profile || typeof profile !== "object") return;
+    this.profiles[slot] = playerProfile(profile as Partial<PlayerProfile>, `Player ${slot + 1}`);
+  }
+
   leave(slot: number): void {
     if (slot < 0 || slot >= this.present.length || !this.present[slot]) return;
     this.present[slot] = false;
@@ -119,7 +125,7 @@ export class Room {
       const clean: NetInput = { ...NO_INPUT, round: this.round, seq: i.seq, moveX: Math.max(-1, Math.min(1, i.moveX)), moveZ: Math.max(-1, Math.min(1, i.moveZ)),
         dYaw: Math.max(-Math.PI, Math.min(Math.PI, i.dYaw)), dPitch: Math.max(-Math.PI, Math.min(Math.PI, i.dPitch)),
         select: Math.max(-1, Math.min(TUNING.weaponOrder.length - 1, Math.floor(i.select))), reset: false };
-      for (const key of ["jump", "firePressed", "fireHeld", "aiming", "sprint", "reload", "slash", "slashHeld", "touch", "heal"] as const) clean[key] = i[key] === true;
+      for (const key of ["jump", "firePressed", "fireHeld", "aiming", "sprint", "reload", "slash", "slashHeld", "touch", "heal", "spawn"] as const) clean[key] = i[key] === true;
       q.push(clean);
     }
     if (q.length > MAX_QUEUE) q.splice(0, q.length - MAX_QUEUE);

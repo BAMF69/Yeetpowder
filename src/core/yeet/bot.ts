@@ -133,7 +133,8 @@ export class BotBrain {
       this.state = this.debug.state = "recover";
       this.launch = null;
       this.seenSince = -1;
-      return { input: { ...NO_INPUT }, dYaw: 0, dPitch: 0 };
+      // a bot presses SPAWN every step it is down: it comes back the moment the button unlocks
+      return { input: { ...NO_INPUT, spawn: pl?.dead > 0 }, dYaw: 0, dPitch: 0 };
     }
     const eye = v3(pl.pos.x, pl.pos.y + this.t.player.eyeHeight, pl.pos.z);
     const target = this.nearestOpponent(sim, pl);

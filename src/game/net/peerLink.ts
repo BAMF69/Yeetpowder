@@ -113,6 +113,7 @@ export class PeerHost implements Transport {
   send(msg: ClientMsg): void {
     if (msg.t === "next") { this.room?.nextRound(this.hostSlot); return; }
     if (msg.t === "rematch") { this.room?.restart(this.hostSlot); return; }
+    if (msg.t === "profile") { this.room?.setProfile(this.hostSlot, msg.profile); return; }
     if (msg.t !== "create" || this.room) return; // the host only ever makes its own room
     this.room = new Room(this.code, msg.options);
     this.hostSlot = this.room.join(msg.profile);
@@ -142,6 +143,7 @@ export class PeerHost implements Transport {
       const msg = parse(raw) as ClientMsg | null;
       if (!msg || !this.room) return;
       if (msg.t === "ping") conn.send(JSON.stringify({ t: "pong", at: msg.at } satisfies ServerMsg));
+      else if (msg.t === "profile" && slot >= 0) this.room.setProfile(slot, msg.profile);
       else if (msg.t === "in" && slot >= 0 && Array.isArray(msg.inputs)) this.room.push(slot, msg.inputs);
       else if (msg.t === "next" && slot >= 0) this.room.nextRound(slot);
       else if (msg.t === "join" && slot < 0 && !watching) {

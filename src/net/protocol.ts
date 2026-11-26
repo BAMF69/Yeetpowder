@@ -39,6 +39,8 @@ export type ClientMsg =
   | { t: "next" }
   | { t: "rematch" }
   | { t: "leave" }
+  /** Change your name or operator mid-match (the respawn screen, the pause menu). Sanitised by the room. */
+  | { t: "profile"; profile: PlayerProfile }
   | { t: "join"; code: string; spectate?: boolean; profile?: PlayerProfile }
   | { t: "in"; inputs: NetInput[] }
   | { t: "ping"; at: number };

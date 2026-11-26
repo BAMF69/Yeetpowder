@@ -564,7 +564,7 @@ export class YeetWorld implements World {
         for (const e of this.sim.step(input)) this.onEvent(e);
       }
       stepped = true;
-      first = { ...input, jump: false, firePressed: false, select: -1, reset: false, reload: false, slash: false, heal: false };
+      first = { ...input, jump: false, firePressed: false, select: -1, reset: false, reload: false, slash: false, heal: false, spawn: false };
       this.stats.top = Math.max(this.stats.top, pl.pos.y);
     }
     if (!stepped) this.carry = first; // nothing simulated this frame: keep its clicks for the next one

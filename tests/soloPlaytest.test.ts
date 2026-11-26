@@ -82,8 +82,10 @@ describe("solo playtest fixes", () => {
   it("redirects island retreat controls toward solid ground without an edge recoil shot", () => {
     const sim = new YeetSim(TUNING, levelById("island"), 2); sim.players[1].pos = { x: 17.5, y: 0, z: 0 }; sim.players[1].onGround = true;
     const brain = new BotBrain(TUNING, 1, "medium", 10);
-    for (let i = 0; i < 600; i++) { const out = brain.think(sim); sim.look(out.dYaw, out.dPitch, 1); sim.step([NO_INPUT, out.input]); }
-    expect(sim.players[1].swallowed).toBe(false); expect(sim.players[1].sharkT).toBe(0);
+    // Checks the water entry itself: the old end-state check passed only because a 2.2 s respawn hid the fall.
+    let entered = false;
+    for (let i = 0; i < 600; i++) { const out = brain.think(sim); sim.look(out.dYaw, out.dPitch, 1); if (sim.step([NO_INPUT, out.input]).some((e) => e.type === "sharkApproach")) entered = true; }
+    expect(entered).toBe(false); expect(sim.players[1].swallowed).toBe(false);
   });
 });
 describe("profiles, next matches and kill-qualified highlights", () => {

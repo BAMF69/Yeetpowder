@@ -94,6 +94,7 @@ function onMessage(ws: WebSocket, raw: string): void {
     return;
   }
   if (msg.t === "rematch") { const s = seats.get(ws); if (s && s.slot >= 0) s.room.restart(s.slot); return; }
+  if (msg.t === "profile") { const s = seats.get(ws); if (s && s.slot >= 0) s.room.setProfile(s.slot, msg.profile); return; }
   if (msg.t === "next") { const s = seats.get(ws); if (s && s.slot >= 0) s.room.nextRound(s.slot); return; }
   if (seats.has(ws)) return; // already in a room
   if (msg.t === "create") {
