@@ -8,11 +8,13 @@ const server = await createServer({logLevel:"silent",server:{host:"127.0.0.1",po
 const browser = await chromium.launch({headless:true});
 const page = await browser.newPage({viewport:{width:1200,height:1440}}); page.setDefaultTimeout(180000);
 async function until(check,label) { const end=Date.now()+180000;while(!await check()){if(Date.now()>end)throw Error(`Timeout: ${label}`);await page.waitForTimeout(100);} }
+const arenaOnly=process.argv.includes("--arena-only");
 const errors = [], downloads = [];
 page.on("pageerror", e=>errors.push(String(e)));
 page.on("console", m=>{if(m.type()==="warn" && m.text().includes("skin: no bone")) errors.push(m.text()); if(m.type()==="error") errors.push(m.text());});
 page.on("request",r=>{if(r.url().includes("/models/operators/")) downloads.push(r.url());});
 try {
+ if (!arenaOnly) {
  await page.goto(server.resolvedUrls.local[0],{waitUntil:"domcontentloaded",timeout:180000});
  await page.evaluate(async()=>{
    const {profileScreen}=await import("/src/shell/profileScreen.ts");
@@ -70,15 +72,16 @@ try {
    const {enableOperatorArt,loadOperatorArt}=await import("/src/game/yeet/operatorArt.ts");enableOperatorArt(false);if(await loadOperatorArt("soldier")!==null)throw Error("noart ignored");
    for(const {op}of window.gallery.items)op.dispose();window.gallery.renderer.dispose();
  });
- await page.goto(`${server.resolvedUrls.local[0]}?play&level=industrial&art-preview=approved`,{waitUntil:"domcontentloaded",timeout:180000});
+ } else { await page.addInitScript(()=>localStorage.setItem("yeetpowder.playerProfile",JSON.stringify({name:"Rig Test",operator:"ninja"}))); }
+ await page.goto(`${server.resolvedUrls.local[0]}?play&level=industrial&art-preview=approved&showcase`,{waitUntil:"domcontentloaded",timeout:180000});
  await page.getByRole("button",{name:"No thanks",exact:true}).click();
  await until(()=>page.evaluate(async()=>{const {game}=await import("/src/main.ts");return !!(game.loaded&&game.world?.body?.root.getObjectByName("Spine02"));}),"chosen operator in live arena");
  await page.keyboard.down("KeyW");await page.waitForTimeout(500);await page.keyboard.up("KeyW");
  await page.mouse.down({button:"right"});await page.waitForTimeout(300);await page.mouse.up({button:"right"});await page.keyboard.press("KeyR");
  await page.screenshot({path:"captures/progress/operator-in-game.png"});
- await page.goto(`${server.resolvedUrls.local[0]}?play&level=industrial&noart`,{waitUntil:"domcontentloaded",timeout:180000});
+ await page.goto(`${server.resolvedUrls.local[0]}?play&level=industrial&noart&showcase`,{waitUntil:"domcontentloaded",timeout:180000});
  await until(()=>page.evaluate(async()=>{const {game}=await import("/src/main.ts");return !!(game.loaded&&game.world?.body);}),"noart arena loaded");
  assert.equal(await page.evaluate(async()=>{const {game}=await import("/src/main.ts");return !!game.world.body.root.getObjectByName("Spine02");}),false);
- assert.equal(new Set(downloads).size,11); assert.deepEqual(errors,[]);
- console.log("OPERATOR_BROWSER_OK: 15 profile choices, saved Ninja, lazy downloads, all 11 plus classic rendered in ready/aim/run/shield poses, all nine saved weapon grips rendered, live arena and noart verified");
+ if (!arenaOnly) assert.equal(new Set(downloads).size,11); assert.deepEqual(errors,[]);
+ console.log(arenaOnly ? "OPERATOR_ARENA_OK: selected Ninja visible in a live arena, noart fallback verified, no browser errors" : "OPERATOR_BROWSER_OK: 15 profile choices, saved Ninja, lazy downloads, all 11 plus classic rendered in ready/aim/run/shield poses, all nine saved weapon grips rendered, live arena and noart verified");
 } finally {await browser.close();await server.close();}
