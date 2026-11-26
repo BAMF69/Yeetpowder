@@ -51,6 +51,8 @@ import { INTERP_MS } from "./net/remote";
 import type { World } from "./threeHost";
 import { makeDummy, makeStars, PIVOT, type DummyFigure, type Stars } from "./yeet/figures";
 import { makeOperative, type Operative } from "./yeet/operative";
+import { THIRD_PERSON_GRIPS } from "./yeet/thirdPersonGrips";
+import { makeGripEditor } from "./yeet/gripEditor";
 import { inputFromPlayer, type PoseInput } from "./yeet/operativePose";
 import { Effects } from "./yeet/effects";
 import { loadVinishVfx, disposeVinishVfx } from "./yeet/vinishVfx";
@@ -61,7 +63,7 @@ import { YeetSound } from "./yeet/sound";
 import { buildRoom } from "./yeet/room";
 import { Viewmodel } from "./yeet/viewmodel";
 import { fovForAspect } from "../core/yeet/view";
-import { ART_WEAPONS, loadMeshyArt, operativeArt } from "./yeet/meshyArt";
+import { ART_WEAPONS, isArtPreview, loadGripOperators, loadMeshyArt, operativeArt } from "./yeet/meshyArt";
 import { firearmId } from "../core/yeet/tuning";
 import { equipmentStatus } from "../core/yeet/equipment";
 import { SceneryViews } from "./yeet/scenery";
@@ -139,10 +141,18 @@ export class YeetWorld implements World {
   private readonly grenadeGuide: GrenadeGuide;
   private readonly partySession = takeParty();
   private readonly autoplay = !this.partySession && shell.params.has("autoplay");
+  private readonly editingGrips = !this.partySession && isArtPreview(shell.params.get("art-preview"))
+    && shell.params.has("grip-editor") && !shell.params.has("noart");
+  private gripEditor: ReturnType<typeof makeGripEditor> | null = null;
   /** Duel vs bot (menu "Duel vs bot", or ?level=duel&bot=easy|medium|hard): offline, the bot is player 2. */
   /** Which level and who against (matchSetup.ts): the menu's world option or ?level / ?opp / ?bot. */
   private readonly match = parseMatch({
-    level: shell.params.get("level"), world: shell.worldOption, bot: shell.params.get("bot"), opp: shell.params.get("opp"),
+    level: this.editingGrips
+      ? (["island", "industrial", "junkyard"].find((id) => id === shell.params.get("level")) ?? "sandbox")
+      : shell.params.get("level"),
+    world: shell.worldOption,
+    bot: this.editingGrips ? null : shell.params.get("bot"),
+    opp: this.editingGrips ? "static" : shell.params.get("opp"),
   });
   private readonly botSkill = this.partySession || this.autoplay ? null : this.match.bot;
   private readonly levelId = this.partySession?.options.level ?? (this.autoplay ? "sandbox" : this.match.levelId);
@@ -216,7 +226,7 @@ export class YeetWorld implements World {
   private reapStart = -1;
   private heroFired = false;
   /** ?showcase: the camera stays in front of your operative; ?pose=...: force a pose (art review stills). */
-  private readonly showcase = shell.params.has("showcase");
+  private readonly showcase = shell.params.has("showcase") || this.editingGrips;
   private readonly forcePose = shell.params.get("pose");
   /** ?flash: hold the muzzle flash on (first person and your operative), for stills of it. */
   private readonly debugFlash = shell.params.has("flash");
@@ -255,12 +265,13 @@ export class YeetWorld implements World {
   private readonly qB = new THREE.Quaternion();
   private readonly lookM = new THREE.Matrix4();
   private readonly onCanvasDown = () => {
+    if (this.editingGrips) return;
     this.sound.resume(); // a click is what browsers need before audio may start
     if (!this.fps.locked && shell.top?.gameplay) this.fps.lock();
   };
   private readonly onLockChange = () => {
     // Esc frees the mouse: open the pause menu so the game never runs on without you
-    if (!this.fps.locked && !this.autoplay && !this.cinema.playing && shell.top?.gameplay) shell.pauseGame();
+    if (!this.editingGrips && !this.fps.locked && !this.autoplay && !this.cinema.playing && shell.top?.gameplay) shell.pauseGame();
   };
 
   constructor(aspect: number) {
@@ -339,7 +350,7 @@ export class YeetWorld implements World {
     this.scoreOverlay = this.link ? null : new ScoreOverlay(() => this.sim.players.map((_, i) => `${i === 0 ? localProfile().name : this.playerName(i)} · ${this.sim.kos[i] + (i === 0 ? this.kos : 0)} KOs`));
     this.hud.setVisible(!shell.params.has("mapview"));
     this.fps = new FpsInput(this.canvas);
-    this.touch = TouchControls.wanted(shell.params) && !this.autoplay
+    this.touch = TouchControls.wanted(shell.params) && !this.autoplay && !this.editingGrips
       ? new TouchControls(host, () => this.sound.resume(), shell.params.has("debug"))
       : null;
     if (this.touch) {
@@ -373,11 +384,21 @@ export class YeetWorld implements World {
     const skin = operativeArt();
     if (skin) for (const op of [this.body, ...this.others]) op.useSkin(skin);
     this.pickups.rebuildModels();
+    if (this.editingGrips && !this.gripEditor) {
+      const operators = [{ id: "operative", name: "Current operative", scene: skin }, ...await loadGripOperators()];
+      this.gripEditor ??= makeGripEditor(document.getElementById("game")!, this.canvas, (id) => {
+        if (!this.sim.player.owned.includes(id)) this.sim.player.owned.push(id);
+        this.slotTap = TUNING.weaponOrder.indexOf(id);
+      }, (side, pinned) => this.body.gripHandPosition(side, pinned),
+      (side, pinned) => this.body.captureGripHand(side, pinned), this.sim.player.weapon, this.showcaseSide, {
+        options: operators.map(({ id, name, scene }) => ({ id, name, available: id === "operative" || scene !== null })),
+        select: (id) => this.body.useSkin(operators.find((operator) => operator.id === id)?.scene ?? skin),
+      }, THIRD_PERSON_GRIPS);
+    }
     progress(0.8);
     if (shell.params.has("operative")) {
       // the dummies only: your body is the code-built operative (operative.ts) since art pass 3
       await Promise.all(this.views.map((view) => view.fig.loadOperative?.()));
-      progress(1);
     }
     progress(1);
     Log.info("yeet", `YEET_LEVEL_READY ${this.sim.level.id}`);
@@ -387,6 +408,7 @@ export class YeetWorld implements World {
     this.scoreOverlay?.dispose();
     this.grenadeGuide.dispose();
     this.cinema.dispose();
+    this.gripEditor?.dispose();
     this.link?.dispose();
     for (const f of this.others) f.dispose();
     this.sound.dispose();
@@ -446,6 +468,9 @@ export class YeetWorld implements World {
     this.touch?.holdMove(pl.stance || pl.hook >= 0);
     this.touch?.setZoneFires(pl.weapon === "copter"); // Gatling: hold anywhere on the right to fire, drag to aim
     this.mergeTouch(f);
+    if (this.gripEditor) {
+      f.firePressed = f.fireHeld = f.aimHeld = f.slash = f.slashHeld = f.reload = false;
+    }
     if (this.tf?.shake) this.startShake(this.tf.shake);
     if (this.debugBoom >= 0 && !this.shakeFired && this.sim.time >= 1) {
       this.shakeFired = true;
@@ -467,7 +492,7 @@ export class YeetWorld implements World {
     this.aimKnock = Math.max(0, this.aimKnock - dt);
     // the Rocket Axe with F held is raised for the grenade slash: no scope zoom then (playtest 2026-11-24)
     const axeHeld = pl.weapon === "axe" && f.slashHeld;
-    const aiming = f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless && !axeHeld;
+    const aiming = this.gripEditor?.aiming() ?? (f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless && !axeHeld);
     if (pl.weapon === "axe") this.vm.setHold(axeHeld ? "raise" : "none");
     this.vm.setEmpty(pl.weapon === "grenade" && (pl.mag.grenade === 0 || pl.reloading > 0));
     this.updateAim(aiming, dt);
@@ -523,6 +548,8 @@ export class YeetWorld implements World {
       if (this.debugReap && this.brain) input = this.reapScript(input);
       const shaken = this.shakeRun.step(TUNING.step, pl);
       if (shaken) input = { ...input, ...shaken }; // a shake move's controls over yours
+      if (this.gripEditor) input = { ...input, firePressed: false, fireHeld: false, reload: false, slash: false, slashHeld: false };
+      if (this.gripEditor && !this.gripEditor.animating()) input = { ...input, moveX: 0, moveZ: 0, jump: false, sprint: false };
       if (this.link) {
         for (const e of this.link.stepLocal(input, this.lookYaw, this.lookPitch)) this.onEvent(e);
         this.lookYaw = this.lookPitch = 0;
@@ -610,11 +637,11 @@ export class YeetWorld implements World {
       showHeat: pl.weapon === "copter" || pl.heat > 0,
       speed,
       stunned: pl.stun > 0 && this.third < 0.5,
-      locked: this.fps.locked || this.touch !== null,
+      locked: this.editingGrips || this.fps.locked || this.touch !== null,
       autoplay: this.autoplay,
       rush: this.third > 0.5 ? 0 : Math.max(0, (speed - 10) / 14),
       reduceMotion: shell.settings.access.reduce_motion,
-      scoped: this.vm.scoped,
+      scoped: !this.editingGrips && this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
       hp: this.sim.level.infiniteHp ? null : fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
       banner: pl.sharkT > 0 ? "SHARK INCOMING!" : pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
@@ -636,7 +663,7 @@ export class YeetWorld implements World {
   private updateAim(held: boolean, dt: number): void {
     const step = dt / TUNING.aim.time;
     this.aim = held ? Math.min(1, this.aim + step) : Math.max(0, this.aim - step);
-    const target = TUNING.aim.fov[this.sim.player.weapon];
+    const target = this.editingGrips ? TUNING.aim.hipFov : TUNING.aim.fov[this.sim.player.weapon];
     const fov = TUNING.aim.hipFov + (target - TUNING.aim.hipFov) * this.aim;
     if (Math.abs(fov - this.aimFov) > 0.01) {
       this.aimFov = fov;
@@ -1141,17 +1168,28 @@ export class YeetWorld implements World {
       if (this.flipKind === "cartwheel") this.body.root.quaternion.multiply(this.qA.setFromAxisAngle(Z_AXIS, -turn * this.flipSide));
       else this.body.root.quaternion.multiply(this.qA.setFromAxisAngle(X_AXIS, sign * turn));
     }
-    const bodyIn = inputFromPlayer(pl, this.sim.time, this.aim, this.sim.kneelDepth(pl) / TUNING.reaper.heroLanding.kneel);
-    this.body.setPose(this.posed(flipping ? { ...bodyIn, flip: flipK, onGround: false } : bodyIn));
-    this.body.update(dt, this.camera);
+    const livePose = inputFromPlayer(pl, this.sim.time, this.aim, this.sim.kneelDepth(pl) / TUNING.reaper.heroLanding.kneel);
+    const frozen = this.gripEditor !== null && !this.gripEditor.animating();
+    const bodyIn: PoseInput = frozen && this.gripEditor
+      ? { weapon: pl.weapon, speed: 0, onGround: true, aim: Number(this.gripEditor.aiming()), pitch: 0, fling: 0, tumbling: false, dead: false, kneel: 0 }
+      : this.gripEditor && livePose.onGround && livePose.speed < 0.05
+        ? { ...livePose, speed: 2.5 }
+        : livePose;
+    this.gripEditor?.setWeapon(pl.weapon);
+    if (this.gripEditor) this.body.setGripAdjustment(this.gripEditor.adjustment(pl.weapon) ?? {});
+    const previewPose = this.gripEditor ? { ...bodyIn, ...this.gripEditor.specialPose(this.time) } : bodyIn;
+    this.body.setPose(this.posed(flipping ? { ...previewPose, flip: flipK, onGround: false } : previewPose));
+    this.body.update(dt, this.camera, frozen);
 
     // the chase point, pulled in if a wall is in the way
     const mid = vec(pl.pos.x, pl.pos.y + 1, pl.pos.z);
     // tumbling: behind you, high; kick-out: off your right side, low, for a dramatic angle on the launch
     const show = kicking && this.showcase;
-    const cy = kicking ? pl.yaw + (show ? this.showcaseSide : KICK.side) : this.chaseYaw;
-    const back = show ? SHOWCASE.distance : kicking ? KICK.distance : CHASE.back;
-    const up = show ? SHOWCASE.up : kicking ? KICK.up : CHASE.up;
+    const cy = kicking ? pl.yaw + (show ? (this.gripEditor?.angle() ?? this.showcaseSide) : KICK.side) : this.chaseYaw;
+    const orbitPitch = show ? (this.gripEditor?.elevation() ?? 0) : 0;
+    const orbitDistance = SHOWCASE.distance * (this.gripEditor?.distance() ?? 1);
+    const back = show ? orbitDistance * Math.cos(orbitPitch) - SHOWCASE.up * Math.sin(orbitPitch) : kicking ? KICK.distance : CHASE.back;
+    const up = show ? SHOWCASE.up * Math.cos(orbitPitch) + orbitDistance * Math.sin(orbitPitch) : kicking ? KICK.up : CHASE.up;
     const want = vec(mid.x + Math.sin(cy) * back, mid.y + up, mid.z + Math.cos(cy) * back);
     const d = vec(want.x - mid.x, want.y - mid.y, want.z - mid.z);
     const full = len(d);

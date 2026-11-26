@@ -1,3 +1,4 @@
+import { calibratedGrip } from "./thirdPersonGrips";
 import { OPERATOR_MODELS } from "../../net/profile";
 import { loadOperatorArt, operatorArtEnabled } from "./operatorArt";
 // ---------------------------------------------------------------------------
@@ -23,6 +24,7 @@ import type { WeaponId } from "../../core/yeet/tuning";
 import type { DummyFigure } from "./figures";
 import { PIVOT } from "./figures";
 import { buildGlove } from "./glove";
+import type { GripAdjustment, HandAdjustment } from "./gripEditor";
 import { buildWeapon, hasWeaponArt } from "./gunModels";
 import { MaterialBank } from "./materials";
 import { buildMuzzleFlash } from "./muzzleFlash";
@@ -53,13 +55,17 @@ export interface Operative extends DummyFigure {
   setOperator(operator: OperatorId): void;
   /** What the operative is doing (operativePose.ts): applied, eased, on the next update. */
   setPose(input: PoseInput): void;
+  update(dt: number, camera: THREE.Camera, frozen?: boolean): void;
   /** A shot: the pink muzzle flash at the held gun's barrel for a moment. */
   fire(weapon: WeaponId): void;
   /**
    * Wears a rigged model (a loaded glTF scene, Mixamo bones: the Meshy operative) instead of the code-built parts,
    * which stay as its invisible skeleton (operativeSkin.ts). The gun and the muzzle flash stay as they are.
    */
-  useSkin(source: THREE.Object3D): void;
+  useSkin(source: THREE.Object3D | null): void;
+  setGripAdjustment(value: GripAdjustment | null): void;
+  gripHandPosition(side: "right" | "left", pinned: boolean): V3 | null;
+  captureGripHand(side: "right" | "left", pinned: boolean): HandAdjustment | undefined;
 }
 
 export interface Arm {
@@ -253,6 +259,10 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
 
   // ---- pose state ----
   let input: PoseInput = { weapon: "pistol", speed: 0, onGround: true, aim: 0, pitch: 0, fling: 0, tumbling: false, dead: false, kneel: 0 };
+  let adjustedGrip: GripAdjustment | null = null;
+  let gripOverride: GripAdjustment | null | undefined;
+  let rightAdjusted = false;
+  let leftAdjusted = false;
   let time = 0;
   let stride = 0;
   let flashT = 0;
@@ -262,6 +272,37 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
   let worn: Skin | null = null;
   const tmpA = new THREE.Vector3();
   const tmpB = new THREE.Vector3();
+  const wristWorld = new THREE.Quaternion();
+  const parentWorld = new THREE.Quaternion();
+  const referenceWorld = new THREE.Quaternion();
+  const wristEuler = new THREE.Euler();
+  const bendAnchors = { right: new THREE.Vector3(), left: new THREE.Vector3() };
+  const hingeAngle = (rest: number, bend: number) => THREE.MathUtils.clamp(rest - THREE.MathUtils.degToRad(bend), -Math.PI + 0.05, 0);
+  const solveEditedArm = (arm: Arm, target: THREE.Vector3, elbowEdit: HandAdjustment | undefined, bendHinge: boolean) => {
+    solveArm(arm, target, torso);
+    const swivel = elbowEdit?.rotation[0] ?? 0;
+    const bend = bendHinge ? elbowEdit?.rotation[1] ?? 0 : 0;
+    if (!swivel && !bend) return;
+    arm.wrist.getWorldQuaternion(wristWorld);
+    if (swivel) solveArm(arm, target, torso, THREE.MathUtils.degToRad(swivel));
+    if (bend) {
+      arm.wrist.getWorldPosition(bendAnchors[arm.side === -1 ? "right" : "left"]);
+      arm.elbow.rotation.x = hingeAngle(arm.elbow.rotation.x, bend);
+    }
+    arm.elbow.getWorldQuaternion(parentWorld).invert();
+    arm.wrist.quaternion.copy(parentWorld.multiply(wristWorld));
+  };
+  const alignCopiedWrist = (arm: Arm, hand: HandAdjustment | undefined, held: HeldGun) => {
+    if (!hand?.rotationSpace) return;
+    const reference = hand.rotationSpace === "torso" ? torso : held.mount;
+    reference.getWorldQuaternion(referenceWorld);
+    arm.elbow.getWorldQuaternion(parentWorld).invert();
+    wristEuler.set(...hand.rotation.map(THREE.MathUtils.degToRad) as V3);
+    arm.wrist.quaternion.copy(parentWorld.multiply(referenceWorld).multiply(wristWorld.setFromEuler(wristEuler)));
+  };
+  const leftGrip = (held: HeldGun, out: THREE.Vector3) => held.fore
+    ? out.copy(held.fore).sub(held.grip).multiplyScalar(held.scale)
+    : out.set(-0.08, 0, 0);
 
   const easeEuler = (o: THREE.Object3D, to: V3, k: number) => {
     o.rotation.x += (to[0] - o.rotation.x) * k;
@@ -272,12 +313,16 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
   const apply = (t: PoseTargets, k: number) => {
     if (input.healing && !wasHealing) { treatment.clear(); treatment.add(buildHealthPack(bank)); }
     treatment.visible = !!input.healing && !input.dead; wasHealing = !!input.healing;
-    torso.rotation.x += (t.lean - torso.rotation.x) * k;
-    torso.rotation.y += (t.twist - torso.rotation.y) * k;
-    head.rotation.x += (-t.head - head.rotation.x) * k; // + head looks up: x < 0 tips the face up
+    const poseRotation = (key: "head" | "torso" | "leftFoot" | "rightFoot", x = 0, y = 0): V3 => {
+      const degrees = adjustedGrip?.[key]?.rotation;
+      return degrees ? [x + THREE.MathUtils.degToRad(degrees[0]), y + THREE.MathUtils.degToRad(degrees[1]), THREE.MathUtils.degToRad(degrees[2])] : [x, y, 0];
+    };
+    easeEuler(torso, poseRotation("torso", t.lean, t.twist), k);
+    easeEuler(head, poseRotation("head", -t.head), k); // negative X tips the face up
     legs.forEach((l, i) => {
       easeEuler(l.hip, t.legs[i].hip, k);
       l.knee.rotation.x += (t.legs[i].knee - l.knee.rotation.x) * k;
+      easeEuler(l.ankle, poseRotation(l.side === 1 ? "leftFoot" : "rightFoot"), k);
     });
     // the gun: show the current one where the pose holds it
     let held: HeldGun | null = null;
@@ -286,21 +331,57 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     if (input.weapon && t.gun) {
       held = gunFor(input.weapon === "shield" ? "pistol" : input.weapon);
       held.holder.visible = true;
+      if (input.weapon === "pistol" && adjustedGrip) held.mount.position.set(0, 0, 0);
+      const gun = adjustedGrip?.gun;
+      const offset = gun?.position ?? [0, 0, 0];
+      const rotation = gun?.rotation ?? [0, 0, 0];
       const p = held.holder.position;
-      p.x += (t.gun.pos[0] - p.x) * k;
-      p.y += (t.gun.pos[1] + (worn?.shoulderOffset.y ?? 0) - p.y) * k;
-      p.z += (t.gun.pos[2] - p.z) * k;
+      p.x += (t.gun.pos[0] + offset[0] - p.x) * k;
+      p.y += (t.gun.pos[1] + offset[1] + (worn?.shoulderOffset.y ?? 0) - p.y) * k;
+      p.z += (t.gun.pos[2] + offset[2] - p.z) * k;
       // pose pitch is + up; with the barrel along the holder's +Z, a positive x turn points it down: negate
-      easeEuler(held.holder, [-t.gun.rot[0], t.gun.rot[1], t.gun.rot[2]], k);
+      easeEuler(held.holder, [
+        -t.gun.rot[0] + THREE.MathUtils.degToRad(rotation[0]),
+        t.gun.rot[1] + THREE.MathUtils.degToRad(rotation[1]),
+        t.gun.rot[2] + THREE.MathUtils.degToRad(rotation[2]),
+      ], k);
     }
     body.updateMatrixWorld(true);
     // arms: onto the gun (two-bone solve) or posed freely
-    if (held && t.rightArm === "grip") solveArm(armR, held.holder.localToWorld(tmpA.set(0, 0, 0)), torso);
-    else if (t.rightArm !== "grip") freeArm(armR, t.rightArm, k);
-    if (held && t.leftArm === "fore" && held.fore) {
-      const fore = tmpB.copy(held.fore).sub(held.grip).multiplyScalar(held.scale);
-      solveArm(armL, held.mount.localToWorld(fore), torso);
-    } else if (t.leftArm !== "fore") freeArm(armL, t.leftArm, k);
+    const right = t.rightArm === "grip" ? adjustedGrip?.right : undefined;
+    const left = (t.leftArm === "fore" || t.rightArm === "grip") ? adjustedGrip?.left : undefined;
+    const rightElbow = adjustedGrip?.rightElbow;
+    const leftElbow = adjustedGrip?.leftElbow;
+    rightAdjusted = Boolean(held && t.rightArm === "grip" && adjustedGrip);
+    leftAdjusted = Boolean(held && (left || (adjustedGrip && t.leftArm === "fore" && held.fore)));
+    const setWrist = (arm: Arm, adjustment: HandAdjustment | undefined) => {
+      const degrees = adjustment?.rotation ?? [0, 0, 0];
+      arm.wrist.rotation.set(THREE.MathUtils.degToRad(degrees[0]), THREE.MathUtils.degToRad(degrees[1]), THREE.MathUtils.degToRad(degrees[2]));
+    };
+    setWrist(armR, right);
+    setWrist(armL, left);
+    if (held && t.rightArm === "grip") {
+      const anchor = right?.pinned ? torso : held.mount;
+      const target = right ? anchor.localToWorld(tmpA.set(...right.position)) : held.holder.localToWorld(tmpA.set(0, 0, 0));
+      solveEditedArm(armR, target, rightElbow, !right?.rotationSpace);
+      alignCopiedWrist(armR, right, held);
+    } else if (t.rightArm !== "grip") {
+      const bend = rightElbow?.rotation[1];
+      freeArm(armR, bend ? { ...t.rightArm, elbow: hingeAngle(t.rightArm.elbow, bend) } : t.rightArm, k);
+    }
+    if (held && ((t.leftArm === "fore" && held.fore) || left)) {
+      if (left?.pinned) {
+        solveEditedArm(armL, torso.localToWorld(tmpA.set(...left.position)), leftElbow, !left.rotationSpace);
+      } else {
+        const fore = leftGrip(held, tmpB);
+        if (left) fore.add(tmpA.set(...left.position));
+        solveEditedArm(armL, held.mount.localToWorld(fore), leftElbow, !left?.rotationSpace);
+      }
+      alignCopiedWrist(armL, left, held);
+    } else if (t.leftArm !== "fore") {
+      const bend = leftElbow?.rotation[1];
+      freeArm(armL, bend ? { ...t.leftArm, elbow: hingeAngle(t.leftArm.elbow, bend) } : t.leftArm, k);
+    }
     else freeArm(armL, { shoulder: [-0.15, 0, -0.12], elbow: -0.35 }, k);
     if (input.weapon === "shield" && !input.dead && !input.healing) {
       const shield = gunFor("shield"); shield.holder.visible = true;
@@ -320,12 +401,14 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     setOperator(operator) { if (selectedOperator === operator) return; selectedOperator = operator; cloth.color.set(OPERATORS[operator].color); tintSkin(); },
     setPose(p) {
       input = p;
+      adjustedGrip = gripOverride === undefined ? (p.weapon && hasWeaponArt(p.weapon) ? calibratedGrip(p) : null) : gripOverride;
     },
     useSkin(source) {
       if (sourceSkin === source) return;
-      worn?.dispose();
-      sourceSkin = source;
+      worn?.dispose(); worn = null; sourceSkin = source;
+      for (const p of parts) p.visible = !source;
       hips.position.set(0, HIP_Y, 0);
+      if (!source) { first = true; return; }
       // the skin binds to the code figure at rest: its joints as built (no pose has run, or put them back)
       for (const j of [hips, torso, head, ...[armL, armR].flatMap((a) => [a.shoulder, a.elbow, a.wrist]), ...legs.flatMap((l) => [l.hip, l.knee, l.ankle])]) {
         j.quaternion.identity();
@@ -333,8 +416,38 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
       const posed = !first;
       worn = attachSkin(body, { hips, torso, head, arms: [armL, armR], legs }, source, SKIN_HEIGHT);
       tintSkin();
-      for (const p of parts) p.visible = false;
       if (posed) first = true; // snap back into the current pose on the next update
+    },
+    setGripAdjustment(value) {
+      gripOverride = value;
+      adjustedGrip = value;
+    },
+    gripHandPosition(side, pinned) {
+      const held = input.weapon ? guns.get(input.weapon) : undefined;
+      if (!held?.holder.visible) return null;
+      const arm = side === "right" ? armR : armL;
+      const adjusted = side === "right" ? rightAdjusted : leftAdjusted;
+      const bend = !adjustedGrip?.[side]?.rotationSpace && adjustedGrip?.[side === "right" ? "rightElbow" : "leftElbow"]?.rotation[1];
+      const wrist = adjusted && bend ? tmpA.copy(bendAnchors[side]) : arm.wrist.getWorldPosition(tmpA);
+      (pinned ? torso : held.mount).worldToLocal(wrist);
+      if (!pinned && side === "left") wrist.sub(leftGrip(held, tmpB));
+      return [wrist.x, wrist.y, wrist.z].map((axis) => Number(axis.toFixed(4))) as V3;
+    },
+    captureGripHand(side, pinned) {
+      const held = input.weapon ? guns.get(input.weapon) : undefined;
+      if (!held?.holder.visible || !(side === "right" ? rightAdjusted : leftAdjusted)) return undefined;
+      const arm = side === "right" ? armR : armL;
+      const reference = pinned ? torso : held.mount;
+      const wrist = reference.worldToLocal(arm.wrist.getWorldPosition(tmpA));
+      if (!pinned && side === "left") wrist.sub(leftGrip(held, tmpB));
+      reference.getWorldQuaternion(referenceWorld).invert();
+      wristEuler.setFromQuaternion(referenceWorld.multiply(arm.wrist.getWorldQuaternion(wristWorld)));
+      return {
+        position: [wrist.x, wrist.y, wrist.z],
+        rotation: [wristEuler.x, wristEuler.y, wristEuler.z].map(THREE.MathUtils.radToDeg) as V3,
+        ...(pinned ? { pinned: true } : {}),
+        rotationSpace: pinned ? "torso" : "weapon",
+      };
     },
     fire(weapon) {
       const g = gunFor(weapon);
@@ -357,18 +470,31 @@ export function makeOperative(suit: string, bank = new MaterialBank()): Operativ
     setAlert(v) {
       alert = Math.max(0, Math.min(1, v));
     },
-    update(dt, camera) {
+    update(dt, camera, frozen = false) {
       if (operatorArtEnabled() && selectedOperator && requestedOperator !== selectedOperator) {
         const id = selectedOperator; requestedOperator = id;
         void loadOperatorArt(id).then(source => {
           if (source && !disposed && selectedOperator === id && operatorArtEnabled()) api.useSkin(source);
         });
       }
-      time += dt;
-      stride += input.speed * POSE.runRate * dt;
-      apply(targetPose(input, time, stride), first ? 1 : 1 - Math.exp(-EASE * dt));
+      if (!frozen) {
+        time += dt;
+        stride += input.speed * POSE.runRate * dt;
+      }
+      apply(targetPose(input, frozen ? 0 : time, frozen ? 0 : stride), first || frozen ? 1 : 1 - Math.exp(-EASE * dt));
       first = false;
       worn?.update();
+      worn?.positionHand("right", rightAdjusted ? armR.wrist.getWorldPosition(tmpA) : null);
+      worn?.positionHand("left", leftAdjusted ? armL.wrist.getWorldPosition(tmpA) : null);
+      if (input.weapon === "pistol" && worn?.rightHand) {
+        const pistol = guns.get("pistol");
+        if (pistol?.art && pistol.holder.visible && !adjustedGrip) {
+          // The skin's arm lengths differ from the procedural rig. Put the grip just ahead of its actual wrist.
+          pistol.holder.worldToLocal(worn.rightHand.getWorldPosition(tmpA));
+          pistol.mount.position.copy(tmpA);
+          pistol.mount.position.z += 0.025;
+        }
+      }
       flashT = Math.max(0, flashT - dt);
       muzzle.group.visible = muzzleT > 0 && input.weapon !== null && !input.dead; // shown before the countdown:
       muzzle.update(FLASH_TIME - muzzleT);
@@ -406,7 +532,7 @@ function freeArm(a: Arm, pose: { shoulder: V3; elbow: number }, k: number): void
  * Two-bone solve: turns the shoulder and bends the elbow so the wrist lands on `target` (world space), with the
  * elbow pointing down and out (the pole). Works in the torso's space, where the arm lengths are defined.
  */
-export function solveArm(a: Arm, target: THREE.Vector3, torso: THREE.Object3D): void {
+export function solveArm(a: Arm, target: THREE.Vector3, torso: THREE.Object3D, swivel = 0): void {
   const s = sv.s.copy(a.shoulder.position);
   const d = torso.worldToLocal(sv.d.copy(target)).sub(s);
   const reach = UPPER_ARM + FOREARM + 0.03;
@@ -420,6 +546,7 @@ export function solveArm(a: Arm, target: THREE.Vector3, torso: THREE.Object3D): 
   // pole: down, out to the arm's side and a little back; its part across the reach line
   const pole = sv.pole.set(a.side * 0.6, -1, -0.4);
   pole.addScaledVector(d, -pole.dot(d)).normalize();
+  if (swivel) pole.applyAxisAngle(d, swivel);
   const u = sv.u.copy(d).multiplyScalar(Math.cos(A)).addScaledVector(pole, Math.sin(A)); // upper arm direction
   // shoulder frame: local -Y along the upper arm, local +Z toward where the forearm bends (away from the pole)
   const z = sv.z.copy(pole).negate().addScaledVector(u, pole.dot(u)).normalize();

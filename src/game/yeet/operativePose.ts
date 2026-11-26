@@ -15,7 +15,7 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import type { PlayerState } from "../../core/yeet/sim";
-import type { WeaponId } from "../../core/yeet/tuning";
+import { TUNING, type WeaponId } from "../../core/yeet/tuning";
 
 export interface PoseInput {
   weapon: WeaponId | null;
@@ -39,6 +39,8 @@ export interface PoseInput {
   /** Reaper's Kick has an enemy hooked: the gunblade turns on its side (as in first person). */
   hook?: boolean;
   healing?: boolean;
+  /** Six-Shot Sakura's reversed hold in the grip preview. */
+  stance?: boolean;
 }
 
 export type V3 = [number, number, number];
@@ -127,6 +129,7 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
     gunPos = lerp3(POSE.ready.pos, POSE.aimed.pos, p.aim);
   }
   let gunYaw = 0;
+  if (p.stance && p.weapon === "sakura") gunYaw = -Math.PI * 0.85;
   let gunRoll = 0;
   let twist = 0;
   // a gunblade slash: the blade sweeps across, right to left, the shoulders turning with it
@@ -218,8 +221,12 @@ export function inputFromPlayer(pl: PlayerState, simTime: number, aim: number, k
     const { rise, hold, fall } = FLING_TIME;
     fling = since < rise ? since / rise : since < rise + hold ? 1 : Math.max(0, 1 - (since - rise - hold) / fall);
   }
+  const slashDuration = pl.weapon === "sakura" ? TUNING.sakura.slash.recovery : pl.weapon === "reaper" ? TUNING.reaper.slash.cooldown : pl.weapon === "axe" ? TUNING.axe.slash.cooldown : 0;
+  const sinceSlash = simTime - pl.lastSlashAt;
   return {
     weapon: pl.weapon,
+    stance: pl.weapon === "sakura" && pl.stance,
+    slash: slashDuration && sinceSlash >= 0 && sinceSlash < slashDuration ? sinceSlash / slashDuration : 0,
     speed: Math.hypot(pl.vel.x, pl.vel.z),
     onGround: pl.onGround,
     aim: pl.weapon === "shield" ? Number(pl.shielding) : aim,

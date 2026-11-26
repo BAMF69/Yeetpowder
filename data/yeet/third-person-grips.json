@@ -1,0 +1,1386 @@
+{
+  "version": 4,
+  "poses": {
+    "ready": {
+      "pistol": {
+        "right": {
+          "position": [
+            0.09,
+            -0.02,
+            0.06
+          ],
+          "rotation": [
+            -14,
+            -9,
+            -10
+          ]
+        },
+        "gun": {
+          "position": [
+            0,
+            0.02,
+            0
+          ],
+          "rotation": [
+            -22,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        }
+      },
+      "shotgun": {
+        "right": {
+          "position": [
+            0.104,
+            -0.025,
+            0.067
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "left": {
+          "position": [
+            0.104,
+            -1.25,
+            -1.25
+          ],
+          "rotation": [
+            30,
+            43,
+            -66
+          ]
+        },
+        "gun": {
+          "position": [
+            -0.079,
+            0.063,
+            -0.129
+          ],
+          "rotation": [
+            -22,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "leftElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            42,
+            47,
+            0
+          ]
+        }
+      },
+      "sniper": {
+        "right": {
+          "position": [
+            0.125,
+            0.063,
+            0.125
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "left": {
+          "position": [
+            0.771,
+            -1.25,
+            -1.25
+          ],
+          "rotation": [
+            39,
+            43,
+            -66
+          ]
+        },
+        "gun": {
+          "position": [
+            -0.042,
+            -0.021,
+            -0.104
+          ],
+          "rotation": [
+            -18,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "leftElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            9,
+            24,
+            0
+          ]
+        }
+      },
+      "copter": {
+        "right": {
+          "position": [
+            0.104,
+            0.063,
+            0.073
+          ],
+          "rotation": [
+            -13,
+            -21,
+            16
+          ]
+        },
+        "left": {
+          "position": [
+            0.073,
+            -0.99,
+            -1.104
+          ],
+          "rotation": [
+            -33,
+            -24,
+            -17
+          ]
+        },
+        "gun": {
+          "position": [
+            -0.079,
+            0.117,
+            0.008
+          ],
+          "rotation": [
+            2,
+            11,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "leftElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            27,
+            43,
+            0
+          ]
+        }
+      },
+      "reaper": {
+        "right": {
+          "position": [
+            0.09400000000000014,
+            -0.030999999999999923,
+            0.052000000000004945
+          ],
+          "rotation": [
+            -76.18051177542432,
+            -6.480007825508181,
+            -152.02487580366883
+          ],
+          "rotationSpace": "weapon"
+        },
+        "left": {
+          "position": [
+            -0.1046623719145809,
+            -0.020999999999999824,
+            0.14600000000000224
+          ],
+          "rotation": [
+            -162.37766574598496,
+            -40.47539900643477,
+            117.51869635982592
+          ],
+          "rotationSpace": "weapon"
+        },
+        "gun": {
+          "position": [
+            -0.004,
+            0.133,
+            -0.133
+          ],
+          "rotation": [
+            -22,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "rightElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            -57,
+            0
+          ]
+        },
+        "leftElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            9,
+            34,
+            0
+          ]
+        }
+      },
+      "sakura": {
+        "right": {
+          "position": [
+            0.083,
+            0.031,
+            0.115
+          ],
+          "rotation": [
+            51,
+            -56,
+            20
+          ]
+        },
+        "gun": {
+          "position": [
+            0,
+            0.021,
+            0
+          ],
+          "rotation": [
+            33,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        }
+      },
+      "rocket": {
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "right": {
+          "position": [
+            0.15025812360175816,
+            0.02033271688275873,
+            0.08577989153770639
+          ],
+          "rotation": [
+            -79.33841559866279,
+            -15.226135463445967,
+            -158.960383889967
+          ],
+          "rotationSpace": "weapon"
+        },
+        "left": {
+          "position": [
+            -0.1567878111805248,
+            0.033610305546787796,
+            0.09835237764825665
+          ],
+          "rotation": [
+            -88.10370359156201,
+            -4.824264636256045,
+            141.79925747608698
+          ],
+          "rotationSpace": "weapon"
+        },
+        "gun": {
+          "position": [
+            -0.042,
+            0,
+            -0.025
+          ],
+          "rotation": [
+            -22,
+            0,
+            0
+          ]
+        }
+      },
+      "grenade": {
+        "right": {
+          "position": [
+            -0.392,
+            0.567,
+            0
+          ],
+          "rotation": [
+            -17,
+            -45,
+            -17
+          ],
+          "pinned": true
+        },
+        "gun": {
+          "position": [
+            -0.112,
+            0.463,
+            -0.275
+          ],
+          "rotation": [
+            -18,
+            43,
+            -38
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        }
+      },
+      "axe": {
+        "right": {
+          "position": [
+            0.083,
+            -0.062,
+            -0.167
+          ],
+          "rotation": [
+            0,
+            -40,
+            0
+          ]
+        },
+        "left": {
+          "position": [
+            -0.146,
+            -0.01,
+            -0.167
+          ],
+          "rotation": [
+            -7,
+            8,
+            0
+          ]
+        },
+        "gun": {
+          "position": [
+            0.025,
+            0.129,
+            0.054
+          ],
+          "rotation": [
+            15,
+            -3,
+            -11
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        }
+      }
+    },
+    "aimed": {
+      "pistol": {
+        "right": {
+          "position": [
+            0.088,
+            -0.042,
+            0.067
+          ],
+          "rotation": [
+            18,
+            -9,
+            -10
+          ]
+        },
+        "left": {
+          "position": [
+            -0.05,
+            -0.021,
+            0
+          ],
+          "rotation": [
+            8,
+            0,
+            0
+          ]
+        },
+        "gun": {
+          "position": [
+            0.096,
+            0.171,
+            0.163
+          ],
+          "rotation": [
+            -1,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        }
+      },
+      "shotgun": {
+        "right": {
+          "position": [
+            0.063,
+            -0.083,
+            0.063
+          ],
+          "rotation": [
+            93,
+            -56,
+            20
+          ]
+        },
+        "left": {
+          "position": [
+            -0.083,
+            -0.167,
+            0
+          ],
+          "rotation": [
+            -9,
+            88,
+            0
+          ]
+        },
+        "gun": {
+          "position": [
+            -0.079,
+            0.204,
+            -0.137
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "leftElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            25,
+            27,
+            0
+          ]
+        }
+      },
+      "sniper": {
+        "right": {
+          "position": [
+            0.12500000000000025,
+            0.06299999999999994,
+            0.12499999999999822
+          ],
+          "rotation": [
+            -95.62789026048353,
+            -25.555544922497482,
+            -160.95118160961943
+          ],
+          "rotationSpace": "weapon"
+        },
+        "left": {
+          "position": [
+            -0.1306311111569417,
+            0.010122825215706108,
+            0.13132770390475323
+          ],
+          "rotation": [
+            -159.01525169191765,
+            0.3432094775470469,
+            109.44528968660288
+          ],
+          "rotationSpace": "weapon"
+        },
+        "gun": {
+          "position": [
+            -0.033,
+            0.121,
+            -0.104
+          ],
+          "rotation": [
+            2,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "rightElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            -19,
+            0,
+            0
+          ]
+        }
+      },
+      "copter": {
+        "right": {
+          "position": [
+            0.146,
+            0.01,
+            0.073
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "left": {
+          "position": [
+            0.594,
+            -0.375,
+            -1.25
+          ],
+          "rotation": [
+            -48,
+            -89,
+            -39
+          ]
+        },
+        "gun": {
+          "position": [
+            0.129,
+            0.163,
+            0.158
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "leftElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            39,
+            -108,
+            0
+          ]
+        }
+      },
+      "reaper": {
+        "right": {
+          "position": [
+            0.09400000000000008,
+            -0.03100000000000014,
+            0.052000000000003155
+          ],
+          "rotation": [
+            -76.18051177542429,
+            -6.480007825508171,
+            -152.02487580366883
+          ],
+          "rotationSpace": "weapon"
+        },
+        "left": {
+          "position": [
+            -0.10466237191458098,
+            -0.021,
+            0.146
+          ],
+          "rotation": [
+            -162.37766574598498,
+            -40.4753990064348,
+            117.5186963598259
+          ],
+          "rotationSpace": "weapon"
+        },
+        "gun": {
+          "position": [
+            -0.004,
+            0.133,
+            -0.133
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        }
+      },
+      "sakura": {
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "right": {
+          "position": [
+            0.08300000000000003,
+            0.031000000000000145,
+            0.11500000000000202
+          ],
+          "rotation": [
+            -140.17330896566384,
+            23.28000431503174,
+            -159.9814792882302
+          ],
+          "rotationSpace": "weapon"
+        },
+        "gun": {
+          "position": [
+            0.15,
+            0.188,
+            0.154
+          ],
+          "rotation": [
+            33,
+            0,
+            0
+          ]
+        },
+        "rightElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            -30,
+            0,
+            0
+          ]
+        }
+      },
+      "rocket": {
+        "right": {
+          "position": [
+            0.15025812360175836,
+            0.02033271688275895,
+            0.0857798915377117
+          ],
+          "rotation": [
+            -79.3384155986628,
+            -15.226135463445958,
+            -158.960383889967
+          ],
+          "rotationSpace": "weapon"
+        },
+        "left": {
+          "position": [
+            -0.1567878111805247,
+            0.03361030554678801,
+            0.09835237764826021
+          ],
+          "rotation": [
+            -88.10370359156197,
+            -4.824264636256045,
+            141.79925747608698
+          ],
+          "rotationSpace": "weapon"
+        },
+        "gun": {
+          "position": [
+            -0.087,
+            0.121,
+            -0.221
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "rightElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            -21,
+            0
+          ]
+        },
+        "leftElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            25,
+            27,
+            0
+          ]
+        }
+      },
+      "grenade": {
+        "right": {
+          "position": [
+            -0.3786,
+            0.7733,
+            0.0369
+          ],
+          "rotation": [
+            -17,
+            -45,
+            -17
+          ],
+          "pinned": true
+        },
+        "left": {
+          "position": [
+            -0.802,
+            -0.74,
+            -1.021
+          ],
+          "rotation": [
+            -56,
+            -15,
+            -34
+          ]
+        },
+        "gun": {
+          "position": [
+            -0.112,
+            0.463,
+            -0.275
+          ],
+          "rotation": [
+            -18,
+            43,
+            -38
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        },
+        "leftElbow": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            47,
+            61,
+            0
+          ]
+        }
+      },
+      "axe": {
+        "right": {
+          "position": [
+            0.135,
+            -0.031,
+            -0.073
+          ],
+          "rotation": [
+            -15,
+            -58,
+            14
+          ]
+        },
+        "left": {
+          "position": [
+            0.042,
+            -0.052,
+            -0.135
+          ],
+          "rotation": [
+            0,
+            119,
+            0
+          ]
+        },
+        "rightFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            41,
+            -11,
+            -7
+          ]
+        },
+        "leftFoot": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            32,
+            6,
+            2
+          ]
+        }
+      }
+    },
+    "special": {
+      "slash": {
+        "ready": {
+          "sakura": {
+            "gun": {
+              "position": [
+                -0.196,
+                0.229,
+                0
+              ],
+              "rotation": [
+                -49,
+                0,
+                -69
+              ]
+            },
+            "right": {
+              "position": [
+                0.083,
+                0.01,
+                0.063
+              ],
+              "rotation": [
+                43,
+                -73,
+                30
+              ]
+            }
+          }
+        },
+        "aimed": {}
+      },
+      "stance": {
+        "ready": {
+          "sakura": {
+            "gun": {
+              "position": [
+                -0.096,
+                -0.15,
+                -0.25
+              ],
+              "rotation": [
+                18,
+                -19,
+                0
+              ]
+            },
+            "right": {
+              "position": [
+                -0.104,
+                0.063,
+                0.031
+              ],
+              "rotation": [
+                -3,
+                2,
+                20
+              ]
+            }
+          }
+        },
+        "aimed": {}
+      },
+      "reap": {
+        "ready": {
+          "reaper": {
+            "gun": {
+              "position": [
+                -0.004,
+                0.421,
+                0.017
+              ],
+              "rotation": [
+                -45,
+                0,
+                0
+              ]
+            },
+            "rightElbow": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                -75,
+                -31,
+                0
+              ]
+            }
+          }
+        },
+        "aimed": {}
+      },
+      "hook": {
+        "ready": {
+          "reaper": {
+            "gun": {
+              "position": [
+                0.104,
+                0.275,
+                0.15
+              ],
+              "rotation": [
+                -33,
+                0,
+                0
+              ]
+            },
+            "rightElbow": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                -71,
+                -57,
+                0
+              ]
+            },
+            "right": {
+              "position": [
+                0.01,
+                -0.094,
+                0.083
+              ],
+              "rotation": [
+                -64,
+                3,
+                -180
+              ],
+              "rotationSpace": "weapon"
+            },
+            "leftElbow": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                -9,
+                -54,
+                0
+              ]
+            },
+            "left": {
+              "position": [
+                -0.1046623719145809,
+                -0.020999999999999824,
+                -0.281
+              ],
+              "rotation": [
+                23,
+                129,
+                45
+              ],
+              "rotationSpace": "weapon"
+            }
+          }
+        },
+        "aimed": {}
+      }
+    }
+  }
+}
