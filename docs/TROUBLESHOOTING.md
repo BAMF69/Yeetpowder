@@ -69,3 +69,25 @@
 - Fix: plug the laptop in before judging frame-count smokes (or use `--until <marker>` runs).
 - How to verify: `Get-CimInstance Win32_Battery` (BatteryStatus 2 = on mains), then rerun the smoke.
 - Lesson: when every scene gets slower at once, check the machine (power, clock speed, other load) before the code.
+
+### Bots walk, shoot or launch themselves into the sea on Shark Island
+- First seen: 2026-11-26, `tests/soloPlaytest.test.ts` "redirects island retreat controls toward solid ground ..."
+  once respawn got slower (a 2.2 s respawn had hidden the fall from the end-state check).
+- Symptom: a bot near the island shore gets a `sharkApproach` event (it is in the water) with no enemy touching it.
+- Root cause: two separate things.
+  1. The test fixture: `{ x: 17.5, z: 0 }` is open water (the island top is x, z in [-13, 13]; the east platform starts
+     at x = 21). The bot was airborne from frame 0, so no movement rule could save it. Not changed: the fixture
+     belongs to its owner. `tests/botFooting.test.ts` uses real shore starts.
+  2. The bot: the old redirect only checked where *walking* led. Found one at a time with a 576-run shore sweep
+     (later 1152 runs x 10 s): a Boomstick launch toward the Gatling platform flies ~40 m and overshoots it; hip
+     shots at an enemy inland push the shooter out to sea; a mid-air shot kicks twice as hard (`airRecoil`); a jump
+     while still sliding turns friction's stop into a flight; a jump and a shot on the same step are an air shot;
+     the redirect fed `keysFor` a raw 10 m delta (each key clamps, so it skewed toward the facing); and keys held
+     while sliding above run speed only air-steer, so the bot could not turn.
+- Fix: `src/core/yeet/botFooting.ts` predicts where a shot's recoil or a jump leaves the bot (same kick, hop, tumble
+  pop, gravity, drag and friction as the sim); `BotBrain.keepFooting` drops a jump or shot that ends in the water.
+  The redirect normalises its direction and lets go of the keys while sliding above run speed.
+- How to verify: `tests/botFooting.test.ts` (its six shore runs fail on the old bot). Remaining falls in the sweep
+  all follow a target dummy's shot (`dummiesFight`): being knocked off is the level, not a steering bug.
+- Lesson: a test that only checks the end state can be passed by a respawn; assert on events. And check that a
+  fixture's start position stands on something before debugging the AI.
