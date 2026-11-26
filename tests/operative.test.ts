@@ -94,6 +94,10 @@ describe("two-bone arm solve", () => {
       torso.updateMatrixWorld(true);
       const got = wrist.getWorldPosition(new THREE.Vector3());
       expect(got.distanceTo(target)).toBeLessThan(0.005);
+      const originalElbow = elbow.getWorldPosition(new THREE.Vector3());
+      solveArm(arm, target, torso, Math.PI / 2);
+      expect(wrist.getWorldPosition(got).distanceTo(target)).toBeLessThan(0.005);
+      expect(elbow.getWorldPosition(new THREE.Vector3()).distanceTo(originalElbow)).toBeGreaterThan(0.05);
     }
   });
 });

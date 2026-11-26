@@ -18,7 +18,23 @@ Use this prompt to start the integration task:
 
 ### Local integration preview
 
-Run the Vite development server and open `?play&art-preview=approved` to try the Glock-17, Rustbound Sniper Rifle, AT-2X launcher and rocket, and the supplied grenade held and in flight. Use `art-preview=shotgun-existing` or `art-preview=weathered-shotgun` to add one shotgun candidate at a time. Add `&noart` to compare with the procedural models. The preview uses the source GLBs directly. Release builds do not include these GLBs.
+Run the Vite development server and open `?play&art-preview=approved` to try the Glock-17, the selected existing shotgun, Rustbound Sniper Rifle, Minigun, AT-2X launcher and rocket, and the supplied grenade held and in flight. The grip editor defaults to Sandbox with passive dummies. Add `&showcase` to inspect the Tactical operator, now the default third-person body. The first-person arms, gloves, and legs use their own geometry.
+
+Add `&grip-editor` to open the third-person calibration view. Under **Adjust**, choose a hand, the gun, either foot, the torso, or the head. Use the slider or type an exact value next to it. Hand offsets use weapon-space metres, gun offsets use operator torso-space metres, and rotations use degrees. Drag the scene to orbit and use **Camera distance** to see the full stance. The editor saves ready and aimed adjustments separately per weapon in the browser. **Export grips** downloads both poses as version 4 JSON for integration and review.
+
+To combine JSON files, choose the base file under **Import JSON** and press **Load base file**. Then choose the second file, select the weapon and ready or aimed stance, and press **Load selected pose** to apply only that entry. Both imports can be undone. Older exports have one set of adjustments per weapon, so the editor applies that entry to the selected stance when loading one pose.
+
+Select a hand and enable **Pin hand to body** to edit its torso-space position independently of the weapon. Move the weapon into place, then turn the pin off to save the hand's new offset from its weapon grip point.
+
+Select **Left elbow** or **Right elbow**. **Elbow swivel** changes the bend plane around the shoulder-to-hand line. **Elbow bend** flexes or straightens the hinge itself, which moves the hand along the forearm's arc. Recheck the grip after changing the bend.
+
+Use **Operator** to compare the default operative, **Tactical T-Pose Soldier**, **Samurai**, and **Viking** with the same grip adjustments. **Animation** starts off for a fixed edit pose. Turning it on uses the procedural gameplay pose driver and previews a walk in place when idle. Turning it off returns to the fixed edit pose for the current stance. The three additional rigged GLBs are staged in `assets_src/additional-art/` for the editor.
+
+Scroll over the scene to zoom the showcase camera. **Aimed pose** keeps the operator visible, including with the Spin Doctor. **Copy hands** captures the displayed grip contacts and wrist angles relative to the weapon and applies them to its other stance. **Copy hands + gun** also transfers the gun adjustment. Copied hands follow the gun within arm reach. Each **Gunblade state** starts from that weapon's normal grip and saves its own adjustments per stance. Resetting a special-state adjustment restores the corresponding normal value. Exports include special-state settings alongside the normal ready and aimed poses.
+
+To reuse a stance, select the weapon you already adjusted, choose **Both feet** under **Copy**, then choose one destination or **All other weapons**. Copy only transfers the selected edited parts. **Undo** or **Ctrl+Z** reverts the last edit, reset, or copy as a single step during the current session.
+
+Use `art-preview=weathered-shotgun` to compare the alternate shotgun. Add `&noart` to compare with the procedural models. The preview uses the source GLBs directly. Release builds do not include these GLBs.
 
 The four additional exports are staged in `assets_src/additional-art/`. Confirm their source and license before release.
 

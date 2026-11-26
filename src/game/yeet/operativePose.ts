@@ -39,6 +39,8 @@ export interface PoseInput {
   /** Reaper's Kick has an enemy hooked: the gunblade turns on its side (as in first person). */
   hook?: boolean;
   healing?: boolean;
+  /** Six-Shot Sakura's reversed hold in the grip preview. */
+  stance?: boolean;
 }
 
 export type V3 = [number, number, number];
@@ -127,6 +129,7 @@ export function targetPose(p: PoseInput, t: number, stridePhase: number): PoseTa
     gunPos = lerp3(POSE.ready.pos, POSE.aimed.pos, p.aim);
   }
   let gunYaw = 0;
+  if (p.stance && p.weapon === "sakura") gunYaw = -Math.PI * 0.85;
   let gunRoll = 0;
   let twist = 0;
   // a gunblade slash: the blade sweeps across, right to left, the shoulders turning with it

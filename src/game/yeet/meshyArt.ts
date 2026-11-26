@@ -23,6 +23,28 @@ import { registerHealthPackPreview } from "./healthPack";
 import { openShieldViewport, SHIELD_WINDOW } from "./shieldViewport";
 
 const OPERATIVE_URL = "assets/models/meshy/operative.glb";
+const GRIP_OPERATORS = [
+  { id: "soldier", name: "Tactical T-Pose Soldier", file: "tactical-soldier-rigged.glb" },
+  { id: "samurai", name: "Samurai", file: "samurai-rigged.glb" },
+  { id: "viking", name: "Viking", file: "viking-rigged.glb" },
+] as const;
+
+export async function loadGripOperators() {
+  if (!import.meta.env.DEV) return [];
+  const loader = new GLTFLoader();
+  return Promise.all(GRIP_OPERATORS.map(async ({ id, name, file }) => {
+    try {
+      const { scene } = await loader.loadAsync(`assets_src/additional-art/${file}`);
+      let skinned = false;
+      scene.traverse((object) => { if (object instanceof THREE.SkinnedMesh && object.skeleton.bones.length) skinned = true; });
+      if (!skinned) throw new Error("The GLB has no skinned mesh.");
+      return { id, name, scene };
+    } catch (error) {
+      Log.warn("art", `${name} did not load: ${String(error)}`);
+      return { id, name, scene: null };
+    }
+  }));
+}
 /** Metres per model unit when held (gunModels' SCALE for every gun but the Gatling). */
 const HELD_SCALE = 0.62;
 
@@ -61,6 +83,7 @@ const WEAPONS: Partial<Record<WeaponId, WeaponArt>> = {
 let operative: THREE.Object3D | null = null;
 let rocketPreview: THREE.Object3D | null = null;
 let grenadePreview: (() => WeaponModel) | null = null;
+
 export function rocketPreviewArt(): THREE.Object3D | null {
   return rocketPreview?.clone() ?? null;
 }

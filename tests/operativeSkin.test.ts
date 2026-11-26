@@ -77,6 +77,30 @@ function codeLimbs(op: ReturnType<typeof makeOperative>) {
 }
 
 describe("operative skin", () => {
+  it("retargets the Soldier spine from hips to neck in anatomical order", () => {
+    const operative = makeOperative("#3b4a78", new PlainBank());
+    const soldier = makeOperative("#3b4a78", new PlainBank());
+    const pairs = [["Spine", "Spine02"], ["Spine1", "Spine01"], ["Spine2", "Spine"], ["Neck", "neck"]] as const;
+    const operativeRig = tposeRig().scene;
+    const soldierRig = tposeRig().scene;
+    const renamed = pairs.map(([name]) => soldierRig.getObjectByName(`mixamorig:${name}`)!);
+    renamed.forEach((bone, i) => { bone.name = pairs[i][1]; });
+    operative.useSkin(operativeRig);
+    soldier.useSkin(soldierRig);
+    const pose = { ...base, speed: 4, pitch: 0.4, aim: 1 };
+    operative.setPose(pose);
+    soldier.setPose(pose);
+    for (let i = 0; i < 30; i++) {
+      operative.update(1 / 60, camera);
+      soldier.update(1 / 60, camera);
+    }
+    for (const [original, alternate] of pairs) {
+      const expected = operative.root.getObjectByName(`mixamorig:${original}`)!.getWorldQuaternion(new THREE.Quaternion());
+      const actual = soldier.root.getObjectByName(alternate)!.getWorldQuaternion(new THREE.Quaternion());
+      expect(actual.angleTo(expected)).toBeLessThan(0.001);
+    }
+  });
+
   for (const [label, pose] of [
     ["aiming", { ...base, aim: 1 }],
     ["running", { ...base, speed: 6 }],

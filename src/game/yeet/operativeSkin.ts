@@ -32,6 +32,8 @@ export interface SkinJoints {
 
 export interface Skin {
   root: THREE.Object3D;
+  rightHand: THREE.Bone | undefined;
+  positionHand(side: "right" | "left", world: THREE.Vector3 | null): void;
   /** The model's materials (its own copies: the hit flash tints them per figure). */
   materials: THREE.MeshStandardMaterial[];
   update(): void;
@@ -58,14 +60,14 @@ const tv = new THREE.Vector3();
 const tv2 = new THREE.Vector3();
 
 /** Mixamo bone (without the "mixamorig" prefix) -> which code part drives it and where it points at rest. */
-function mapFor(j: SkinJoints): [string, THREE.Object3D, Dir][] {
+function mapFor(j: SkinJoints, spine: readonly [string, string, string]): [string, THREE.Object3D, Dir][] {
   const arm = (side: 1 | -1) => j.arms.find((a) => a.side === side)!;
   const leg = (side: 1 | -1) => j.legs.find((l) => l.side === side)!;
   const out: [string, THREE.Object3D, Dir][] = [
     ["Hips", j.hips, "up"],
-    ["Spine", j.torso, "up"],
-    ["Spine1", j.torso, "up"],
-    ["Spine2", j.torso, "up"],
+    [spine[0], j.torso, "up"],
+    [spine[1], j.torso, "up"],
+    [spine[2], j.torso, "up"],
     ["Neck", j.head, "up"],
     ["Head", j.head, "up"],
   ];
@@ -110,22 +112,29 @@ export function attachSkin(parent: THREE.Object3D, joints: SkinJoints, source: T
   parent.updateMatrixWorld(true);
   const bones = new Map<string, THREE.Bone>();
   root.traverse((o) => {
-    if ((o as THREE.Bone).isBone) bones.set(o.name.replace(/^mixamorig:?/, ""), o as THREE.Bone);
+    if ((o as THREE.Bone).isBone) bones.set(o.name.replace(/^mixamorig:?/i, "").toLowerCase(), o as THREE.Bone);
   });
+  const spine: [string, string, string] = bones.has("spine02") && bones.has("spine01")
+    ? ["spine02", "spine01", "spine"]
+    : ["spine", "spine1", "spine2"];
+  const torsoChain = ["hips", ...spine, "neck", "head"];
 
   // rest offsets, worked out in parent space so the figure's place in the world does not matter
   const parentQ = parent.getWorldQuaternion(new THREE.Quaternion());
   const parentQi = parentQ.clone().invert();
   const links: Link[] = [];
   const corrections = new Map<THREE.Object3D, THREE.Quaternion>();
-  for (const [name, part, dir] of mapFor(joints)) {
-    const bone = bones.get(name);
+  for (const [name, part, dir] of mapFor(joints, spine)) {
+    const key = name.toLowerCase();
+    const bone = bones.get(key);
     if (!bone) {
       Log.warn("art", `skin: no bone ${name} (the code figure's part stays unmatched)`);
       continue;
     }
     const bindQ = parentQi.clone().multiply(bone.getWorldQuaternion(new THREE.Quaternion()));
-    const child = boneChild(bone);
+    const chainIndex = torsoChain.indexOf(key);
+    const next = chainIndex >= 0 ? bones.get(torsoChain[chainIndex + 1]) : undefined;
+    const child = next?.parent === bone ? next : boneChild(bone);
     let correction: THREE.Quaternion;
     if (child) {
       const from = parent.worldToLocal(bone.getWorldPosition(tv));
@@ -142,12 +151,22 @@ export function attachSkin(parent: THREE.Object3D, joints: SkinJoints, source: T
   }
 
   // the hips follow the pelvis's movement too
-  const hipsBone = bones.get("Hips");
+  const hipsBone = bones.get("hips");
   const pelvisRest = parent.worldToLocal(joints.hips.getWorldPosition(new THREE.Vector3()));
   const hipsRest = hipsBone ? parent.worldToLocal(hipsBone.getWorldPosition(new THREE.Vector3())) : null;
+  const handBones = { right: bones.get("righthand"), left: bones.get("lefthand") };
+  const handRest = { right: handBones.right?.position.clone(), left: handBones.left?.position.clone() };
 
   return {
     root,
+    rightHand: handBones.right,
+    positionHand(side, world) {
+      const hand = handBones[side];
+      const rest = handRest[side];
+      if (!hand?.parent || !rest) return;
+      hand.position.copy(world ? hand.parent.worldToLocal(tv.copy(world)) : rest);
+      hand.updateMatrixWorld(true);
+    },
     materials,
     update() {
       parent.updateMatrixWorld(true); // the code figure's pose of this frame
@@ -167,6 +186,7 @@ export function attachSkin(parent: THREE.Object3D, joints: SkinJoints, source: T
     },
     dispose() {
       root.removeFromParent();
+      root.traverse((o) => { if (o instanceof THREE.SkinnedMesh) o.skeleton.dispose(); });
       for (const m of materials) m.dispose(); // geometry and textures are shared with the loaded model
     },
   };
