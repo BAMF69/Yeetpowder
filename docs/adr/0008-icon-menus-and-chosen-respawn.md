@@ -48,7 +48,7 @@ which sanitises it like a join. Every roster follows within a snapshot. This hol
 - Deaths cost more time: tune `respawnUnlock` in play if matches drag. Ten seconds at an eight-player kill
   target of 10 is untested with humans.
 - The old island-edge test passed only because the fast respawn hid a bot walking into the water. It now
-  checks the water entry and fails until the bot's edge avoidance is fixed.
+  checks the water entry; the bot footing fix (merged 2026-11-27) and a shore start make it pass.
 - Browser helpers drive the new screens by `data-item` ids; the shell drives (`menus`, `pseudo`, `display`,
   `content`) go through the new tree.
 
