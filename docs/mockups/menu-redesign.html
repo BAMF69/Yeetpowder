@@ -33,7 +33,7 @@ body { background: var(--ink); color: var(--cream); font-family: var(--ui); padd
 .it { font-style: italic; text-transform: uppercase; letter-spacing: .04em; text-shadow: 0 2px 0 rgba(0,0,0,.7); }
 
 /* title and loading */
-.screen.title { background: #14030b url(img/title_burst.webp) center / cover; align-items: center; justify-content: flex-end; cursor: pointer; }
+.screen.title { background: #0e0c0a url(img/title_metal.webp) center / cover; align-items: center; justify-content: flex-end; cursor: pointer; }
 .press { font: italic 900 15px var(--ui); letter-spacing: .2em; text-transform: uppercase; background: rgba(11,9,8,.55); padding: .4em 1.2em; margin-bottom: 30px; animation: blink 1.4s steps(2) infinite; text-shadow: 0 2px 0 #2a0614; }
 @keyframes blink { 50% { opacity: .35; } }
 .screen.loading { background: #0b0908 center / cover; align-items: center; justify-content: flex-end; }
@@ -402,7 +402,7 @@ body { background: var(--ink); color: var(--cream); font-family: var(--ui); padd
 
 </div></div>
 
-<p class="note">Tap anything: every tile leads somewhere, and GO or JOIN shows the loading screen. <b>Title</b> uses your hot pink burst; menus sit on the worn-metal art; loading takes turns between the flames and the barrel. <b>Respawn</b> runs the real timing: SPAWN unlocks 10 s after you are knocked out, and you come back on your own at 30 s. The operator icons are the game's own drawings, with the new names (Viking, Samurai, Black Ops, Black Widow).</p>
+<p class="note">Tap anything: every tile leads somewhere, and GO or JOIN shows the loading screen. <b>Title</b> is the riveted metal logo with the pink fuse; menus sit on the worn-metal art; loading takes turns between the flames, the hot pink burst and the barrel. <b>Respawn</b> runs the real timing: SPAWN unlocks 10 s after you are knocked out, and you come back on your own at 30 s. The operator icons are the game's own drawings, with the new names (Viking, Samurai, Black Ops, Black Widow).</p>
 
 <script>
 /* The game's operator icons (src/shell/operatorIcons.ts and src/net/profile.ts), bundled with esbuild. */
@@ -458,7 +458,7 @@ $("#seats").innerHTML = Array.from({ length: 8 }, (_, i) => `<svg width="28" hei
 
 // navigation: a stack, like the shell's push/back
 let stack = ["title"], loadTurn = 0, loadTimer = 0;
-const LOAD_ART = ["img/load_flames.webp", "img/load_barrel.webp"];
+const LOAD_ART = ["img/load_flames.webp", "img/title_burst.webp", "img/load_barrel.webp"];
 function show(id, push = true) {
   if (push && stack[stack.length - 1] !== id) stack.push(id);
   if (id === "home" || id === "title") stack = [id];
@@ -469,7 +469,7 @@ function show(id, push = true) {
   if (id === "respawn") startDeath(); else stopDeath();
 }
 function startLoading() {
-  const scr = $("[data-screen=loading]"); scr.style.backgroundImage = `url(${LOAD_ART[loadTurn++ % 2]})`;
+  const scr = $("[data-screen=loading]"); scr.style.backgroundImage = `url(${LOAD_ART[loadTurn++ % LOAD_ART.length]})`;
   const fill = $("[data-fill]"); let p = 0; fill.style.width = "0";
   const tick = () => { p = Math.min(100, p + 4 + Math.random() * 7); fill.style.width = p + "%"; if (p < 100) loadTimer = setTimeout(tick, 120); else loadTimer = setTimeout(() => show("respawn"), 500); };
   loadTimer = setTimeout(tick, 200);

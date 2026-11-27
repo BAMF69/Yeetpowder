@@ -35,8 +35,8 @@
 - Grunge pass with Elaina's new art (A-0023): title_burst title, metal menu backdrops, flames/barrel loading screens.
   Verified: check, 588 tests, smoke boot plus the menus and pseudo drives on the production build. Stills:
   captures/progress/mk-00-title, mk-01-home, mk-03-make, mk-06-bots, mk-11-loading-1, rs-02-ready.
-- Open: is image 2 or 3 the "hot pink flash" title (3 chosen)? The load_barrel image looks like the Bond gunbarrel
-  opening: decide before release. Map tiles are still drawn stand-ins.
+- Title is title_metal (Elaina's pick); title_burst joined the loading rotation. Art made with Codex imagegen (A-0023).
+  Open: load_barrel looks like the Bond gunbarrel opening: decide before release. Map tiles are still drawn stand-ins.
 
 ## Next step (specific, first action)
 - Elaina plays the new menus on a phone and a laptop and dies a few times: is the respawn wait right, are any

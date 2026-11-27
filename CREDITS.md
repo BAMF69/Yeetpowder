@@ -98,6 +98,6 @@
 
 - Terrain textures from Poly Haven (https://polyhaven.com), CC0 1.0. (license: CC0 1.0 Universal; docs/licenses/CC0-1.0.txt; source: https://polyhaven.com/a/aerial_sand ; https://polyhaven.com/a/rock_face_03 ; https://polyhaven.com/a/asphalt_03 ; https://polyhaven.com/a/corrugated_iron ; https://polyhaven.com/a/concrete_floor; modified)
 
-## Title, menu and loading art (5 images, 1672x941 WebP)
+## Title, menu and loading art (6 images, 1672x941 WebP, plus one crop)
 
-- none (license: Own work as stated by the developer; confirm the generator and its commercial terms before release; source: Supplied by Elaina the Great in chat, 2026-11-27 (from their Pictures/Yeetpowder folder); made with AI assistance (pre-generated); modified)
+- none (license: Own work; check OpenAI's terms for commercial use before release; source: Made by Elaina the Great with Codex image generation (OpenAI), supplied in chat 2026-11-27; made with AI assistance (pre-generated); modified)

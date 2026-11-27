@@ -56,9 +56,10 @@ which sanitises it like a join. Every roster follows within a snapshot. This hol
 
 Elaina supplied new title and menu art (ASSET_LOG A-0023) and asked for a grungier, less cartoony look:
 
-- The title screen is `title_burst.webp`, full bleed. Menus sit on the worn-metal art, darkened: `bg_metal` on
-  home, `bg_plate` elsewhere. Loading screens alternate between `load_flames` and `load_barrel`, and the PLAY tile
-  shows a logo-free crop of the flames.
+- The title screen is `title_metal.webp` (Elaina's pick: the riveted metal logo with the pink fuse), full bleed.
+  Menus sit on the worn-metal art, darkened: `bg_metal` on home, `bg_plate` elsewhere. Loading screens take turns
+  between `load_flames`, `title_burst` and `load_barrel`, and the PLAY tile shows a logo-free crop of the flames.
+  The art was made by Elaina with Codex image generation.
 - Plates are gunmetal with grain, scratches and cut corners; type is cream and italic, like the logo; focus and
   picks use the art's hot pink rim light. The drawn map pictures and operator icons are graded and grained toward
   the same look.

@@ -18,8 +18,7 @@
 - **Own work**: A-0011 (public/icons/*.png; public/manifest.webmanifest)
 - **Own work (procedural synthesis, no samples)**: A-0001 (public/assets/audio/sfx/*.wav; recipes assets_src/audio/*.sfx.json; data/audio_events.json)
 - **Own work (procedural)**: A-0006 (made at runtime by src/game/yeet/paint.ts (no files)), A-0007 (built at runtime by src/game/yeet/gunModels.ts, viewmodel.ts and paint.ts (no files)), A-0008 (built at runtime by src/game/yeet/operative.ts, operativePose.ts, glove.ts and paint.ts (no files)), A-0009 (public/assets/audio/sfx/crowd_*.wav, fizz_*.wav; events in data/audio_events.json), A-0010 (public/assets/audio/music/theme.wav; song assets_src/audio/music/theme.song.json; data/music.json)
-- **Own work as stated by the developer; confirm the generator and its commercial terms before release**: A-0023 (public/assets/ui/title_burst.webp, load_flames.webp, bg_plate.webp, bg_metal.webp, load_barrel.webp)
-- **Own work; check OpenAI's terms for commercial use before release**: A-0002 (was public/assets/ui/title_logo.jpg (from docs/concept/keyframes/09 yeetpowder logo.png, JPEG q86))
+- **Own work; check OpenAI's terms for commercial use before release**: A-0002 (was public/assets/ui/title_logo.jpg (from docs/concept/keyframes/09 yeetpowder logo.png, JPEG q86)), A-0023 (public/assets/ui/title_metal.webp, title_burst.webp, load_flames.webp, bg_plate.webp, bg_metal.webp, load_barrel.webp; play_tile.webp (a 270x360 crop of load_flames above its logo, scaled to 405x540))
 
 ## License texts
 
