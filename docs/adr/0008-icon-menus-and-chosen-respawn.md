@@ -67,4 +67,4 @@ Elaina supplied new title and menu art (ASSET_LOG A-0023) and asked for a grungi
   the built stylesheet in `dist/assets/` and 404s; the smoke drives caught this.
 - Every operator has a flat head-and-shoulders icon drawn from its real model (`operatorIcons.ts`). Four operators
   are renamed: Viking, Samurai, Black Ops, Black Widow. Their ids are unchanged.
-- Release check: `load_barrel` closely resembles the Bond gunbarrel opening (see A-0023).
+- `load_barrel` is kept as a deliberate 007 homage (Elaina, 2026-11-27); see A-0023 for the pre-release note.
