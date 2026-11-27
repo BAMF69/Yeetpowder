@@ -1,11 +1,11 @@
 // ---------------------------------------------------------------------------
 // sceneryIsland.ts
 // Purpose : Shark Island dressing for the duel map and its Party variant (2026-11-26 level pass): granite boulders
-//           as cover and as a rock stair onto the hill, palms along the beach, sea stacks far offshore as
-//           landmarks, crabs on the sand and turtles swimming under the surface.
+//           as cover and as a rock stair onto the hill, palms along the beach, solid sea stacks far offshore as
+//           landmarks and perches, crabs on the sand and turtles swimming under the surface.
 // Usage   : islandScenery(false) (duel) / islandScenery(true) (Party); levels.ts adds the colliders.
 // Notes   : No three import. Nothing solid stands in the water near the beach: a knock-off must still end in the
-//           sea (readable edges), so offshore rocks are > 30 m out and purely visual. Platforms, causeways and the
+//           sea (readable edges), so offshore rocks are > 30 m out (solid perches since 2026-11-27, reached by copter). Platforms, causeways and the
 //           animated shark (props.ts) are unchanged. The duel layout is point-symmetric for fairness.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
@@ -16,8 +16,11 @@ import { place, decor, type SceneryPlacement } from "./scenery";
 export const BOULDER = { hop: 1.2, step: 2.1, high: 2.4, cover: 2.8 } as const;
 const PALM = { straight: 3.6, leaning: 4 } as const;
 const boulder = (x: number, z: number, scale: number, quarter = 0) => place("boulder", x, 0, z, scale, quarter);
-/** Offshore landmark: its base well under the water, never reachable (bounds stop at 70/90 m). */
-const seaStack = (x: number, z: number, scale: number, quarter = 0) => decor("seaStack", x, ISLAND_WATER - 1.5, z, scale, quarter);
+/**
+ * Offshore landmark and perch (Elaina, 2026-11-27): solid, its base under the water and its flat top 6-10 m up, far
+ * beyond a swim (the shark bites after 2 s), so the way there is the Gatling Copter or a big launch.
+ */
+const seaStack = (x: number, z: number, scale: number, quarter = 0) => place("seaStack", x, ISLAND_WATER - 1.5, z, scale, quarter);
 const turtle = (x: number, z: number, quarter = 0) => decor("turtle", x, ISLAND_WATER - 0.35, z, 0.9, quarter);
 
 function duel(): SceneryPlacement[] {

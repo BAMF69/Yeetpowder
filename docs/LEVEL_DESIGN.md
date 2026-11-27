@@ -113,3 +113,23 @@ remesh. Provenance: `docs/ASSET_LOG.md` A-0019 and A-0023, `docs/licenses/scener
   people; the bots' new routing (they now find each other on every map in tests, but only seeded sims prove it).
 - Performance on the target GPU and phones: software rendering proves loading only. Per map 9-22 distinct
   models; static props are instanced (one draw call per model part).
+
+## Hazard pass (2026-11-27, Elaina's requests)
+- **Swimming (Shark Island):** falling in no longer freezes you. You float head-up (`TUNING.swim`), paddle at 3 m/s
+  and cannot jump; a gun's kick is the way out (a Boomstick blast at the water from just off the beach lands you on
+  the sand). The shark eats whoever has been in for `TUNING.shark.approach` (2 s); standing on land resets the
+  count, a hop over the water does not. The shark follows the swimmer and is called off if they get out. HUD:
+  "SHARK INCOMING! GET OUT: n s". Bots do not yet try to recoil out of the water.
+- **Sea stacks** are solid perches (tops 6-10 m above the water, > 30 m offshore): reached by copter or a big launch.
+- **Trucks** blow up bigger (radius 11 m, more push and lift) with a second rolling fireball, and leave the Burned
+  Out Truck as before.
+- **Fuel drums** are red while live and crushed back to the model's own colour once blown.
+- **Compressors and mixers** are explosives (`machine`: 60 hp, 6 m blast) and leave a 0.6 m scrap heap drawn in
+  code (bent panels, pipes, a split tank); they come back after `TUNING.explosive.respawn`.
+- **Surroundings:** a 4 km textured ground under Industrial (asphalt) and Junkyard (dirt) and a 4 km sea round the
+  island; the outdoor haze is pushed out with camera height (`hazeFor`) so the copter view shows land, not a void.
+- Tests: `tests/swimAndBlasts.test.ts`. Captures: `captures/progress/hazard-*.png`.
+- **Ring Out damage (2026-11-27):** with infinite hp, hits and blasts add their damage to a percentage
+  (`PlayerState.damage`) and throw you `1 + damage x TUNING.ringOut.perDamage` harder (100% = double). It shows as
+  DAMAGE n% in the HUD and resets to 0 on a knockout or respawn. The shark count resets only on land, so repeated
+  splash-downs add up (tested).

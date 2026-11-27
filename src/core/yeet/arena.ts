@@ -30,8 +30,8 @@ export interface Box {
   paint?: "sand" | "rock" | "asphalt" | "corrugated" | "container" | "concrete";
 }
 
-export type PropKind = "car" | "truck" | "tank" | "drum" | "hidden" | "scenery";
-export const EXPLOSIVES = ["truck", "tank", "drum"] as const;
+export type PropKind = "car" | "truck" | "tank" | "drum" | "machine" | "hidden" | "scenery";
+export const EXPLOSIVES = ["truck", "tank", "drum", "machine"] as const;
 export type ExplosiveKind = (typeof EXPLOSIVES)[number];
 
 export interface Arena {

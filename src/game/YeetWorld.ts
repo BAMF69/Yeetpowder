@@ -38,6 +38,7 @@ import { parseMatch } from "../core/yeet/matchSetup";
 import { buildProps } from "./yeet/props";
 import { NO_INPUT, PLAYER_CODE, YeetSim, type PlayerState, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
+import { buildSurroundings, hazeFor } from "./yeet/surroundings";
 import { len, normalize, vec, type Vec3 } from "../core/yeet/vec";
 import { aimAssist, anglesTo, pickTarget, turnToward } from "../core/yeet/aimAssist";
 import { planShakeMove, ShakeRunner, type LookGoal, type ShakeDir } from "../core/yeet/shake";
@@ -179,6 +180,7 @@ export class YeetWorld implements World {
   private readonly room = buildRoom(this.sim.arena, { cutaway: shell.params.has("mapview") });
   /** The new levels' cars, trucks, tanks, drums, scenery, water and shark (props.ts). */
   private readonly props = buildProps(this.sim.level, this.sim.explosives, this.sim.projectiles);
+  private readonly surroundings = buildSurroundings(this.sim.level);
   private readonly scenery = new SceneryViews(this.sim.level, this.sim.explosives, this.props);
   private readonly views: DummyView[] = [];
   private readonly body: Operative; // you, seen from outside (tumbles, the launch camera, hero landings)
@@ -303,6 +305,7 @@ export class YeetWorld implements World {
     this.scene.add(sun);
     this.scene.add(this.room.group);
     this.scene.add(this.props.group);
+    this.scene.add(this.surroundings.group);
     if (this.sim.level.outdoor) {
       // open sky (Shark Island, the Industrial yard, the Junkyard): blue above, light haze, a stronger sun that
       // covers the whole level with its shadows
@@ -422,6 +425,7 @@ export class YeetWorld implements World {
     this.vm.dispose();
     this.room.dispose();
     this.props.dispose();
+    this.surroundings.dispose();
     this.scenery.dispose();
     this.pickups.dispose();
     this.body.dispose();
@@ -614,6 +618,11 @@ export class YeetWorld implements World {
     this.pickups.update(dt, this.sim.pickups);
     this.props.update(dt);
     this.scenery.update(dt);
+    if (this.sim.level.outdoor && this.scene.fog instanceof THREE.Fog) {
+      const haze = hazeFor(this.camera.position.y);
+      this.scene.fog.near = haze.near; this.scene.fog.far = haze.far;
+      if (Math.abs(this.camera.far - Math.max(300, haze.far + 40)) > 1) { this.camera.far = Math.max(300, haze.far + 40); this.camera.updateProjectionMatrix(); }
+    }
     // the barrels and the chop only while it really fires (not on an empty or reloading gun)
     const copterFiring = pl.weapon === "copter" && f.fireHeld && !pl.overheated && !this.sim.helpless &&
       pl.mag.copter > 0 && pl.reloading === 0;
@@ -644,9 +653,9 @@ export class YeetWorld implements World {
       scoped: !this.editingGrips && this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
       hp: this.sim.level.infiniteHp ? null : fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
-      banner: pl.sharkT > 0 ? "SHARK INCOMING!" : pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
+      banner: pl.swimT > 0 && pl.dead === 0 ? `SHARK INCOMING! GET OUT: ${Math.max(0, TUNING.shark.approach - pl.swimT).toFixed(1)} s` : pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
       kos: fight ? this.kos : null,
-      level: duel?.party ? `${this.sim.level.name} · ${duel.party.options.mode === "ringout" ? "HP ∞ · " : ""}You ${this.sim.kos[duel.slot]} KOs` : duel && duel.ready
+      level: duel?.party ? `${this.sim.level.name} · ${duel.party.options.mode === "ringout" ? `DAMAGE ${Math.round(pl.damage)}% · ` : ""}You ${this.sim.kos[duel.slot]} KOs` : duel && duel.ready
         ? `Duel · room ${duel.code} · You ${this.sim.kos[duel.slot]} – ${this.sim.kos[other]} Player ${other + 1}`
         : vsBot ? `Duel vs ${this.playerName(1)} · You ${this.sim.kos[0]} – ${this.sim.kos[1]}` : this.sim.level.name,
       stamina: pl.stamina / TUNING.sprint.stamina,
@@ -831,14 +840,24 @@ export class YeetWorld implements World {
   // ---- events -> effects -------------------------------------------------------
   /** The level's own events (whoever caused them): explosions and the shark. True if it was one. */
   private onWorldEvent(e: TaggedEvent | YeetEvent): boolean {
-    if (e.type === "sharkApproach") { this.props.shark(e.at); return true; }
+    if (e.type === "sharkApproach") {
+      const who = (e as TaggedEvent).p ?? 0;
+      this.props.shark(e.at, () => { const v = this.sim.players[who]; return v && (v.swimT > 0 || v.swallowed) ? v.pos : null; });
+      return true;
+    }
     if (e.type === "explode") {
       const spec = TUNING.explosive[e.kind];
       this.fx.explosion(this.tmpA.set(e.at.x, e.at.y + 0.4, e.at.z), spec.radius);
+      if (e.kind === "truck") {
+        // a truck is the big one: a second, taller fireball rolling up out of the first, and a second report
+        this.fx.explosion(this.tmpA.set(e.at.x, e.at.y + spec.radius * 0.35, e.at.z), spec.radius * 1.25);
+        this.props.explode(this.tmpA.set(e.at.x, e.at.y + 1, e.at.z), spec.radius * 1.4);
+        this.sound.play("grenade_blast");
+      }
       this.sound.play("kaboom");
       const pl = this.sim.player;
       const near = Math.hypot(pl.pos.x - e.at.x, pl.pos.z - e.at.z);
-      this.shake.addTrauma(near < spec.radius * 2 ? 0.8 : 0.35);
+      this.shake.addTrauma(near < spec.radius * 2 ? (e.kind === "truck" ? 1 : 0.8) : e.kind === "truck" ? 0.55 : 0.35);
       if (e.kind !== "drum") this.hud.pop("KABOOM!", true);
       return true;
     }
@@ -1140,7 +1159,7 @@ export class YeetWorld implements World {
     this.camera.rotation.set(pl.pitch + flipPitch + s.y * SHAKE_TO_RAD, pl.yaw + s.x * SHAKE_TO_RAD, roll);
 
     // tumbling or knocked out: swing out behind you (from the direction you faced as it began) and watch
-    const wantThird = pl.sharkT > 0 || (pl.tumbling > 0 || pl.dead > 0) && !shell.settings.access.reduce_motion;
+    const wantThird = (pl.tumbling > 0 || pl.dead > 0) && !shell.settings.access.reduce_motion;
     if (wantThird && this.third === 0) {
       this.chaseYaw = pl.yaw;
       this.bodyRoll = 0;

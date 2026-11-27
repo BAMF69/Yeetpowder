@@ -6,6 +6,7 @@ import { Log } from "../core/log";
 import { couchViews, type CouchFrame } from "../core/yeet/couch";
 import { YeetSim, type TaggedEvent } from "../core/yeet/sim";
 import { TUNING } from "../core/yeet/tuning";
+import { buildSurroundings } from "./yeet/surroundings";
 import { firearmId } from "../core/yeet/tuning";
 import { equipmentStatus } from "../core/yeet/equipment";
 import { SceneryViews } from "./yeet/scenery";
@@ -60,6 +61,7 @@ export class ArenaWorld implements World {
   private readonly fx: Effects;
   private readonly pickups: PickupViews;
   private readonly props: ReturnType<typeof buildProps>;
+  private readonly surroundings: ReturnType<typeof buildSurroundings>;
   private readonly scenery: SceneryViews;
   private readonly roomView: ReturnType<typeof buildRoom>;
   private readonly remote = new RemoteBuffer();
@@ -98,6 +100,7 @@ export class ArenaWorld implements World {
     const sun = new THREE.DirectionalLight("#fff1dc", 2.3); sun.position.set(30, 60, 18); this.scene.add(sun);
     this.roomView = buildRoom(this.sim.arena); this.scene.add(this.roomView.group);
     this.props = buildProps(this.sim.level, this.sim.explosives, this.sim.projectiles); this.scene.add(this.props.group);
+    this.surroundings = buildSurroundings(this.sim.level); this.scene.add(this.surroundings.group);
     this.scenery = new SceneryViews(this.sim.level, this.sim.explosives, this.props); this.scene.add(this.scenery.group);
     this.pickups = new PickupViews(this.scene, this.sim.pickups); this.fx = new Effects(this.scene);
     for (let i = 0; i < this.count; i++) {
@@ -200,7 +203,7 @@ export class ArenaWorld implements World {
       gun.setTreatment(p.healing > 0);
       gun.setReload(p.reloading > 0 ? 1 - p.reloading / TUNING.weapons[firearmId(p.weapon)].reload : 0); gun.update(dt, p.weapon === "copter" && !!this.pending[i]?.input.fireHeld);
       const speed = Math.hypot(p.vel.x, p.vel.y, p.vel.z);
-      this.cards[i].textContent = `${this.profile(i).name} · ${this.sim.kos[i]} KOs · Tab scores\n${TUNING.weapons[p.weapon].name} · ${p.mag[firearmId(p.weapon)]}/${TUNING.weapons[firearmId(p.weapon)].mag} · ${this.sim.level.infiniteHp ? "HP ∞" : "HP " + Math.ceil(p.hp)}${this.room!.options.mode === "lives" ? " · " + this.match.lives[i] + " lives" : ""}\n${speed.toFixed(1)} yeters per second${!this.connected[i] ? " · Connect controller " + (i + 1 - Number(this.controls!.keyboard)) : ""}${p.sharkT > 0 ? " · SHARK APPROACHING!" : p.dead > 0 ? " · KNOCKED OUT" : ""}`;
+      this.cards[i].textContent = `${this.profile(i).name} · ${this.sim.kos[i]} KOs · Tab scores\n${TUNING.weapons[p.weapon].name} · ${p.mag[firearmId(p.weapon)]}/${TUNING.weapons[firearmId(p.weapon)].mag} · ${this.sim.level.infiniteHp ? `DAMAGE ${Math.round(p.damage)}%` : "HP " + Math.ceil(p.hp)}${this.room!.options.mode === "lives" ? " · " + this.match.lives[i] + " lives" : ""}\n${speed.toFixed(1)} yeters per second${!this.connected[i] ? " · Connect controller " + (i + 1 - Number(this.controls!.keyboard)) : ""}${p.swimT > 0 && p.dead === 0 ? " · SHARK APPROACHING!" : p.dead > 0 ? " · KNOCKED OUT" : ""}`;
       this.cards[i].textContent += "\n" + equipmentStatus(p);
     });
     else this.spectatorCamera();
@@ -229,10 +232,13 @@ export class ArenaWorld implements World {
     renderer.setScissorTest(false); renderer.setViewport(0, 0, size.x, size.y);
   }
   private event(e: TaggedEvent): void {
-    if (e.type === "sharkApproach") this.props.shark(e.at);
+    if (e.type === "sharkApproach") {
+      const who = e.p ?? 0;
+      this.props.shark(e.at, () => { const v = this.sim.players[who]; return v && (v.swimT > 0 || v.swallowed) ? v.pos : null; });
+    }
     if (e.type === "pvpDown") { this.killBanner.textContent = `${this.profile(e.by).name} KNOCKED OUT ${this.profile(e.target).name}`; this.killUntil = performance.now() + 2200; this.sound.play("ko"); }
     if (e.type === "blast" || e.type === "explode") {
-      this.fx.explosion(new THREE.Vector3(e.at.x, e.at.y, e.at.z), e.type === "blast" ? e.radius : 4);
+      this.fx.explosion(new THREE.Vector3(e.at.x, e.at.y, e.at.z), e.type === "blast" ? e.radius : TUNING.explosive[e.kind].radius * 0.7);
       this.sound.play("kaboom");
     }
     if (e.type === "pvpHit") { this.actors[e.target]?.flash(); this.fx.puff(new THREE.Vector3(e.at.x, e.at.y, e.at.z)); }
@@ -289,7 +295,7 @@ export class ArenaWorld implements World {
     this.killBanner.remove();
     this.scoreboard.remove(); window.removeEventListener("keyup", this.scoreUp); for (const guide of this.guides) guide.dispose();
     this.session?.close(); this.controls?.dispose(); this.cinema.dispose(); this.hud.remove(); this.toolbar.remove();
-    this.sound.dispose(); this.fx.dispose(); this.pickups.dispose(); this.props.dispose(); this.scenery.dispose(); this.roomView.dispose();
+    this.sound.dispose(); this.fx.dispose(); this.pickups.dispose(); this.props.dispose(); this.surroundings.dispose(); this.scenery.dispose(); this.roomView.dispose();
     for (const op of this.actors) op.dispose(); for (const gun of this.guns) gun.dispose();
     this.canvas.removeEventListener("click", this.resumeSound); window.removeEventListener("keydown", this.key);
     disposeVinishVfx();

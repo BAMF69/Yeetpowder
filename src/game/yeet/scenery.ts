@@ -3,8 +3,8 @@
 // Purpose : Draws a level's reviewed scenery models over the colliders in src/core/yeet/scenery.ts: static props
 //           as one InstancedMesh per model part (forty crates cost a handful of draw calls), animated props
 //           (crabs, turtles, the cement mixer) as their own clones with a mixer, and the explosive trucks and fuel
-//           drums as clones that follow hazards.ts (a truck becomes the Burned Out Truck, a drum is crushed and
-//           charred). ?noart and failed loads draw each collider as a plain box so play stays readable.
+//           drums, compressors and mixers as clones that follow hazards.ts (a truck becomes the Burned Out Truck,
+//           a machine a pile of scrap, a live drum is red and is crushed back to its own colour; Elaina 2026-11-27). ?noart and failed loads draw each collider as a plain box so play stays readable.
 // Usage   : const s = new SceneryViews(level, sim.explosives, props); scene.add(s.group); await s.load(noart);
 //           each frame s.update(dt); s.dispose() when the world goes
 // Notes   : Per-world ownership: sources are loaded per world and released with it, so materials, animations and
@@ -20,11 +20,16 @@ import type { ExplosiveState } from "../../core/yeet/hazards";
 import type { Level } from "../../core/yeet/levels";
 import { SCENERY_ART, sceneryBoxes, type SceneryId, type SceneryPlacement } from "../../core/yeet/scenery";
 import { Log } from "../../core/log";
+import { TUNING } from "../../core/yeet/tuning";
 
 /** What props.ts offers so its procedural stand-ins step aside once the real models are in. */
 export interface ProceduralProps { hide(boxIndices: number[]): void }
-/** The model an exploded truck turns into (same length, so the same scale). */
-const WRECK_OF: Partial<Record<SceneryId, SceneryId>> = { boxTruck: "burnedTruck" };
+/** What an exploded truck turns into (the same length, so the same scale). */
+const WRECK_OF: Partial<Record<SceneryId, { art: SceneryId }>> = { boxTruck: { art: "burnedTruck" } };
+/** Machines that leave a heap of scrap (built in code from the wreck box: bent panels, pipes, a split tank). */
+const SCRAP: ReadonlySet<SceneryId> = new Set<SceneryId>(["compressor", "mixer"]);
+/** Live fuel drums read as danger: tinted red until they blow (then the model's own colour, crushed). */
+const LIVE_TINT: Partial<Record<SceneryId, string>> = { fuelDrum: "#ff2b1c" };
 /** Ambient clips that may loop: wildlife and the cement mixer's drum (none of them move a collider). */
 const AMBIENT: Partial<Record<SceneryId, string>> = { crab: "Idle", turtle: "Swim", cementMixer: "Mix" };
 const FALLBACK_TINT: Partial<Record<SceneryId, string>> = {
@@ -32,7 +37,8 @@ const FALLBACK_TINT: Partial<Record<SceneryId, string>> = {
   wreckedCar: "#7a4b3a", charredCar: "#3b3330", van: "#9c9a90", carPile: "#7a4b3a", stylizedPalm: "#8a6a46",
 };
 
-interface ExplosiveView { ex: ExplosiveState; box: Box; whole: THREE.Object3D; wreck: THREE.Object3D | null; materials: Map<THREE.Mesh, THREE.Material | THREE.Material[]> }
+type Materials = Map<THREE.Mesh, THREE.Material | THREE.Material[]>;
+interface ExplosiveView { ex: ExplosiveState; box: Box; whole: THREE.Object3D; wreck: THREE.Object3D | null; materials: Materials; live: Materials }
 
 export class SceneryViews {
   readonly group = new THREE.Group();
@@ -41,7 +47,8 @@ export class SceneryViews {
   private originals: THREE.Object3D[] = [];
   private instanced: THREE.InstancedMesh[] = [];
   private explosiveViews: ExplosiveView[] = [];
-  private readonly charred = new THREE.MeshStandardMaterial({ color: "#2a2522", roughness: 1, metalness: 0 });
+  private tinted: THREE.Material[] = [];
+  private scrapGeometry: THREE.BufferGeometry[] = [];
   private readonly placements: readonly SceneryPlacement[];
 
   constructor(private readonly level: Pick<Level, "scenery" | "arena">, private readonly explosives: readonly ExplosiveState[] = [],
@@ -77,9 +84,9 @@ export class SceneryViews {
       if ((v.whole.userData.wrecked ?? false) === wrecked) continue;
       v.whole.userData.wrecked = wrecked;
       if (v.wreck) { v.whole.visible = !wrecked; v.wreck.visible = wrecked; continue; }
-      // no wreck model (a fuel drum): crush it to its wreck box and char it, as the procedural drum does
+      // no wreck model (a fuel drum): crush it to its wreck box; it loses its red "live" tint for its own colour
       v.whole.scale.y = wrecked ? Math.max(0.05, (v.box.max.y - v.box.min.y) / (v.ex.top - v.box.min.y)) : 1;
-      v.whole.traverse((o) => { if (o instanceof THREE.Mesh) o.material = wrecked ? this.charred : v.materials.get(o)!; });
+      v.whole.traverse((o) => { if (o instanceof THREE.Mesh) o.material = (wrecked ? v.materials : v.live).get(o) ?? o.material; });
     }
   }
 
@@ -90,7 +97,10 @@ export class SceneryViews {
     this.mixers = [];
     this.instanced.forEach((m) => m.dispose());
     this.instanced = [];
-    this.charred.dispose();
+    this.tinted.forEach((m) => m.dispose());
+    this.tinted = [];
+    this.scrapGeometry.forEach((g) => g.dispose());
+    this.scrapGeometry = [];
     this.release();
   }
 
@@ -98,7 +108,7 @@ export class SceneryViews {
   private async loadSources(): Promise<Map<SceneryId, THREE.Object3D>> {
     const loader = new GLTFLoader();
     const wanted = new Set<SceneryId>();
-    for (const p of this.placements) { wanted.add(p.art); const w = WRECK_OF[p.art]; if (w && p.prop) wanted.add(w); }
+    for (const p of this.placements) { wanted.add(p.art); const w = WRECK_OF[p.art]; if (w && p.prop) wanted.add(w.art); }
     const sources = new Map<SceneryId, THREE.Object3D>();
     await Promise.all([...wanted].map(async (art) => {
       try {
@@ -134,11 +144,11 @@ export class SceneryViews {
   }
 
   /** A clone placed like a static prop (used for animated and explosive props). */
-  private place(p: SceneryPlacement, source: THREE.Object3D, art: SceneryId = p.art): THREE.Object3D {
+  private place(p: SceneryPlacement, source: THREE.Object3D, art: SceneryId = p.art, scale = p.scale): THREE.Object3D {
     const model = clone(source);
     const pivot = new THREE.Group();
     pivot.add(model);
-    const m = placementMatrix({ ...p, art }, 0);
+    const m = placementMatrix({ ...p, art, scale }, 0);
     m.decompose(pivot.position, pivot.quaternion, pivot.scale);
     pivot.name = `scenery:${art}`;
     pivot.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = o.receiveShadow = true; });
@@ -164,14 +174,65 @@ export class SceneryViews {
     const ex = this.explosives.find((e) => e.box === index);
     const whole = this.place(p, source);
     if (index < 0 || !ex) return 1; // drawn, but nothing to follow (a level without hazards)
-    const wreckArt = WRECK_OF[p.art], wreckSource = wreckArt ? sources.get(wreckArt) : undefined;
-    const wreck = wreckSource ? this.place(p, wreckSource, wreckArt) : null;
+    const spec = WRECK_OF[p.art], wreckSource = spec ? sources.get(spec.art) : undefined;
+    let wreck: THREE.Object3D | null = null;
+    if (spec && wreckSource) wreck = this.place(p, wreckSource, spec.art);
+    else if (SCRAP.has(p.art)) wreck = this.scrapHeap(this.level.arena.boxes[index], ex.kind);
     if (wreck) wreck.visible = false;
-    const materials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
-    whole.traverse((o) => { if (o instanceof THREE.Mesh) materials.set(o, o.material); });
-    this.explosiveViews.push({ ex, box: this.level.arena.boxes[index], whole, wreck, materials });
+    const materials: Materials = new Map(), live: Materials = new Map();
+    const tint = LIVE_TINT[p.art];
+    whole.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      materials.set(o, o.material);
+      if (!tint) return;
+      const red = (Array.isArray(o.material) ? o.material : [o.material]).map((m) => {
+        const c = m.clone();
+        if ("color" in c && c.color instanceof THREE.Color) c.color.set(tint);
+        this.tinted.push(c);
+        return c;
+      });
+      o.material = Array.isArray(o.material) ? red : red[0];
+      live.set(o, o.material);
+    });
+    this.explosiveViews.push({ ex, box: this.level.arena.boxes[index], whole, wreck, materials, live });
     this.procedural?.hide([index]);
     return wreck ? 2 : 1;
+  }
+
+  /**
+   * A heap of scrap over a machine's footprint, as tall as its wreck box: rusty bent panels, pipes and a split
+   * tank, laid out by a seeded shuffle of the box position so every heap differs but stays the same each match.
+   */
+  private scrapHeap(b: Box, kind: ExplosiveState["kind"]): THREE.Object3D {
+    const g = new THREE.Group();
+    g.name = "scenery:scrap";
+    const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z, top = TUNING.explosive[kind].wreck;
+    g.position.set((b.min.x + b.max.x) / 2, b.min.y, (b.min.z + b.max.z) / 2);
+    let seed = Math.abs(Math.round(b.min.x * 97 + b.min.z * 31)) + 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const steel = this.scrapMaterial("#6d6a66", 0.55), rust = this.scrapMaterial("#7a4a2c", 0.2), dark = this.scrapMaterial("#3a3633", 0.4);
+    const add = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, rx: number, ry: number, rz: number) => {
+      const mesh = new THREE.Mesh(geo, m);
+      mesh.position.set(x, y, z); mesh.rotation.set(rx, ry, rz);
+      mesh.castShadow = mesh.receiveShadow = true;
+      g.add(mesh); this.scrapGeometry.push(geo);
+    };
+    const spread = (s: number) => (rnd() - 0.5) * s * 0.85;
+    // a low base of crumpled plating, then panels leaning on it, pipes and the split tank on top
+    add(new THREE.BoxGeometry(sx * 0.9, top * 0.35, sz * 0.9), dark, 0, top * 0.17, 0, 0, rnd() * 0.3, 0);
+    for (let i = 0; i < 6; i++) add(new THREE.BoxGeometry(0.5 + rnd() * 0.6, 0.04, 0.35 + rnd() * 0.4), i % 2 ? rust : steel,
+      spread(sx), top * (0.35 + rnd() * 0.4), spread(sz), (rnd() - 0.5) * 1.4, rnd() * Math.PI, (rnd() - 0.5) * 1.4);
+    for (let i = 0; i < 3; i++) add(new THREE.CylinderGeometry(0.05, 0.05, 0.6 + rnd() * 0.7, 8), steel,
+      spread(sx), top * (0.4 + rnd() * 0.35), spread(sz), Math.PI / 2 + (rnd() - 0.5) * 0.6, rnd() * Math.PI, (rnd() - 0.5) * 0.5);
+    add(new THREE.CylinderGeometry(top * 0.42, top * 0.42, Math.min(sx, sz) * 0.7, 12, 1, true, 0, Math.PI * 1.3), rust,
+      spread(sx * 0.4), top * 0.5, spread(sz * 0.4), Math.PI / 2, rnd() * Math.PI, 0.2);
+    this.group.add(g);
+    return g;
+  }
+  private scrapMaterial(color: string, metalness: number): THREE.Material {
+    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness, side: THREE.DoubleSide });
+    this.tinted.push(m);
+    return m;
   }
 
   /** ?noart or a failed load: each collider as a plain tinted box (decoration is simply left out). */

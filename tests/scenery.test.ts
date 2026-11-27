@@ -19,8 +19,9 @@ describe("reviewed scenery and playable routes", () => {
     for (const p of levelById("industrial").scenery!) for (const b of sceneryBoxes(p)) expect(b.min.x < 1.5 && b.max.x > -1.5 && b.min.z < 4 && b.max.z > -4).toBe(false);
     for (const p of levelById("industrial-party").scenery!) for (const b of sceneryBoxes(p))
       for (const z of [-22, 0, 22]) expect(b.min.x < 1.5 && b.max.x > -1.5 && b.min.z < z + 5 && b.max.z > z - 5).toBe(false);
-    // nothing solid in the water: platforms and the beach edge stay the only places to land
-    for (const id of ["island", "island-party"]) for (const p of levelById(id).scenery!) for (const b of sceneryBoxes(p)) expect(b.min.y).toBeGreaterThanOrEqual(0);
+    // nothing solid in the water near the beach: the sea stacks (2026-11-27 perches) stand far out, > 30 m from the sand
+    for (const id of ["island", "island-party"]) for (const p of levelById(id).scenery!) for (const b of sceneryBoxes(p))
+      if (b.min.y < 0) { expect(p.art).toBe("seaStack"); expect(Math.min(Math.abs(b.min.x), Math.abs(b.max.x), Math.abs(b.min.z), Math.abs(b.max.z)) > 20 || Math.hypot(p.pos.x, p.pos.z) > 40).toBe(true); }
   });
   it("lets a player jump onto the junkyard crate step and launch above the crusher", () => {
     const sim = new YeetSim(TUNING, levelById("junkyard")); sim.dummies.length = 0;

@@ -323,6 +323,11 @@ export const TUNING = {
   supplies: { weaponRespawn: 6, grenadeRespawn: 45, healthRespawn: 60, healthUses: 3, applyTime: 3, healCooldown: 10 },
   shield: { hipBlastScale: 0.5, aimedBlastScale: 0, forceScale: 0.5, frontalDot: 0 },
   shark: { approach: 2 },
+  /**
+   * Ring Out (infinite hp, Elaina 2026-11-27): damage you take adds up as a percentage instead, and every hit and
+   * blast throws you `perDamage` x that much harder (100% = twice the knockback). Back to 0 when you are knocked out.
+   */
+  ringOut: { perDamage: 0.01 },
 
   /** Right-click aim: field of view per gun (degrees; hip fire is 75) and how fast the zoom moves (s). */
   aim: {
@@ -391,12 +396,21 @@ export const TUNING = {
    */
   explosive: {
     drum: { hp: 25, radius: 4.5, force: 16, lift: 8, damage: 35, wreck: 0.3 },
-    truck: { hp: 120, radius: 7, force: 22, lift: 10, damage: 60, wreck: 1.3 },
+    // a box truck's fuel tank: the yard's biggest bang (Elaina, 2026-11-27: "a massive explosion")
+    truck: { hp: 120, radius: 11, force: 30, lift: 16, damage: 75, wreck: 1.3 },
+    // air compressors and industrial mixers: a pressure-vessel pop that leaves a low pile of scrap
+    machine: { hp: 60, radius: 6, force: 20, lift: 10, damage: 45, wreck: 0.6 },
     tank: { hp: 220, radius: 9, force: 28, lift: 13, damage: 90, wreck: 1.6 },
     respawn: 25,
   },
   /** Shark Island: who falls below the water is eaten (a knockout, credited to whoever hit them within `credit` s). */
   water: { credit: 8, sink: 3 },
+  /**
+   * Swimming (Elaina, 2026-11-27): in the water you float with your head out (`float` m from feet to surface),
+   * paddle at `speed` m/s, and water drag bleeds faster motion (`drag` per s) so a recoil launch still carries you
+   * out. The shark eats whoever has been in for TUNING.shark.approach s; climbing out resets the count.
+   */
+  swim: { float: 1.2, speed: 3, accel: 12, drag: 1.6 },
 
   /**
    * Bots (src/core/yeet/bot.ts): full players driven by a brain that only presses what a player can press. Each

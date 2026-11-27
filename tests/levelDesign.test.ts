@@ -67,7 +67,7 @@ describe.each(DESIGNED)("%s layout", (id) => {
     const floors = level.arena.boxes.filter((b) => b.kind === "floor");
     const lo = { x: Math.min(...floors.map((b) => b.min.x)), z: Math.min(...floors.map((b) => b.min.z)) };
     const hi = { x: Math.max(...floors.map((b) => b.max.x)), z: Math.max(...floors.map((b) => b.max.z)) };
-    for (const p of level.scenery!.filter((q) => q.solid)) { // decoration may hang over the water (palm crowns, sea stacks)
+    for (const p of level.scenery!.filter((q) => q.solid && q.art !== "seaStack")) { // decoration may hang over the water (palm crowns); sea stacks are offshore perches (swimAndBlasts.test.ts)
       const e = sceneryExtent(p);
       expect(e.min.x >= lo.x - 0.5 && e.max.x <= hi.x + 0.5 && e.min.z >= lo.z - 0.5 && e.max.z <= hi.z + 0.5, `${p.art} at ${p.pos.x},${p.pos.z}`).toBe(true);
     }

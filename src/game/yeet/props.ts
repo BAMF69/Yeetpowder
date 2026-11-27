@@ -21,7 +21,7 @@ import { grenadePreviewArt, rocketPreviewArt } from "./meshyArt";
 import { batchStaticMeshes } from "./staticBatch";
 
 const CAR_COLOURS = ["#8a3b2b", "#3b5a7a", "#7a7a3b", "#5d6b5e", "#a06a2c", "#6b4a6b", "#8c8c86"];
-const WATER = { colour: "#2a7fa8", opacity: 0.86, size: 600 };
+const WATER = { colour: "#2a7fa8", opacity: 0.86, size: 4000 }; // to the haze in every direction, even from the copter
 /** Shark lunge: s rising out of the water, s at the top, s sinking back. */
 const SHARK = { rise: 0.32, hold: 0.12, sink: 0.55, height: 2.2 };
 const FIREBALL = { grow: 0.18, life: 0.75 };
@@ -30,7 +30,9 @@ export interface Props {
   group: THREE.Group;
   update(dt: number): void;
   explode(at: { x: number; y: number; z: number }, radius: number): void;
-  shark(at: { x: number; y: number; z: number }): void;
+  /** The shark swims in toward `at` and bites after TUNING.shark.approach s; `track` (if given) moves the target
+   *  with a swimmer each frame, and returning null calls the shark off (they climbed out). */
+  shark(at: { x: number; y: number; z: number }, track?: () => { x: number; z: number } | null): void;
   /** Hides the procedural stand-ins for these arena boxes (scenery.ts drew the reviewed model instead). */
   hide(boxIndices: number[]): void;
   dispose(): void;
@@ -118,11 +120,19 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
     return g;
   };
 
+  /** ?noart stand-in for an explosive compressor or mixer: a steel cabinet with a warning stripe. */
+  const machine = (b: Box) => {
+    const { g, l, h, w } = over(b);
+    part(g, new THREE.BoxGeometry(l, h, w), mat("#6d7479", 0.6, 0.5), 0, h / 2, 0);
+    part(g, new THREE.BoxGeometry(l + 0.02, 0.12, w + 0.02), mat("#e2b23a"), 0, h * 0.8, 0);
+    return g;
+  };
+
   // ---- the boxes that are props ----
   const views = new Map<number, THREE.Group>();
   const staticCars: THREE.Group[] = [];
   level.arena.boxes.forEach((b, i) => {
-    const g = b.prop === "car" ? car(b) : b.prop === "truck" ? truck(b) : b.prop === "tank" ? tank(b) : b.prop === "drum" ? drum(b) : null;
+    const g = b.prop === "car" ? car(b) : b.prop === "truck" ? truck(b) : b.prop === "tank" ? tank(b) : b.prop === "drum" ? drum(b) : b.prop === "machine" ? machine(b) : null;
     if (g) views.set(i, g);
     if (g && b.prop === "car") staticCars.push(g);
   });
@@ -220,6 +230,7 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
   group.add(sharkG);
   let sharkT = 99;
   const sharkAt = new THREE.Vector3();
+  let sharkTrack: (() => { x: number; z: number } | null) | null = null;
 
   // ---- explosions ----
   const fire = new THREE.MeshBasicMaterial({ color: "#ff3fa4", transparent: true, opacity: 0.9, depthWrite: false });
@@ -288,6 +299,10 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
       for (let i = projectiles.length; i < pool.length; i++) pool[i].rocket.visible = pool[i].grenade.visible = false;
       // the shark: up out of the water, a moment at the top, back down
       sharkT += dt;
+      if (sharkTrack && sharkT < TUNING.shark.approach) {
+        const p = sharkTrack();
+        if (p) sharkAt.set(p.x, sharkAt.y, p.z); else { sharkT = 99; sharkTrack = null; }
+      }
       const total = TUNING.shark.approach + SHARK.rise + SHARK.hold + SHARK.sink;
       sharkG.visible = sharkT < total;
       if (sharkG.visible) {
@@ -327,9 +342,10 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
       group.add(outer, inner);
       blasts.push({ outer, inner, t: 0, r: radius });
     },
-    shark(at) {
+    shark(at, track) {
       sharkAt.set(at.x, at.y, at.z);
       sharkT = 0;
+      sharkTrack = track ?? null;
     },
     hide(boxIndices) {
       for (const i of boxIndices) { const g = views.get(i); if (g) g.visible = false; }

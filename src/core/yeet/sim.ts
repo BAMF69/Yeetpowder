@@ -132,6 +132,10 @@ export type TaggedEvent = YeetEvent & { p?: number };
 
 export interface PlayerState {
   sharkT: number;
+  /** s spent in the water this time in (TUNING.swim): the shark bites at TUNING.shark.approach; 0 once back on land. */
+  swimT: number;
+  /** Ring Out damage (%, TUNING.ringOut): raises the knockback you take; 0 again after a knockout. */
+  damage: number;
   sharkBy: number;
   swallowed: boolean;
   shielding: boolean;
@@ -348,7 +352,7 @@ export class YeetSim {
     const level = this.level;
     const sp = this.spawnOf(i);
     return {
-      sharkT: 0, sharkBy: -1, swallowed: false, shielding: false,
+      sharkT: 0, swimT: 0, damage: 0, sharkBy: -1, swallowed: false, shielding: false,
       healthUses: 0, healing: 0, healCooldown: 0,
       pos: sp.pos, vel: vec(), yaw: sp.yaw, pitch: 0, spin: 0, onGround: true, stun: 0,
       weapon: level.startWeapons[0], owned: [...level.startWeapons], cooldown: 0, heat: 0, crashing: false,
@@ -491,7 +495,8 @@ export class YeetSim {
       if (r.damage <= 0) return;
       const mine = j === by;
       const guarded = this.guarded(v, normalize(copy(r.push)));
-      addScaled(v.vel, r.push, (mine && self ? self.force : 1) * (guarded ? this.t.shield.forceScale : 1));
+      const thrown = mine ? 1 : this.ringOutScale(v, r.damage * (guarded ? (v.shielding ? this.t.shield.aimedBlastScale : this.t.shield.hipBlastScale) : 1));
+      addScaled(v.vel, r.push, (mine && self ? self.force : 1) * (guarded ? this.t.shield.forceScale : 1) * thrown);
       v.onGround = false;
       if (!this.level.infiniteHp) v.hp -= r.damage * (mine && self ? self.damage : 1) *
         (guarded ? (v.shielding ? this.t.shield.aimedBlastScale : this.t.shield.hipBlastScale) : 1);
@@ -602,19 +607,64 @@ export class YeetSim {
       this.dummies.some((d) => d.down === 0 && near(d.pos));
   }
 
-  /** In the water: eaten (a knockout, credited to whoever hit you lately), and held under until you respawn. */
-  private waterPlayer(pl: PlayerState, ev: YeetEvent[]): void {
+  /** Feet below the surface while alive: paddling (swim) instead of running and jumping. */
+  private swimming(pl: PlayerState): boolean {
     const w = this.level.water;
-    if (!w || pl.pos.y >= w.y) return;
-    if (pl.dead === 0) {
+    return !!w && pl.dead === 0 && pl.pos.y < w.y - 0.05;
+  }
+
+  /**
+   * Paddling: WASD steers toward a slow swim speed, water drag bleeds anything faster (a recoil launch still carries
+   * you), and there is no jump: the way out is a gun's kick (Elaina, 2026-11-27).
+   */
+  private swim(input: YeetInput, dt: number): void {
+    const s = this.t.swim, pl = this.player;
+    const fx = -Math.sin(pl.yaw), fz = -Math.cos(pl.yaw);
+    let wx = fx * input.moveZ + -fz * input.moveX, wz = fz * input.moveZ + fx * input.moveX;
+    const wl = Math.hypot(wx, wz);
+    if (wl > 1) { wx /= wl; wz /= wl; }
+    const drag = Math.exp(-s.drag * dt);
+    if (lenXZ(pl.vel) > s.speed) { pl.vel.x *= drag; pl.vel.z *= drag; }
+    if (pl.vel.y < 0) pl.vel.y *= drag;
+    const dx = wx * s.speed - pl.vel.x, dz = wz * s.speed - pl.vel.z, dl = Math.hypot(dx, dz);
+    if (lenXZ(pl.vel) <= s.speed + 0.01 && dl > 1e-6) {
+      const k = Math.min(1, (s.accel * dt) / dl);
+      pl.vel.x += dx * k; pl.vel.z += dz * k;
+    }
+  }
+
+  /**
+   * The water: you float with your head out and can swim or recoil back out, but the shark eats you once you have
+   * been in for TUNING.shark.approach s (a knockout, credited to whoever hit you lately). Standing on land again
+   * resets the count; a hop out over the water does not. The knocked-out are held under until they respawn.
+   */
+  private waterPlayer(pl: PlayerState, dt: number, ev: YeetEvent[]): void {
+    const w = this.level.water;
+    if (!w) return;
+    if (pl.dead > 0) {
+      if (pl.pos.y < w.y) { pl.pos.y = w.y - this.t.water.sink; pl.vel = vec(); }
+      return;
+    }
+    if (pl.pos.y >= w.y) {
+      if (pl.onGround) pl.swimT = 0;
+      return;
+    }
+    if (pl.swimT === 0) {
       const recent = this.time - pl.lastHitAt <= this.t.water.credit;
-      const by = pl.lastHitBy >= 0 && pl.lastHitBy !== this.cur && recent ? pl.lastHitBy : -1;
-      pl.sharkT = this.t.shark.approach; pl.sharkBy = by;
+      pl.sharkBy = pl.lastHitBy >= 0 && pl.lastHitBy !== this.cur && recent ? pl.lastHitBy : -1;
       ev.push({ type: "sharkApproach", at: vec(pl.pos.x, w.y, pl.pos.z) });
     }
-    pl.pos.y = pl.dead > 0 ? w.y - this.t.water.sink : w.y + 0.05;
-    pl.vel = vec();
+    pl.swimT += dt;
     pl.tumbling = 0;
+    const floatAt = w.y - this.t.swim.float;
+    if (pl.pos.y < floatAt) { pl.pos.y = floatAt; if (pl.vel.y < 0) pl.vel.y = 0; }
+    if (pl.swimT < this.t.shark.approach) return;
+    const by = pl.sharkBy;
+    pl.swimT = 0;
+    ev.push({ type: "eaten", who: "player", by, at: copy(pl.pos) });
+    this.knockOut(pl); pl.swallowed = true;
+    pl.pos.y = w.y - this.t.water.sink; pl.vel = vec();
+    if (by >= 0) { this.kos[by]++; ev.push({ type: "pvpDown", by, target: this.cur }); }
   }
 
   private waterDummy(d: DummyState, i: number, ev: YeetEvent[]): void {
@@ -680,8 +730,9 @@ export class YeetSim {
     if (this.guarded(v, dir) && bullet) { damage = 0; knockback *= this.t.shield.forceScale; lift *= this.t.shield.forceScale; upward *= this.t.shield.forceScale; }
     v.lastHitBy = this.cur;
     v.lastHitAt = this.time;
-    addScaled(v.vel, dir, knockback);
-    v.vel.y += upward + lift;
+    const thrown = this.ringOutScale(v, damage);
+    addScaled(v.vel, dir, knockback * thrown);
+    v.vel.y += (upward + lift) * thrown;
     v.onGround = false;
     if (!this.level.infiniteHp) v.hp -= damage;
     ev.push({ type: "pvpHit", by: this.cur, target: j, damage, at });
@@ -693,8 +744,19 @@ export class YeetSim {
   }
 
   /** A player at 0 hp: knocked out, flying off in a tumble the third-person camera can watch, respawn later. */
+  /**
+   * Ring Out: adds the hit's damage to the target's percentage and returns how much harder it throws them
+   * (1 elsewhere, where damage comes off hp as usual).
+   */
+  private ringOutScale(v: PlayerState, damage: number): number {
+    if (!this.level.infiniteHp) return 1;
+    v.damage += Math.max(0, damage);
+    return 1 + v.damage * this.t.ringOut.perDamage;
+  }
+
   private knockOut(v: PlayerState): void {
     v.hp = 0;
+    v.damage = 0;
     v.healing = 0; v.shielding = false;
     v.dead = this.t.player.respawnDelay;
     v.crashing = false;
@@ -764,7 +826,7 @@ export class YeetSim {
     // a hero landing: no moving, sprinting or jumping until you are back up (shooting and slashing still work)
     const legs = control && pl.heroLand === 0 ? input : NO_INPUT;
     this.updateSprint(legs, dt);
-    this.runAndJump(legs, dt);
+    if (this.swimming(pl)) this.swim(legs, dt); else this.runAndJump(legs, dt);
     this.fireWeapons(control && pl.healing === 0 ? input : NO_INPUT, speedBefore, dt, ev);
     this.melee(control && pl.healing === 0 ? input : NO_INPUT, dt, ev);
 
@@ -810,7 +872,7 @@ export class YeetSim {
     }
 
     if (pl.dead === 0) this.checkPickups(ev);
-    this.waterPlayer(pl, ev);
+    this.waterPlayer(pl, dt, ev);
 
     if (pl.pos.y < -30) {
       this.respawnPlayer(false);
@@ -1547,7 +1609,7 @@ export class YeetSim {
     pl.tumbleAge = 0;
     pl.tumbleRoll = 0;
     pl.dead = 0;
-    pl.sharkT = 0; pl.swallowed = false; pl.sharkBy = -1; pl.shielding = false;
+    pl.sharkT = 0; pl.swimT = 0; pl.damage = 0; pl.swallowed = false; pl.sharkBy = -1; pl.shielding = false;
     pl.hp = this.t.player.hp;
     pl.healing = 0; pl.healCooldown = 0;
     pl.onGround = true;
@@ -1727,10 +1789,11 @@ export class YeetSim {
     const pl = this.players[j];
     const dir = normalize(b.vel);
     const guarded = this.guarded(pl, dir);
-    addScaled(pl.vel, dir, ai.knockback * (guarded ? this.t.shield.forceScale : 1));
-    pl.vel.y += 1.5 * (guarded ? this.t.shield.forceScale : 1);
-    pl.onGround = false;
     const damage = guarded ? 0 : ai.damage;
+    const thrown = this.ringOutScale(pl, damage);
+    addScaled(pl.vel, dir, ai.knockback * (guarded ? this.t.shield.forceScale : 1) * thrown);
+    pl.vel.y += 1.5 * (guarded ? this.t.shield.forceScale : 1) * thrown;
+    pl.onGround = false;
     if (!this.level.infiniteHp) pl.hp -= damage;
     ev.push({ type: "playerHit", dummy: b.owner, damage, at: copy(b.pos), p: j });
     if (pl.hp <= 0) {
