@@ -26,6 +26,7 @@
 //   steer: goal direction -> wall probes -> WASD relative to where it faces; jump low obstacles
 
 import { rayArena } from "./arena";
+import { nextWaypoint } from "./botNav";
 import { NO_INPUT, type PlayerState, type YeetInput, type YeetSim } from "./sim";
 import type { Tuning, WeaponId } from "./tuning";
 import type { Vec3 } from "./vec";
@@ -54,8 +55,16 @@ const BOT_GUNS: WeaponId[] = ["pistol", "shotgun", "sniper", "copter"];
 const CHEST = 1.1; // m above the feet: where it aims
 const HALF_WIDTH = 0.45; // m: a player's half width, for the fire cone
 const LOW_PROBE = 0.35; // m above the feet: wall probe for steering
-const HIGH_PROBE = 1.75; // m: above a low wall (jumpable when this one is clear)
+/**
+ * How far below the jump's peak (jumpSpeed^2 / 2g) the hop probe sits. A wall clear at that height is low enough to
+ * hop with margin; anything taller is steered round. (The probe used to sit at 1.75 m, above the 1.28 m peak, so a
+ * bot would hop forever against a 1.4 m car or skip: 2026-11-26 level pass.)
+ */
+const HOP_MARGIN = 0.05;
 const LAUNCH_PITCH = -0.75; // rad: Boomstick aimed down and back: the push goes up and forward
+const LAUNCH_UP_PITCH = -1.35; // rad: nearly straight down: a mostly vertical pop onto a ledge right in front
+const GUN_PATIENCE = 12; // s chasing the Gatling before giving it up for GUN_COOLDOWN (it may sit on a roof)
+const GUN_COOLDOWN = 20;
 const LAUNCH_ALIGN = 0.08; // rad: fire the launch when the view is this close
 const LAUNCH_TIMEOUT = 1.2; // s: give up a launch that never lines up
 const PLANT_SPEED = 2; // m/s: slow enough to fire a heavy gun with planted feet
@@ -110,9 +119,13 @@ export class BotBrain {
   private strafeUntil = 0;
   private plant = false;
   private aimDown = false;
-  private launch: { yaw: number; until: number } | null = null;
+  private launch: { yaw: number; until: number; pitch: number } | null = null;
+  private gunSince = -1;
+  private gunBlockedUntil = 0;
   private roam: Vec3 | null = null;
   private roamUntil = 0;
+  /** A level waypoint (botNav.ts) toward the goal when the straight walk is blocked, re-planned each decision. */
+  private via: { to: Vec3 | null; goal: Vec3; until: number } | null = null;
   private readonly wobble: [number, number, number, number];
 
   constructor(private readonly t: Tuning, readonly me: number, readonly skill: BotSkill, seed: number) {
@@ -165,7 +178,7 @@ export class BotBrain {
     if (this.launch) {
       // the launch: Boomstick, aimed away from the goal and down; fire once lined up, then fly
       gun = "shotgun";
-      look = { yaw: this.launch.yaw, pitch: LAUNCH_PITCH };
+      look = { yaw: this.launch.yaw, pitch: this.launch.pitch };
       const lined = Math.abs(wrap(look.yaw - pl.yaw)) < LAUNCH_ALIGN && Math.abs(look.pitch - pl.pitch) < LAUNCH_ALIGN;
       if (lined && pl.weapon === "shotgun" && pl.cooldown <= 0 && pl.mag.shotgun > 0 && pl.reloading === 0 && pl.onGround) {
         input.firePressed = true;
@@ -295,9 +308,13 @@ export class BotBrain {
     const hp = pl.hp / this.t.player.hp;
     const gatling = sim.pickups.find((p) => p.weapon === "copter" && !p.taken);
     if (k.retreatHp > 0 && hp < k.retreatHp && visible && dist < 12) this.state = "retreat";
-    else if (k.gatling && gatling && !pl.owned.includes("copter") && (!visible || dist > 16)) this.state = "gun";
+    else if (k.gatling && gatling && !pl.owned.includes("copter") && (!visible || dist > 16) && now >= this.gunBlockedUntil) this.state = "gun";
     else if (visible) this.state = "engage";
     else this.state = "hunt";
+    // a Gatling on a roof the bot cannot reach must not hold it at the wall all match
+    if (this.state !== "gun") this.gunSince = -1;
+    else if (this.gunSince < 0) this.gunSince = now;
+    else if (now - this.gunSince > GUN_PATIENCE) { this.gunBlockedUntil = now + GUN_COOLDOWN; this.gunSince = -1; this.state = visible ? "engage" : "hunt"; }
 
     if (this.rand() < k.switchSkill || !pl.owned.includes(this.wantGun)) this.wantGun = this.bestGun(pl, dist);
     if (now >= this.strafeUntil) {
@@ -311,10 +328,13 @@ export class BotBrain {
     if (!this.launch && (this.state === "hunt" || this.state === "gun") && pl.onGround && pl.owned.includes("shotgun")
         && pl.mag.shotgun > 0 && this.rand() < k.launch * this.t.bot.decideEvery * 10) {
       const goal = this.goalFor(sim, pl, null, dist, now);
-      if (goal && Math.hypot(goal.x - pl.pos.x, goal.z - pl.pos.z) >= this.t.bot.launchFrom) {
+      const flat = goal ? Math.hypot(goal.x - pl.pos.x, goal.z - pl.pos.z) : 0;
+      // ...or a mostly vertical pop onto a ledge just ahead that a jump cannot reach (a roof, the crusher)
+      const ledge = goal && goal.y - pl.pos.y > this.t.player.jumpSpeed ** 2 / (2 * this.t.gravity) && flat > 1.5 && flat < this.t.bot.launchFrom;
+      if (goal && (flat >= this.t.bot.launchFrom || ledge)) {
         // the push is opposite the aim: face away from the goal to fly toward it
         const away = Math.atan2(goal.x - pl.pos.x, goal.z - pl.pos.z);
-        this.launch = { yaw: away, until: now + LAUNCH_TIMEOUT };
+        this.launch = { yaw: away, until: now + LAUNCH_TIMEOUT, pitch: ledge ? LAUNCH_UP_PITCH : LAUNCH_PITCH };
       }
     }
   }
@@ -372,7 +392,8 @@ export class BotBrain {
   }
 
   /** The direction to walk toward `goal`, turned away from walls; jump when a low wall is in the way. */
-  private steer(sim: YeetSim, pl: PlayerState, goal: Vec3): { dx: number; dz: number; jump: boolean } | null {
+  private steer(sim: YeetSim, pl: PlayerState, target: Vec3): { dx: number; dz: number; jump: boolean } | null {
+    const goal = this.route(sim, pl, target);
     let dx = goal.x - pl.pos.x;
     let dz = goal.z - pl.pos.z;
     const d = Math.hypot(dx, dz);
@@ -383,7 +404,8 @@ export class BotBrain {
     const blocked = (ax: number, az: number, h: number) =>
       rayArena(sim.arena, v3(pl.pos.x, pl.pos.y + h, pl.pos.z), v3(ax, 0, az), probe) < probe - 0.05;
     if (!blocked(dx, dz, LOW_PROBE)) return { dx, dz, jump: false };
-    if (!blocked(dx, dz, HIGH_PROBE) && pl.onGround) return { dx, dz, jump: true }; // a low wall: hop it
+    const hop = this.t.player.jumpSpeed ** 2 / (2 * this.t.gravity) - HOP_MARGIN;
+    if (!blocked(dx, dz, hop) && pl.onGround) return { dx, dz, jump: true }; // a low wall the jump clears: hop it
     for (const a of AVOID) {
       const c = Math.cos(a * this.strafeDir);
       const s = Math.sin(a * this.strafeDir);
@@ -392,5 +414,18 @@ export class BotBrain {
       if (!blocked(ax, az, LOW_PROBE)) return { dx: ax, dz: az, jump: false };
     }
     return { dx, dz, jump: pl.onGround };
+  }
+
+  /** The level's waypoint toward `goal` when walls stand in the way (maps without waypoints: the goal itself). */
+  private route(sim: YeetSim, pl: PlayerState, goal: Vec3): Vec3 {
+    const nav = sim.level.nav;
+    if (!nav?.length) return goal;
+    const v = this.via;
+    const reached = v?.to && Math.hypot(v.to.x - pl.pos.x, v.to.z - pl.pos.z) < 1.2;
+    // a plan (including "walk straight": to = null) holds until the next decision, the goal moves or the point is reached
+    if (!v || reached || sim.time >= v.until || Math.hypot(v.goal.x - goal.x, v.goal.z - goal.z) > 3) {
+      this.via = { to: nextWaypoint(sim.arena, nav, pl.pos, goal), goal: { ...goal }, until: sim.time + this.t.bot.decideEvery };
+    }
+    return this.via?.to ?? goal;
   }
 }

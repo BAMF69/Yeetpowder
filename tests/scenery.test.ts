@@ -2,24 +2,25 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { levelById } from "../src/core/yeet/levels";
-import { sceneryBox, SCENERY_ART } from "../src/core/yeet/scenery";
+import { sceneryBoxes, SCENERY_ART } from "../src/core/yeet/scenery";
 import { NO_INPUT, YeetSim } from "../src/core/yeet/sim";
 import { TUNING } from "../src/core/yeet/tuning";
 
 describe("reviewed scenery and playable routes", () => {
   it.each(["industrial", "industrial-party", "junkyard", "junkyard-party", "island", "island-party"])("keeps spawns and supplies clear in %s", (id) => {
-    const level = levelById(id), solids = level.scenery!.filter((p) => p.solid).map(sceneryBox);
+    const level = levelById(id), solids = level.scenery!.flatMap(sceneryBoxes);
     expect(level.scenery!.length).toBeGreaterThan(0);
     for (const p of [...level.spawns!, ...level.pickups.map((p) => p.pos)]) {
       expect(solids.some((b) => b.min.y < p.y + 1.7 && b.max.y > p.y + 0.05 &&
         b.min.x < p.x + 0.4 && b.max.x > p.x - 0.4 && b.min.z < p.z + 0.4 && b.max.z > p.z - 0.4)).toBe(false);
     }
   });
-  it("leaves the warehouse doorway and island launch surfaces free of scenery collision", () => {
-    for (const id of ["industrial", "industrial-party"]) for (const p of levelById(id).scenery!.filter((p) => p.solid)) {
-      const b = sceneryBox(p); expect(b.min.x < 1 && b.max.x > -1 && b.min.z < 4 && b.max.z > -4).toBe(false);
-    }
-    expect(levelById("island").scenery!.every((p) => !p.solid)).toBe(true);
+  it("leaves the warehouse doorways and island launch surfaces free of scenery collision", () => {
+    for (const p of levelById("industrial").scenery!) for (const b of sceneryBoxes(p)) expect(b.min.x < 1.5 && b.max.x > -1.5 && b.min.z < 4 && b.max.z > -4).toBe(false);
+    for (const p of levelById("industrial-party").scenery!) for (const b of sceneryBoxes(p))
+      for (const z of [-22, 0, 22]) expect(b.min.x < 1.5 && b.max.x > -1.5 && b.min.z < z + 5 && b.max.z > z - 5).toBe(false);
+    // nothing solid in the water: platforms and the beach edge stay the only places to land
+    for (const id of ["island", "island-party"]) for (const p of levelById(id).scenery!) for (const b of sceneryBoxes(p)) expect(b.min.y).toBeGreaterThanOrEqual(0);
   });
   it("lets a player jump onto the junkyard crate step and launch above the crusher", () => {
     const sim = new YeetSim(TUNING, levelById("junkyard")); sim.dummies.length = 0;
@@ -36,14 +37,23 @@ describe("reviewed scenery and playable routes", () => {
     let top = 0; for (let i = 0; i < 120; i++) { sim.step(NO_INPUT); top = Math.max(top, sim.player.pos.y); }
     expect(top).toBeGreaterThan(3);
   });
-  it("ships only the eight verified originals with unchanged bytes and embedded credits/clips", () => {
+  it("ships every catalogued model with verified provenance: vinish originals byte-for-byte, community remeshes credited", () => {
     const manifest = JSON.parse(readFileSync("docs/licenses/scenery-sources.json", "utf8"));
     expect(manifest.assets).toHaveLength(Object.keys(SCENERY_ART).length);
+    const files = new Set(Object.values(SCENERY_ART).map((a) => `public/assets/models/scenery/${a.file}.glb`));
     for (const a of manifest.assets) {
+      expect(files.has(a.runtimeFile), a.runtimeFile).toBe(true);
       const data = readFileSync(a.runtimeFile), source = readFileSync(a.sourceFile);
-      expect(data.equals(source)).toBe(true); expect(createHash("sha256").update(data).digest("hex")).toBe(a.sha256);
+      expect(createHash("sha256").update(data).digest("hex")).toBe(a.sha256);
       const gltf = JSON.parse(data.subarray(20, 20 + data.readUInt32LE(12)).toString());
-      expect(gltf.asset.copyright).toContain("vinish.dev"); expect(gltf.asset.extras.license).toBe("CC BY 4.0");
+      expect(gltf.asset.copyright).toBe(a.credit);
+      if (a.runtimeFile.includes("/vinish/")) {
+        expect(data.equals(source)).toBe(true); expect(gltf.asset.extras.license).toBe("CC BY 4.0");
+      } else {
+        expect(createHash("sha256").update(source).digest("hex")).toBe(a.sourceSha256);
+        expect(["CC0 1.0", "CC BY 4.0"]).toContain(a.license); expect(a.remeshTask).toMatch(/^[0-9a-f-]{36}$/);
+        expect(a.bytes).toBeLessThan(a.sourceBytes);
+      }
       if (a.title === "Crab") expect(gltf.animations.map((c: { name: string }) => c.name)).toContain("Idle");
     }
   });

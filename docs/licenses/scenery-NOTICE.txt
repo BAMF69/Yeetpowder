@@ -1,10 +1,17 @@
-Original 3D models by vinish.dev, CC BY 4.0.
-Source and publisher license: https://vinish.dev/free-3d-models/
-License: https://creativecommons.org/licenses/by/4.0/
-License text: vinish-CC-BY-4.0.txt
-Checked 2026-11-25: publisher allows personal/commercial use, modifications and sharing with attribution and change notices.
+Arena scenery, reviewed 2026-11-26 (docs/ASSET_LOG.md A-0019 and A-0023).
 
-Eight original files retain their embedded glTF attribution and animation clips.
-Per-file titles, hashes and source paths are in scenery-sources.json.
-Changes: runtime placement, rotation and uniform scale; file bytes unchanged.
-The game's visible Credits screen includes the A-0019 attribution generated from ASSET_LOG.md.
+1. Seventeen original 3D models by vinish.dev, CC BY 4.0.
+   Source and publisher license: https://vinish.dev/free-3d-models/
+   License: https://creativecommons.org/licenses/by/4.0/   License text: vinish-CC-BY-4.0.txt
+   Publisher allows personal/commercial use, modifications and sharing with attribution and change notices.
+   Files are unchanged (embedded glTF attribution and animation clips retained). Changes: runtime placement,
+   rotation, uniform scale and simple gameplay colliders.
+
+2. Thirteen Meshy community models, CC0 1.0 (license text: CC0-1.0.txt), by the creators named in
+   scenery-sources.json, plus one remesh of the vinish.dev "Shipping Container" (CC BY 4.0, credited above).
+   Each was remeshed on the project's Meshy account (task IDs recorded); base colour resized to 1024 px JPEG
+   (the fuel drum 512 px) and the other maps to 512 px; provenance is written into each file's asset.copyright and asset.extras.
+   Geometry, materials and nodes of the remesh are unchanged. Originals stay in assets_src/approved-art/scenery/.
+
+Per-file titles, creators, listing URLs, hashes and evidence are in scenery-sources.json.
+The game's visible Credits screen includes these attributions, generated from ASSET_LOG.md.

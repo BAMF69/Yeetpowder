@@ -38,9 +38,13 @@
 
 - Weapons and equipment from the Meshy community (CC0), fitted for Yeetpowder. (license: CC0 1.0 Universal; docs/licenses/CC0-1.0.txt; user-supplied provenance; source: User-approved exports; CC0 community origin confirmed by Shane 2026-11-26; exact source/runtime hashes and available shopping-list links: docs/licenses/weapon-sources.json; made with AI assistance (pre-generated); modified)
 
-## Arena scenery (8 original GLBs)
+## Arena scenery (17 original GLBs)
 
-- 3D models by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0. Runtime placement and scaling adapted for Yeetpowder. (license: CC BY 4.0; docs/licenses/vinish-CC-BY-4.0.txt; source: https://vinish.dev/free-3d-models/ ; per-file metadata/hashes: docs/licenses/scenery-sources.json; modified)
+- 3D models by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0. Runtime placement, scaling and gameplay colliders adapted for Yeetpowder. (license: CC BY 4.0; docs/licenses/vinish-CC-BY-4.0.txt; source: https://vinish.dev/free-3d-models/ ; per-file metadata/hashes: docs/licenses/scenery-sources.json; modified)
+
+## Arena scenery remeshes (14 optimized GLBs)
+
+- Scenery from the Meshy community (CC0), remeshed and optimized for Yeetpowder. "Shipping Container" by vinish.dev (https://vinish.dev/free-3d-models/), CC BY 4.0: remeshed and texture-optimized. (license: CC0 1.0 (13 models; docs/licenses/CC0-1.0.txt); CC BY 4.0 for the container (docs/licenses/vinish-CC-BY-4.0.txt); source: Meshy community listings (CC0 1.0): box-truck-3d by MeshMint, Burned Out Truck and Yellow Giant Crane by danil.f7lipok, Charred Car Remnant and wrecked_car_2 by dividebytube, Yellow Forklift by andrea.anastasi2, Rusted Fuel Drum by theanh75, Cracked Granite Boulder by axx.s, Leaning Palm Tree by erick.estrada1531, Rusty Car Stack by Xefero, Rusty Van Model by venport, Towering Sea Stack by gamexgroup, stylized low-poly palm by ey_gen; Shipping Container remeshed from the vinish.dev original (CC BY 4.0). Listing URLs, remesh task IDs and hashes: docs/licenses/scenery-sources.json; made with AI assistance (pre-generated); modified)
 
 ## Character reference (experiment)
 

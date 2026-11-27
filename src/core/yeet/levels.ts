@@ -15,7 +15,10 @@
 import { box, room, testRoom, type Arena } from "./arena";
 import type { WeaponId } from "./tuning";
 import type { Vec3 } from "./vec";
-import { sceneryFor, sceneryBox, type SceneryPlacement } from "./scenery";
+import { sceneryBoxes, type SceneryPlacement } from "./scenery";
+import { industrialScenery } from "./sceneryIndustrial";
+import { junkyardScenery } from "./sceneryJunkyard";
+import { islandScenery } from "./sceneryIsland";
 import { industrialLevel, islandLevel, junkyardLevel } from "./levelsOutdoor";
 import { industrialPartyLevel, islandPartyLevel, junkyardPartyLevel, PARTY_LEVELS } from "./levelsParty";
 import { coliseumLevel } from "./levelColiseum";
@@ -55,8 +58,15 @@ export interface Level {
   outdoor?: boolean;
   /** Water at this height: falling below it is a knockout (Shark Island; hazards.ts, the sim's eaten rule). */
   water?: { y: number };
-  /** Scenery that is drawn but not collided with (palms, a crane): props.ts. */
+  /** Procedural set dressing drawn by props.ts (the crusher's machinery); reviewed models live in `scenery`. */
   decor?: Decor[];
+  /**
+   * The map declares its own grenade, health pack and shield (a level designer placed them for this layout):
+   * levelById validates them instead of searching for spots, and fails loudly if they break the supply rules.
+   */
+  designedSupplies?: boolean;
+  /** Ground points bots route through when walls block the straight walk (doorways, lane mouths): botNav.ts. */
+  nav?: Vec3[];
 }
 
 export interface Decor {
@@ -169,29 +179,57 @@ function baseLevelById(id: string | null | undefined): Level {
   }
 }
 
+/** The reviewed scenery for a level (sceneryIndustrial/Junkyard/Island.ts); none for indoor maps or the Coliseum. */
+export function sceneryFor(id: string): SceneryPlacement[] {
+  const party = id.endsWith("-party");
+  if (id.startsWith("industrial")) return industrialScenery(party);
+  if (id.startsWith("junkyard")) return junkyardScenery(party);
+  if (id.startsWith("island")) return islandScenery(party);
+  return [];
+}
+
+/** Rare supplies stay more than this far (m, on the ground plane) from every spawn. */
+export const RARE_SPAWN_CLEARANCE = 6;
+
 export function levelById(id: string | null | undefined): Level {
   const level = baseLevelById(id);
   if (level.outdoor) {
     level.scenery = sceneryFor(level.id);
-    level.arena.boxes.push(...level.scenery.filter((p) => p.solid).map(sceneryBox));
+    level.arena.boxes.push(...level.scenery.flatMap(sceneryBoxes));
   }
   if (level.id === "sandbox") return level;
-  // Shotguns remain starter gear. Rare supplies never enter the ordinary weapon pool.
-  let grenades = 0;
-  level.pickups = level.pickups.filter(p => p.weapon !== "shotgun" && p.weapon !== "health" && (p.weapon !== "grenade" || ++grenades === 1));
+  const spawns = level.spawns ?? [level.spawn];
   const clear = (p: Vec3) => level.arena.boxes.some((b) => b.max.y <= p.y + 0.05 && Math.abs(b.max.y - p.y) < 0.1 && p.x >= b.min.x && p.x <= b.max.x && p.z >= b.min.z && p.z <= b.max.z)
     && !level.arena.boxes.some((b) => b.max.y > p.y + 0.1 && b.min.y < p.y + 1.7 && b.min.x < p.x + 0.5 && b.max.x > p.x - 0.5 && b.min.z < p.z + 0.5 && b.max.z > p.z - 0.5);
-  const nearby = (p: Vec3) => Array.from({ length: 8 }, (_, i) => ({ x: p.x + Math.sin(i * Math.PI / 4) * 3, y: p.y, z: p.z + Math.cos(i * Math.PI / 4) * 3 })).find(clear);
-  const spawns = level.spawns ?? [level.spawn];
-  const shield = nearby(spawns[1] ?? level.spawn); if (shield) level.pickups.push({ weapon: "shield", pos: shield });
-  if (level.recommendedPlayers === 8) spawns.forEach((p, i) => {
-    const pos = nearby(p); if (pos && (!shield || pos.x !== shield.x || pos.z !== shield.z)) level.pickups.push({ weapon: ["sniper", "rocket", "copter", "reaper"][i % 4] as WeaponId, pos });
-  });
-  const centre = { x: spawns.reduce((sum,p) => sum+p.x,0)/spawns.length, z: spawns.reduce((sum,p) => sum+p.z,0)/spawns.length };
-  const anchors = [...level.pickups].sort((a,b) => Math.hypot(a.pos.x-centre.x,a.pos.z-centre.z)-Math.hypot(b.pos.x-centre.x,b.pos.z-centre.z));
-  const rareSpot = () => anchors.flatMap(({pos:p}) => Array.from({length:8},(_,i)=>({x:p.x+Math.sin(i*Math.PI/4)*3,y:p.y,z:p.z+Math.cos(i*Math.PI/4)*3})))
-    .find(p => clear(p) && spawns.every(s => Math.hypot(p.x-s.x,p.z-s.z)>6) && level.pickups.every(s => Math.hypot(p.x-s.pos.x,p.z-s.pos.z)>2.5));
-  if (!grenades) { const pos=rareSpot(); if(pos) level.pickups.push({weapon:"grenade",pos}); }
-  const health=rareSpot(); if(health) level.pickups.push({weapon:"health",pos:health});
+  const farFromSpawns = (p: Vec3) => spawns.every((s) => Math.hypot(p.x - s.x, p.z - s.z) > RARE_SPAWN_CLEARANCE);
+  // Shotguns remain starter gear. Exactly one grenade and one health pack: the first declared of each is kept.
+  const firstOf = (w: Pickup["weapon"]) => level.pickups.find((p) => p.weapon === w);
+  const declared = { grenade: firstOf("grenade"), health: firstOf("health"), shield: firstOf("shield") };
+  level.pickups = level.pickups.filter((p) => p.weapon !== "shotgun" && (!(p.weapon in declared) || declared[p.weapon as keyof typeof declared] === p));
+  if (level.designedSupplies) {
+    // A designed layout: check the designer's spots rather than moving them (fail loudly, levels are data).
+    for (const [w, p] of Object.entries(declared)) {
+      if (!p) throw new Error(`${level.id}: designed supplies need a ${w} pickup`);
+      if (!clear(p.pos)) throw new Error(`${level.id}: ${w} at ${JSON.stringify(p.pos)} is not on clear, solid ground`);
+      if (w !== "shield" && !farFromSpawns(p.pos)) throw new Error(`${level.id}: ${w} must be > ${RARE_SPAWN_CLEARANCE} m from every spawn`);
+    }
+  } else {
+    // Older maps: find spots near the layout's existing pickups, as before the 2026-11-26 level pass.
+    level.pickups = level.pickups.filter((p) => p.weapon !== "health" && p.weapon !== "shield");
+    const nearby = (p: Vec3) => Array.from({ length: 8 }, (_, i) => ({ x: p.x + Math.sin(i * Math.PI / 4) * 3, y: p.y, z: p.z + Math.cos(i * Math.PI / 4) * 3 })).find(clear);
+    const shield = nearby(spawns[1] ?? level.spawn); if (shield) level.pickups.push({ weapon: "shield", pos: shield });
+    const centre = { x: spawns.reduce((sum, p) => sum + p.x, 0) / spawns.length, z: spawns.reduce((sum, p) => sum + p.z, 0) / spawns.length };
+    const anchors = [...level.pickups].sort((a, b) => Math.hypot(a.pos.x - centre.x, a.pos.z - centre.z) - Math.hypot(b.pos.x - centre.x, b.pos.z - centre.z));
+    const rareSpot = () => anchors.flatMap(({ pos: p }) => Array.from({ length: 8 }, (_, i) => ({ x: p.x + Math.sin(i * Math.PI / 4) * 3, y: p.y, z: p.z + Math.cos(i * Math.PI / 4) * 3 })))
+      .find((p) => clear(p) && farFromSpawns(p) && level.pickups.every((s) => Math.hypot(p.x - s.pos.x, p.z - s.pos.z) > 2.5));
+    if (!declared.grenade) { const pos = rareSpot(); if (pos) level.pickups.push({ weapon: "grenade", pos }); }
+    const health = rareSpot(); if (health) level.pickups.push({ weapon: "health", pos: health });
+  }
+  // Party maps: one ordinary weapon near each spawn (pickup starvation fix), found against the final colliders.
+  if (level.recommendedPlayers === 8) {
+    const nearby = (p: Vec3) => Array.from({ length: 8 }, (_, i) => ({ x: p.x + Math.sin(i * Math.PI / 4) * 3, y: p.y, z: p.z + Math.cos(i * Math.PI / 4) * 3 }))
+      .find((q) => clear(q) && level.pickups.every((s) => Math.hypot(q.x - s.pos.x, q.z - s.pos.z) > 1.5));
+    spawns.forEach((p, i) => { const pos = nearby(p); if (pos) level.pickups.push({ weapon: ["sniper", "rocket", "copter", "reaper"][i % 4] as WeaponId, pos }); });
+  }
   return level;
 }

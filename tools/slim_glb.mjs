@@ -4,7 +4,9 @@
 // Purpose : Shrinks the textures inside a .glb for phones and the web, leaving everything else (meshes, skin,
 //           animations, materials, metadata) byte for byte. Meshy exports four 2048-4096 px PNGs per model
 //           (44 MB for the Reaper scythe); a phone needs about 1024 px JPEGs.
-// Usage   : node tools/slim_glb.mjs <in.glb> <out.glb> [--size 1024] [--quality 0.85]
+// Usage   : node tools/slim_glb.mjs <in.glb> <out.glb> [--size 1024] [--quality 0.85] [--secondary-size 512]
+//           --secondary-size caps every image that is not a base colour map (metal/roughness, emissive, normal),
+//           which carries far less visible detail; it defaults to --size (the original behaviour).
 // Notes   : The images are resized and re-encoded as JPEG by the Playwright Chromium smoke already uses (canvas,
 //           high-quality smoothing), so no new dependency. JPEG is core glTF (no extension needed). Every
 //           bufferView is copied in order into a new BIN chunk with 4-byte alignment; only image views change.
@@ -22,11 +24,12 @@ const opt = (name, def) => {
 };
 const [input, output] = args.filter((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
 if (!input || !output) {
-  console.error("usage: node tools/slim_glb.mjs <in.glb> <out.glb> [--size 1024] [--quality 0.85]");
+  console.error("usage: node tools/slim_glb.mjs <in.glb> <out.glb> [--size 1024] [--quality 0.85] [--secondary-size N]");
   process.exit(2);
 }
 const SIZE = opt("size", 1024);
 const QUALITY = opt("quality", 0.85);
+const SECONDARY = opt("secondary-size", SIZE);
 
 // ---- read the GLB ----------------------------------------------------------------
 const glb = readFileSync(input);
@@ -36,6 +39,9 @@ const json = JSON.parse(glb.subarray(20, 20 + jsonLen).toString("utf8"));
 const binStart = 20 + jsonLen + 8;
 const binLen = glb.readUInt32LE(20 + jsonLen);
 const bin = glb.subarray(binStart, binStart + binLen);
+// images used as a base colour keep --size; every other map is capped at --secondary-size
+const baseColour = new Set((json.materials ?? []).map((m) => m.pbrMetallicRoughness?.baseColorTexture?.index)
+  .filter((t) => t !== undefined).map((t) => json.textures[t].source));
 const viewData = json.bufferViews.map((v) => bin.subarray(v.byteOffset ?? 0, (v.byteOffset ?? 0) + v.byteLength));
 
 // ---- re-encode the images ------------------------------------------------------------
@@ -60,7 +66,7 @@ try {
       g.imageSmoothingQuality = "high";
       g.drawImage(im, 0, 0, w, h);
       return { url: c.toDataURL("image/jpeg", quality), from: `${im.width}x${im.height}`, to: `${w}x${h}` };
-    }, { src, size: SIZE, quality: QUALITY });
+    }, { src, size: baseColour.has(i) ? SIZE : SECONDARY, quality: QUALITY });
     const bytes = Buffer.from(out.url.split(",")[1], "base64");
     console.log(`[slim] image ${i} ${img.name ?? ""}: ${out.from} ${(viewData[img.bufferView].length / 1e6).toFixed(2)} MB -> ${out.to} ${(bytes.length / 1e6).toFixed(2)} MB`);
     viewData[img.bufferView] = bytes;

@@ -1,8 +1,10 @@
 // Eight-spawn arena variants. Distances grow; cars, cover heights and jumps stay human-sized.
 // Each arena has multiple cross-routes, protected edge spawns and contested elevated pickups.
 import { box, type Box } from "./arena";
-import type { Decor, Level } from "./levels";
-import { bounds, drum, fence, yardFence, stack, tank, truck, ISLAND_WATER } from "./levelsOutdoor";
+import type { Level } from "./levels";
+import { bounds, fence, yardFence, stair, ISLAND_WATER } from "./levelsOutdoor";
+import { carStack, stackTop } from "./sceneryJunkyard";
+import { CONTAINER_TOP, STACK_TOP } from "./sceneryIndustrial";
 import type { Vec3 } from "./vec";
 
 export const PARTY_LEVELS = ["island-party", "industrial-party", "junkyard-party"] as const;
@@ -14,15 +16,6 @@ export function islandPartyLevel(): Level {
   const spawns = [v(-18, 0, -18), v(0, 0, -22), v(18, 0, -18), v(22, 0, 0),
     v(18, 0, 18), v(0, 0, 22), v(-18, 0, 18), v(-22, 0, 0)];
   const satellites = [v(40, 0.5, 0), v(-40, 0.5, 0), v(0, 0.5, 40), v(0, 0.5, -40)];
-  const rocks: Box[] = [];
-  const decor: Decor[] = [];
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const x = sx * 13, z = sz * 12;
-    rocks.push(painted(box(x - 2.5, 0, z - 2, x + 2.5, 2.4, z + 2), "rock"));
-    rocks.push(painted(box(sx * 8 - 1.5, 0, sz * 6 - 1.5, sx * 8 + 1.5, 1.4, sz * 6 + 1.5), "rock"));
-    decor.push({ kind: "palm", pos: v(sx * 21, 0, sz * 13), yaw: sx + sz, scale: 1.2 },
-      { kind: "palm", pos: v(sx * 12, 0, sz * 22), yaw: sx - sz, scale: 0.9 });
-  }
   return {
     id: "island-party", name: "Shark Island — Party", recommendedPlayers: 8,
     arena: { boxes: [
@@ -31,7 +24,6 @@ export function islandPartyLevel(): Level {
       painted(box(-20, -4, -26, 20, 0, 26, "floor"), "sand"),
       painted(box(-6, 0, -6, 6, 3, 6), "rock"),
       painted(box(-3.5, 3, -3.5, 3.5, 5, 3.5), "rock"),
-      ...rocks,
       ...satellites.map((p) => painted(box(p.x - 5, -5, p.z - 5, p.x + 5, p.y, p.z + 5, "floor"), "rock")),
       // Exposed stone causeways: a second route to each risky weapon platform.
       painted(box(24, -2, -2, 36, 0.35, 2), "rock"),
@@ -46,10 +38,11 @@ export function islandPartyLevel(): Level {
       { weapon: "sniper", pos: v(0, 5, 0) },
       { weapon: "copter", pos: v(0, 0.5, -40) }, { weapon: "rocket", pos: v(0, 0.5, 40) },
       { weapon: "reaper", pos: v(-40, 0.5, 0) }, { weapon: "sakura", pos: v(40, 0.5, 0) },
-      { weapon: "grenade", pos: v(-12, 0, 4) }, { weapon: "grenade", pos: v(12, 0, -4) },
-      { weapon: "axe", pos: v(0, 3, 5) },
+      { weapon: "axe", pos: v(0, 3, 5) }, { weapon: "shield", pos: v(12, 0, 4) },
+      // both rare supplies on the central rock's lower tier, up the boulder stairs: contested, far from spawns
+      { weapon: "grenade", pos: v(4.6, 3, -4.6) }, { weapon: "health", pos: v(-4.6, 3, 4.6) },
     ], dummiesFight: true, dummyRespawn: 5, seed: 111,
-    outdoor: true, water: { y: ISLAND_WATER }, decor,
+    outdoor: true, water: { y: ISLAND_WATER }, designedSupplies: true,
   };
 }
 
@@ -57,15 +50,13 @@ export function industrialPartyLevel(): Level {
   const spawns = [v(-56, 0, -30), v(-56, 0, 30), v(-22, 0, -34), v(-22, 0, 34),
     v(22, 0, -34), v(22, 0, 34), v(56, 0, -30), v(56, 0, 30)];
   const wall = (b: Box): Box => ({ ...b, kind: "wall", drawTop: 12 });
-  const cover: Box[] = [];
-  // Three warehouse doors avoid funnelling eight people through the duel map's one entrance.
-  for (const [z0, z1] of [[-39, -27], [-17, -5], [5, 17], [27, 39]]) cover.push(wall(box(-0.5, 0, z0, 0.5, 400, z1)));
-  for (const z of [-22, 0, 22]) cover.push(box(-0.5, 6, z - 5, 0.5, 12, z + 5));
-  for (const z of [-22, 0, 22]) {
-    cover.push(box(-43, 0, z - 3, -39, 2, z + 3), box(-23, 0, z - 6, -21, 2.2, z + 2));
-    cover.push(painted(box(16, 0, z - 5, 28, 3, z), "container"));
-    cover.push(box(40, 0, z - 3, 41, 1.2, z + 3));
-  }
+  const structure: Box[] = [];
+  // Three warehouse doors avoid funnelling eight people through the duel map's one entrance. The end segments run
+  // all the way to the outer walls (the first Party build left 1 m slots at z = +-39.5).
+  for (const [z0, z1] of [[-40, -27], [-17, -5], [5, 17], [27, 40]]) structure.push(wall(box(-0.5, 0, z0, 0.5, 400, z1)));
+  for (const z of [-22, 0, 22]) structure.push(box(-0.5, 6, z - 5, 0.5, 12, z + 5));
+  // Low concrete barriers along the east lane: 1 m, hoppable (machinery and containers: sceneryIndustrial.ts).
+  for (const z of [-22, 0, 22]) structure.push(painted(box(40, 0, z - 3, 41, 1, z + 3), "concrete"));
   return {
     id: "industrial-party", name: "Industrial Yard — Party", recommendedPlayers: 8,
     arena: { boxes: [
@@ -74,65 +65,56 @@ export function industrialPartyLevel(): Level {
       ...yardFence(64, -40, 40),
       wall(box(-65, 0, -41, -64, 400, 41)), wall(box(-64, 0, -41, 0, 400, -40)),
       wall(box(-64, 0, 40, 0, 400, 41)), box(-65, 12, -41, 0, 13, 41, "ceiling"),
-      ...cover,
-      // Two catwalk routes and stepping crates; a central crosswalk joins them above the hall.
+      ...structure,
+      // Two catwalks joined by a crosswalk; each catwalk has a concrete stair down toward its door.
       box(-60, 4, -38, -8, 4.4, -35), box(-60, 4, 35, -8, 4.4, 38),
       box(-34, 4, -35, -31, 4.4, 35),
-      box(-11, 0, -33, -8, 1.6, -30), box(-11, 0, -36, -8, 3.2, -33),
-      box(-60, 0, 30, -57, 1.6, 33), box(-60, 0, 33, -57, 3.2, 35),
-      truck(10, -12), truck(45, 14, false), tank(47, -17),
-      drum(8, 16), drum(9, 16.5), drum(33, -9), drum(36, 24), drum(55, 0), drum(12, -32),
-      painted(box(34, 0, -35, 46, 3, -30), "container"),
-      painted(box(34, 3, -35, 46, 6, -30), "container"),
+      ...stair(-8, -38, -35, 4.4, 1), ...stair(-8, 35, 38, 4.4, 1),
     ], dummySpawns: [v(-50, 4.4, -36), v(-40, 4.4, 36), v(-32.5, 4.4, 0), v(-14, 0, 12),
-      v(20, 3, -2), v(20, 3, 20), v(48, 0, 2)] },
+      v(20, CONTAINER_TOP, 0.05), v(20, CONTAINER_TOP, -25.4), v(48, 0, 2)] },
     spawn: spawns[0], spawnYaw: facing(spawns[0]), spawns, spawnYaws: spawns.map((p) => facing(p)),
     startWeapons: ["pistol", "shotgun"],
     pickups: [
-      { weapon: "sniper", pos: v(-50, 4.4, -36) }, { weapon: "sniper", pos: v(40, 6, -32) },
-      { weapon: "copter", pos: v(-32.5, 4.4, 0) }, { weapon: "rocket", pos: v(22, 3, -2) },
-      { weapon: "reaper", pos: v(-52, 0, 14) }, { weapon: "sakura", pos: v(52, 0, -2) },
-      { weapon: "grenade", pos: v(-12, 0, 0) }, { weapon: "grenade", pos: v(34, 0, 12) },
-      { weapon: "axe", pos: v(22, 3, 20) },
-    ], dummiesFight: true, dummyRespawn: 6, seed: 113, outdoor: true,
-    decor: [{ kind: "crane", pos: v(54, 0, 29), yaw: 2.5 }],
+      { weapon: "sniper", pos: v(-50, 4.4, -36.5) }, { weapon: "sniper", pos: v(40, STACK_TOP, -33.8) },
+      { weapon: "copter", pos: v(-32.5, 4.4, 0) }, { weapon: "rocket", pos: v(23.5, CONTAINER_TOP, 0.05) },
+      { weapon: "reaper", pos: v(-52, 0, 14) }, { weapon: "sakura", pos: v(50, 0, -2) },
+      { weapon: "axe", pos: v(22, STACK_TOP, -2.4) }, { weapon: "shield", pos: v(-30, 0, -11) },
+      { weapon: "grenade", pos: v(-12, 0, 0) }, { weapon: "health", pos: v(31, 0, 6) },
+    ], dummiesFight: true, dummyRespawn: 6, seed: 113, outdoor: true, designedSupplies: true,
+    // bots: both sides of each warehouse door, hall lanes and yard lanes
+    nav: [...[-22, 0, 22].flatMap((z) => [v(-3, 0, z), v(3, 0, z), v(-30, 0, z), v(-50, 0, z)]), v(-15, 0, -11), v(-15, 0, 11),
+      v(12, 0, -20), v(12, 0, 0), v(12, 0, 13), v(30, 0, -15), v(30, 0, 8), v(29, 0, 31), v(50, 0, 0), v(50, 0, -25), v(50, 0, 25)],
   };
 }
 
 export function junkyardPartyLevel(): Level {
   const spawns = [v(-43, 0, -43), v(0, 0, -44), v(43, 0, -43), v(46, 0, 0),
     v(43, 0, 43), v(0, 0, 44), v(-43, 0, 43), v(-46, 0, 0)];
-  const cars: Box[] = [];
-  // Four salvage courts, joined by a clear cross and perimeter loop. Stacks retain duel-map dimensions.
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const cx = sx * 25, cz = sz * 24;
-    cars.push(...stack(cx - 7, cz - 9, 3), ...stack(cx, cz - 9, 2), ...stack(cx + 7, cz - 9, 4));
-    cars.push(...stack(cx - 7, cz + 9, 2), ...stack(cx + 7, cz + 9, 3));
-    cars.push(...stack(cx + sx * 11, cz, 2, false));
-  }
+  // Four themed salvage courts joined by a clear cross and perimeter loop (sceneryJunkyard.ts).
+  const craneTower = stackTop(carStack(-19, -33, 4)), burntTower = stackTop(carStack(-18, 15, 4, true, "charredCar"));
   return {
     id: "junkyard-party", name: "Junkyard — Party", recommendedPlayers: 8,
     arena: { boxes: [
       painted(box(-51, -1, -51, 51, 0, 51, "floor"), "asphalt"),
-      ...fence(-50, 50, -50, 50, 5, "corrugated"), ...cars,
+      ...fence(-50, 50, -50, 50, 5, "corrugated"),
       painted(box(-4, 0, -4, 4, 3, 4), "corrugated"),
-      // Elevated crossing with four launch steps; lanes below stay open to ordinary running.
+      // Elevated crossing; two-car launch steps round it are scenery. Lanes below stay open to ordinary running.
       box(-15, 4, -1.5, 15, 4.4, 1.5), box(-1.5, 4, -15, 1.5, 4.4, 15),
-      ...stack(-11, -7, 2), ...stack(11, 7, 2), ...stack(-7, 11, 2, false), ...stack(7, -11, 2, false),
-      painted(box(-44, 0, -6, -40, 2, 6), "container"),
-      painted(box(40, 0, -6, 44, 2, 6), "container"),
-    ], dummySpawns: [v(-25, 3, -33), v(32, 6, -33), v(-18, 6, 15), v(32, 4.5, 33),
+    ], dummySpawns: [v(-25, 0, -20), v(-19, craneTower, -33), v(-18, burntTower, 15), v(32, 0, 30),
       v(0, 4.4, 0), v(-12, 0, 22), v(12, 0, -22)] },
     spawn: spawns[0], spawnYaw: facing(spawns[0]), spawns, spawnYaws: spawns.map((p) => facing(p)),
     startWeapons: ["pistol", "shotgun"],
     pickups: [
       { weapon: "copter", pos: v(0, 4.4, 0) },
-      { weapon: "sniper", pos: v(32, 6, -33) }, { weapon: "sniper", pos: v(-18, 6, 15) },
+      { weapon: "sniper", pos: v(-19, craneTower, -33) }, { weapon: "sniper", pos: v(-18, burntTower, 15) },
       { weapon: "reaper", pos: v(-12, 0, 22) }, { weapon: "sakura", pos: v(12, 0, -22) },
-      { weapon: "rocket", pos: v(25, 0, 24) }, { weapon: "axe", pos: v(-25, 0, -24) },
-      { weapon: "grenade", pos: v(-25, 0, 24) }, { weapon: "grenade", pos: v(25, 0, -24) },
-    ], dummiesFight: true, dummyRespawn: 6, seed: 117, outdoor: true,
-    decor: [{ kind: "crusher", pos: v(0, 0, 0) }, { kind: "crane", pos: v(40, 0, 37), yaw: 2.4 },
-      { kind: "crane", pos: v(-40, 0, -37), yaw: -0.7 }],
+      { weapon: "rocket", pos: v(25, 0, 24) }, { weapon: "axe", pos: v(-18, 0, -24) },
+      { weapon: "shield", pos: v(13, 0, 13) },
+      { weapon: "grenade", pos: v(0, 0, -24) }, { weapon: "health", pos: v(-13, 0, -13) },
+    ], dummiesFight: true, dummyRespawn: 6, seed: 117, outdoor: true, designedSupplies: true,
+    // bots: the open cross lanes and the perimeter loop between the courts
+    nav: [v(0, 0, -12), v(0, 0, 12), v(-12, 0, 0), v(12, 0, 0), v(0, 0, -30), v(0, 0, 30), v(-30, 0, 0), v(30, 0, 0),
+      v(-46, 0, -24), v(-46, 0, 24), v(46, 0, -24), v(46, 0, 24), v(-24, 0, -46), v(24, 0, -46), v(-24, 0, 46), v(24, 0, 46)],
+    decor: [{ kind: "crusher", pos: v(0, 0, 0) }],
   };
 }

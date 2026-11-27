@@ -14,8 +14,10 @@
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
 import { box, type Box } from "./arena";
-import type { Decor, Level } from "./levels";
+import type { Level } from "./levels";
 import type { Vec3 } from "./vec";
+import { carStack, stackTop } from "./sceneryJunkyard";
+import { CONTAINER_TOP, STACK_TOP, TRUCK_TOP } from "./sceneryIndustrial";
 
 const SOLID = 400; // m: walls and bounds are solid this high (the Gatling cannot fly over)
 const v = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
@@ -59,19 +61,12 @@ export function islandLevel(): Level {
   const platforms = PLATFORMS.map((p): Box => ({ ...box(p.x - 3, -4, p.z - 3, p.x + 3, p.y, p.z + 3), paint: "rock" }));
   const p1 = v(-8, 0, 8);
   const p2 = v(8, 0, -8);
-  const decor: Decor[] = [
-    { kind: "palm", pos: v(-10, 0, 10), yaw: 0.4 }, { kind: "palm", pos: v(10.5, 0, 9.5), yaw: 2.1, scale: 1.15 },
-    { kind: "palm", pos: v(-10.5, 0, -9), yaw: 4, scale: 0.9 }, { kind: "palm", pos: v(9, 0, -11), yaw: 5.2 },
-    { kind: "rock", pos: v(-12, 0, 1), scale: 1.3 }, { kind: "rock", pos: v(12, 0, -3), scale: 1 },
-  ];
   return {
     id: "island", name: "Shark Island",
     arena: {
       boxes: [
         { ...box(-13, -4, -13, 13, 0, 13, "floor"), paint: "sand" }, // the island (its sides are the cliffs)
-        { ...box(-4, 0, -4, 4, 2.5, 4), paint: "rock" }, // the hill in the middle
-        { ...box(4.5, 0, 6.5, 7.5, 1.4, 9.5), paint: "rock" }, // a low rock to hop
-        { ...box(-9, 0, 5, -6.5, 1.2, 6.5), paint: "rock" },
+        { ...box(-4, 0, -4, 4, 2.5, 4), paint: "rock" }, // the hill in the middle (boulders and palms: sceneryIsland.ts)
         ...platforms,
         ...bounds(70, 45),
       ],
@@ -81,15 +76,19 @@ export function islandLevel(): Level {
     spawns: [p1, p2], spawnYaws: [facing(p1, v(0, 0, 0)), facing(p2, v(0, 0, 0))],
     startWeapons: ["pistol", "shotgun"], // the Boomstick is the launcher: knock them into the sea
     pickups: [
-      { weapon: "sniper", pos: v(1, 2.5, 1) }, // on the hill
+      { weapon: "sniper", pos: v(2, 2.5, 2) }, // on the hill, up the rock stairs
       { weapon: "reaper", pos: v(-24, 0.5, 1.5) },
       { weapon: "sakura", pos: v(24, 0.5, -1.5) },
       { weapon: "copter", pos: v(1.5, 0.5, -24) }, // the Gatling over the water: risky
-      { weapon: "grenade", pos: v(-1.5, 0.5, 24) }, // grenades: bounce them onto the platforms
-      { weapon: "axe", pos: v(-7, 0, -7) },
+      { weapon: "rocket", pos: v(-1.5, 0.5, 24) }, // its opposite number on the far platform
+      { weapon: "axe", pos: v(-10.5, 0, -2) },
+      // rare supplies equidistant from both spawns (the duel layout is point-symmetric)
+      { weapon: "shield", pos: v(-9, 0, -9) },
+      { weapon: "grenade", pos: v(8.7, 0, 8.7) },
+      { weapon: "health", pos: v(-2.5, 2.5, -2.5) },
     ],
     dummiesFight: true, dummyRespawn: 5, seed: 11,
-    outdoor: true, water: { y: ISLAND_WATER }, decor,
+    outdoor: true, water: { y: ISLAND_WATER }, designedSupplies: true,
   };
 }
 
@@ -101,6 +100,18 @@ export const truck = (x: number, z: number, alongX = true): Box => alongX
   : { ...box(x - 1.3, 0, z - 3.5, x + 1.3, 3, z + 3.5), prop: "truck" };
 export const tank = (x: number, z: number): Box => ({ ...box(x - 3.5, 0, z - 1.8, x + 3.5, 2.6, z + 1.8), prop: "tank" });
 export const drum = (x: number, z: number): Box => ({ ...box(x - 0.4, 0, z - 0.4, x + 0.4, 1.2, z + 0.4), prop: "drum" });
+
+/**
+ * A straight stair of jumpable risers from the floor up to a deck at `top`: the step against the deck starts at x0
+ * and the stair descends along `dir` (+1 toward +x). Risers are top / (steps + 1) apart (0.88 m for a 4.4 m deck;
+ * the jump clears 1.28 m), replacing the old 1.6 m crate leaps with deliberate catwalk access.
+ */
+export function stair(x0: number, z0: number, z1: number, top: number, dir: 1 | -1, steps = 4, depth = 1.3): Box[] {
+  return Array.from({ length: steps }, (_, i) => {
+    const xa = x0 + dir * i * depth, h = Math.round(top * (steps - i) / (steps + 1) * 100) / 100;
+    return { ...box(xa, 0, z0, xa + dir * depth, h, z1), paint: "concrete" as const };
+  });
+}
 
 export function industrialLevel(): Level {
   const hallWall = (b: Box): Box => ({ ...b, kind: "wall", drawTop: HALL_H });
@@ -120,40 +131,33 @@ export function industrialLevel(): Level {
         hallWall(box(-0.5, 0, 4, 0.5, SOLID, 20)),
         box(-0.5, 6, -4, 0.5, HALL_H, 4), // over the doorway
         box(-33, HALL_H, -21, 0.5, HALL_H + 1, 21, "ceiling"), // the hall's roof (the yard is open sky)
-        // inside: a catwalk along the north wall, crate steps up to it, crates and steel cover
+        // the catwalk along the north wall and its stair down toward the doorway (machinery: sceneryIndustrial.ts)
         box(-30, 4, -19.5, -6, 4.4, -16.5),
-        box(-10, 0, -16, -8, 1.6, -14),
-        box(-8, 0, -17, -6, 3.2, -14),
-        box(-20, 0, 4, -17, 1.6, 7),
-        box(-24, 0, 10, -21, 3.2, 13),
-        box(-14, 0, -2, -12.8, 1.4, 6),
-        box(-27, 0, -8, -25.8, 1.4, -2),
-        // the yard: trucks, a tank, fuel drums (all explode), containers and concrete barriers
-        truck(11.5, -12.7),
-        truck(23.5, 11.3),
-        tank(21.5, -4.2),
-        drum(6, 8), drum(6.9, 8.6), drum(12, 4), drum(26, -16), drum(5, -6), drum(15.5, 13),
-        { ...box(26, 0, -19.5, 31.5, 2.6, -17), paint: "container" },
-        { ...box(26, 2.6, -19.5, 31.5, 5.2, -17), paint: "container" },
-        { ...box(3, 0, 15, 5.4, 2.6, 19.5), paint: "container" },
-        box(10, 0, 0, 14, 1, 0.6),
-        box(17, 0, 5, 17.6, 1, 9),
+        ...stair(-6, -19.5, -16.5, 4.4, 1),
+        // concrete barriers in the yard: 1 m, so anyone can hop them
+        { ...box(10, 0, 0, 14, 1, 0.6), paint: "concrete" },
+        { ...box(17, 0, 5, 17.6, 1, 9), paint: "concrete" },
       ],
-      dummySpawns: [v(20, 0, 1.5), v(14, 0, 7), v(29, 0, -9), v(-20, 4.4, -18), v(-10, 0, 9), v(23.5, 3, 11.3), v(7, 0, 14)],
+      dummySpawns: [v(20, 0, 1.5), v(14, 0, 7), v(29, 0, -9), v(-20, 4.4, -18), v(-10, 0, 9), v(23.5, TRUCK_TOP, 11.3), v(7, 0, 12)],
     },
     spawn: p1, spawnYaw: facing(p1, p2),
     spawns: [p1, p2], spawnYaws: [facing(p1, p2), facing(p2, p1)],
     startWeapons: ["pistol", "shotgun"],
     pickups: [
       { weapon: "sniper", pos: v(-28, 4.4, -18) }, // on the catwalk
-      { weapon: "copter", pos: v(30, 0, 18) },
+      { weapon: "copter", pos: v(30, 0, 18) }, // the yard's far corner, behind the trucks
       { weapon: "reaper", pos: v(-28, 0, 16) },
-      { weapon: "sakura", pos: v(16, 0, 17) },
+      { weapon: "sakura", pos: v(28.75, STACK_TOP, -18.25) }, // on the two-high container stack: a recoil climb
       { weapon: "rocket", pos: v(-16, 0, -12) }, // rockets in the hall: blow up the yard from the doorway
+      { weapon: "shield", pos: v(-8, 0, -6) },
       { weapon: "grenade", pos: v(9, 0, -3) },
+      { weapon: "health", pos: v(22.8, CONTAINER_TOP, -4.2) }, // on the mid-yard container, up its crate steps
     ],
     dummiesFight: true, dummyRespawn: 6, seed: 13,
-    outdoor: true,
+    outdoor: true, designedSupplies: true,
+    // bots: the doorway, then hall and yard lanes (the hall wall defeats a straight-line steer)
+    nav: [v(-2.5, 0, 0), v(2.5, 0, 0), v(-8, 0, -2), v(-18, 0, -6), v(-20, 0, -12), v(-9, 0, 14), v(-26, 0, 9),
+      v(6, 0, 0), v(15, 0, -6.5), v(17, 0, 2), v(27, 0, -8), v(17, 0, 12), v(8, 0, 12)],
   };
 }
 
@@ -177,37 +181,38 @@ export function stack(x: number, z: number, n: number, alongX = true): Box[] {
 export function junkyardLevel(): Level {
   const p1 = v(-20, 0, 21);
   const p2 = v(20, 0, -21);
+  // Stack tops come from the car meshes (sceneryJunkyard.ts), so pickups sit exactly on the roof you land on.
+  const tower = stackTop(carStack(-7.5, -14, 4)), east = stackTop(carStack(15, -1, 4)), south = stackTop(carStack(-10, 14, 3));
   return {
     id: "junkyard", name: "Junkyard",
     arena: {
       boxes: [
         { ...box(-26, -1, -26, 26, 0, 26, "floor"), paint: "asphalt" },
         ...fence(-25, 25, -25, 25, 5, "corrugated"),
-        // the north row, lanes between the stacks
-        ...stack(-18, -14, 3), ...stack(-12, -14, 2), ...stack(-6, -14, 4), ...stack(4, -14, 1), ...stack(10, -14, 3), ...stack(18, -14, 2),
-        // the middle: stacks round the crusher's plaza
-        ...stack(-20, 0, 2), ...stack(-14, 1, 1), ...stack(9, 0, 2), ...stack(15, -1, 4), ...stack(21, 0, 1),
         { ...box(-2.5, 0, -2.5, 2.5, 3, 2.5), paint: "corrugated" }, // the crusher (the Gatling on top)
-        // the south row
-        ...stack(-17, 13, 1), ...stack(-10, 14, 3), ...stack(-3, 14, 2), ...stack(6, 13, 4), ...stack(13, 14, 1),
-        // along the sides
-        ...stack(-23, -5, 2, false), ...stack(23, 7, 3, false), ...stack(23, 18, 1, false),
       ],
-      dummySpawns: [v(-6, 6, -14), v(15, 6, -1), v(6, 6, 13), v(-10, 4.5, 14), v(0, 0, 8), v(-8, 0, -6)],
+      dummySpawns: [v(-7.5, tower, -14), v(15, east, -1), v(-10, south, 14), v(0, 0, 8), v(-8, 0, -6), v(6, 0, -7)],
     },
     spawn: p1, spawnYaw: facing(p1, v(0, 0, 0)),
     spawns: [p1, p2], spawnYaws: [facing(p1, v(0, 0, 0)), facing(p2, v(0, 0, 0))],
     startWeapons: ["pistol", "shotgun"],
     pickups: [
       { weapon: "copter", pos: v(0, 3, 0) }, // on the crusher
-      { weapon: "reaper", pos: v(-6, 6, -13.6) }, // on the tallest north stack
-      { weapon: "sniper", pos: v(15, 6, -0.6) },
-      { weapon: "sakura", pos: v(-22, 0, -14) },
-      { weapon: "axe", pos: v(-10, 4.5, 14.3) }, // on a stack: the Rocket Axe flies you between them
+      { weapon: "reaper", pos: v(-7.5, tower, -14) }, // on the four-car tower: a recoil perch
+      { weapon: "sniper", pos: v(15, east, -1) },
+      { weapon: "sakura", pos: v(-23, 0, -10.5) },
+      { weapon: "axe", pos: v(-10, south, 14) }, // on a stack: the Rocket Axe flies you between them
       { weapon: "rocket", pos: v(13, 0, 21) },
+      { weapon: "shield", pos: v(-10, 0, 7) },
+      { weapon: "grenade", pos: v(-7, 0, -5) },
+      { weapon: "health", pos: v(6, 0, 6.5) }, // the open court south-east of the crusher
     ],
     dummiesFight: true, dummyRespawn: 6, seed: 17,
-    outdoor: true,
-    decor: [{ kind: "crane", pos: v(19, 0, 19), yaw: 2.4 }, { kind: "crusher", pos: v(0, 0, 0) }],
+    outdoor: true, designedSupplies: true,
+    // bots: lane mouths and the gaps through each row of stacks
+    nav: [v(-23, 0, -14), v(-1, 0, -14), v(21.5, 0, -14), v(-16, 0, -7), v(-1, 0, -7), v(16, 0, -7), v(-8, 0, -1), v(5, 0, -4),
+      v(-12, 0, 7), v(-1, 0, 7), v(12, 0, 8), v(-22, 0, 13), v(-6.5, 0, 14), v(1.5, 0, 14), v(16.5, 0, 14), v(-8, 0, 20),
+      v(6, 0, 20), v(0, 0, -20), v(14, 0, -20)],
+    decor: [{ kind: "crusher", pos: v(0, 0, 0) }],
   };
 }

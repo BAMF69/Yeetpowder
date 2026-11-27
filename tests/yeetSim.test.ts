@@ -12,8 +12,9 @@
 import { describe, expect, it } from "vitest";
 import { moveBody, rayBox, testRoom } from "../src/core/yeet/arena";
 import { AUTOPLAY_SECONDS, autoplayStep } from "../src/core/yeet/autoplay";
-import { duelLevel, fightLevel, sandboxLevel, TOWER_TOP, type Level } from "../src/core/yeet/levels";
-import { industrialLevel, islandLevel, junkyardLevel } from "../src/core/yeet/levelsOutdoor";
+import { duelLevel, fightLevel, levelById, sandboxLevel, TOWER_TOP, type Level } from "../src/core/yeet/levels";
+// The outdoor maps as played: their scenery colliders are added by levelById (the 2026-11-26 level pass).
+const islandLevel = () => levelById("island"), industrialLevel = () => levelById("industrial"), junkyardLevel = () => levelById("junkyard");
 import { NO_INPUT, PLAYER_CODE, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../src/core/yeet/sim";
 import { TUNING } from "../src/core/yeet/tuning";
 import { aimDir, vec } from "../src/core/yeet/vec";

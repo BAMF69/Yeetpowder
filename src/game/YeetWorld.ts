@@ -179,7 +179,7 @@ export class YeetWorld implements World {
   private readonly room = buildRoom(this.sim.arena, { cutaway: shell.params.has("mapview") });
   /** The new levels' cars, trucks, tanks, drums, scenery, water and shark (props.ts). */
   private readonly props = buildProps(this.sim.level, this.sim.explosives, this.sim.projectiles);
-  private readonly scenery = new SceneryViews(this.sim.level.scenery ?? []);
+  private readonly scenery = new SceneryViews(this.sim.level, this.sim.explosives, this.props);
   private readonly views: DummyView[] = [];
   private readonly body: Operative; // you, seen from outside (tumbles, the launch camera, hero landings)
   private readonly pickups: PickupViews;

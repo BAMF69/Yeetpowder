@@ -98,7 +98,7 @@ export class ArenaWorld implements World {
     const sun = new THREE.DirectionalLight("#fff1dc", 2.3); sun.position.set(30, 60, 18); this.scene.add(sun);
     this.roomView = buildRoom(this.sim.arena); this.scene.add(this.roomView.group);
     this.props = buildProps(this.sim.level, this.sim.explosives, this.sim.projectiles); this.scene.add(this.props.group);
-    this.scenery = new SceneryViews(this.sim.level.scenery ?? []); this.scene.add(this.scenery.group);
+    this.scenery = new SceneryViews(this.sim.level, this.sim.explosives, this.props); this.scene.add(this.scenery.group);
     this.pickups = new PickupViews(this.scene, this.sim.pickups); this.fx = new Effects(this.scene);
     for (let i = 0; i < this.count; i++) {
       const camera = new THREE.PerspectiveCamera(80, aspect, 0.05, 350); camera.rotation.order = "YXZ";

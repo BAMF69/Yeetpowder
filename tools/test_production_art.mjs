@@ -27,7 +27,12 @@ try {
   for(const path of expected)assert(requests.some(url=>new URL(url).pathname.endsWith(`/Yeetpowder/${path}`)),`${map}: missing production ${path}`);
   for(const weapon of ["pistol","shotgun","sniper","copter","rocket","grenade"])assert(logs.some(s=>s.includes(`Meshy model in for ${weapon}`)),`${map}: ${weapon} still procedural`);
   assert(!requests.some(url=>url.includes("/assets_src/")),"Production must never fetch staging files");assert.deepEqual(errors,[]);
-  if(["industrial","island-party","coliseum"].includes(map))await page.screenshot({path:`captures/progress/production-${map}.png`});
+  // reviewed scenery (2026-11-26 level pass): every outdoor map draws its models from the Pages subpath, no fallbacks
+  if(["island","industrial","junkyard","island-party","industrial-party","junkyard-party"].includes(map)){
+   const ready=logs.find(s=>s.includes("SCENERY_READY"));assert(ready&&/fallbacks=0 /.test(ready)&&!/instances=0 /.test(ready),`${map}: scenery ${ready}`);
+   assert(requests.some(url=>new URL(url).pathname.startsWith("/Yeetpowder/assets/models/scenery/")),`${map}: scenery not served from the Pages subpath`);
+  }
+  if(["industrial","island-party","junkyard-party","coliseum"].includes(map))await page.screenshot({path:`captures/progress/production-${map}.png`});
   console.log(`PRODUCTION_ART_OK ${map}: nine shipped assets, held/pickup model registration, no preview flag or missing files`);
  }
  logs=[];requests=[];errors=[];
@@ -38,6 +43,6 @@ try {
  logs=[];requests=[];errors=[];
  await page.goto(`${base}?data-dir=pages-art-qa&play&level=industrial&noart`,{waitUntil:"domcontentloaded",timeout:180000});
  await until(()=>logs.some(s=>s.includes("YEET_LEVEL_READY industrial")),"noart");
- assert(!requests.some(url=>url.includes("/models/approved/")));assert.deepEqual(errors,[]);
+ assert(!requests.some(url=>url.includes("/models/approved/")||url.includes("/models/scenery/")));assert.deepEqual(errors,[]);
  console.log("PRODUCTION_ART_OK noart: procedural fallback, no replacement model requests");
 } finally {await browser.close();if(server)await new Promise(resolve=>server.httpServer.close(resolve));}

@@ -60,15 +60,17 @@ try {
   if (!process.argv.includes('--art-only')) {
   for (const level of ['industrial','junkyard','island']) {
     await go(`level=${level}`);
-    assert.equal(await world('return w.scenery.group.children.filter(o=>o.name.startsWith("scenery:")).length'),level==='industrial'?4:level==='junkyard'?5:2);
+    // the 2026-11-26 level pass instances static models (one mesh per model part), so check drawn models exist per art
+    assert.equal(await world('const drawn=new Set(w.scenery.group.children.filter(o=>o.name.startsWith("scenery:")).map(o=>o.name.slice(8)));return w.sim.level.scenery.every(p=>drawn.has(p.art))'),true);
     await world(`game.paused=true;w.vm.root.visible=false;w.camera.position.set(${level==='industrial'?'-15,13,12':level==='junkyard'?'-14,12,18':'-5,7,-4'});w.camera.lookAt(${level==='industrial'?'-20,0,-9':level==='junkyard'?'-10,1,5':'-7,0,-10'});return true`);
     await shot(`scenery-${level}-review`);
     console.log(`SCENERY_RENDER_OK ${level}`);
   }
   await go('level=industrial&noart');
-  assert.equal(await world('return w.scenery.group.children.filter(o=>o.name.startsWith("scenery-fallback:")).length'),4);
-  const collision=await world('w.sim.player.pos={x:-19,y:0,z:-4.5};w.sim.player.vel={x:0,y:0,z:0};w.sim.player.yaw=0;for(let i=0;i<240;i++)w.sim.step({moveX:0,moveZ:1,jump:false,fireHeld:false,firePressed:false,select:-1,reset:false,aiming:false,sprint:false,reload:false,slash:false,slashHeld:false});game.paused=true;return w.sim.player.pos.z');
-  assert.ok(collision>-6,'conveyor collision stops forward walking');
+  assert.ok(await world('return w.scenery.group.children.filter(o=>o.name.startsWith("scenery-fallback:")).length>20'),'noart draws the colliders');
+  // walk east into the hall's conveyor line (x -13.9..-12.9) without jumping: it must stop you
+  const collision=await world('w.sim.player.pos={x:-17,y:0,z:1};w.sim.player.vel={x:0,y:0,z:0};w.sim.player.yaw=-Math.PI/2;for(let i=0;i<240;i++)w.sim.step({moveX:0,moveZ:1,jump:false,fireHeld:false,firePressed:false,select:-1,reset:false,aiming:false,sprint:false,reload:false,slash:false,slashHeld:false});game.paused=true;return w.sim.player.pos.x');
+  assert.ok(collision<-13.9,'conveyor collision stops forward walking');
   console.log('SCENERY_NOART_COLLISION_OK');
   }
   if (process.argv.includes('--art') || process.argv.includes('--art-only')) {

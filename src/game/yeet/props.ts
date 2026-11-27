@@ -31,6 +31,8 @@ export interface Props {
   update(dt: number): void;
   explode(at: { x: number; y: number; z: number }, radius: number): void;
   shark(at: { x: number; y: number; z: number }): void;
+  /** Hides the procedural stand-ins for these arena boxes (scenery.ts drew the reviewed model instead). */
+  hide(boxIndices: number[]): void;
   dispose(): void;
 }
 
@@ -328,6 +330,9 @@ export function buildProps(level: Level, explosives: ExplosiveState[], projectil
     shark(at) {
       sharkAt.set(at.x, at.y, at.z);
       sharkT = 0;
+    },
+    hide(boxIndices) {
+      for (const i of boxIndices) { const g = views.get(i); if (g) g.visible = false; }
     },
     dispose() {
       for (const b of blasts) (b.outer.material as THREE.Material).dispose();

@@ -3,11 +3,29 @@
 > Rewritten at the end of every session by `/end-session`. Read first by `/start-session`.
 > Keep under ~60 lines. It is a baton, not a diary.
 
-**Last updated:** 2026-11-25
-**Branch / commit:** codex/art-integration at 9284a6c, with an uncommitted integration of main 6983335 and the continuation below
+**Last updated:** 2026-11-26
+**Branch / commit:** codex/level-design (worktree build/level-design) from origin/main 862f84e; work uncommitted
 **Engine version:** see `docs/ENGINE.md`
 
-## Current art/gameplay continuation
+## Current: scenery and level-design pass (2026-11-26)
+- All 31 approved scenic models ship and are placed on Industrial Yard, Junkyard and Shark Island, duel and Party
+  (design record: `docs/LEVEL_DESIGN.md`). 17 vinish.dev originals unchanged (A-0019); 14 community remeshes
+  (A-0023) verified first: each Meshy listing's JSON-LD licence is CC0 with a named creator, download names match,
+  11 face counts match exactly; the container retry carries the vinish.dev credit. `python tools/prepare_scenery.py
+  [--check]` stages/verifies (1024 px base colour, 512 px other maps; originals kept in assets_src).
+- Core: `scenery.ts` catalog with multi-box colliders; layouts in `scenery{Industrial,Junkyard,Island}.ts`;
+  levels declare their grenade/health/shield (`designedSupplies`, validated loudly in `levelById`); Party maps still
+  get one weapon by each spawn. Concrete stairs to the catwalks, closed 1 m wall slots, model-height car stacks,
+  boulder stairs, Gatling back on the ground in the Industrial duel. Bots: hop probe at the real jump peak,
+  waypoint routing (`botNav.ts`, level `nav`), near-vertical ledge launch, 12 s Gatling patience.
+- Renderer: `game/yeet/scenery.ts` instances static models, clones animated/explosive ones (Box Truck burns into the
+  Burned Out Truck), hides props.ts stand-ins, ?noart draws colliders.
+- Verified: see the latest entry in the session report (check, test, build, prepare_* --check, production art test,
+  `node tools/test_level_design_browser.mjs`). Captures: captures/progress/level-*.png.
+- Needs a human: route feel at speed, perch sightlines, eight-player crowding, bot behaviour in real matches,
+  target-GPU/phone performance (Industrial Party ~330k scenery triangles; software rendering proves loading only).
+
+## Previous art/gameplay continuation (historical)
 - Work in `C:/Users/shane/Documents/Claude/Yeetpowder/build/art-integration`. Shane confirmed the parent checkout as his gameplay checkout; its tracked files and untracked art/shopping work are preserved. The main merge is prepared without a commit; props.ts import conflict was resolved keeping projectile previews and static batching. Do not reset this worktree to clear the pending merge.
 - ADR 0007 records Shane's confirmed rules: slot 0 left-hand shield + shared hip Pea Pistol, frontal bullet block, half frontal knockback and hip blast damage, aimed two-handed viewport/holstered pistol and no frontal blast damage. V / touch HEAL / D-pad Up spends one of three carried health uses, 3 s full recovery, 10 s cooldown afterward; damage/movement do not interrupt, death cancels and resets to starter gear with no drops. Map pickups retain 6 s weapon / 12 s health timers and refill without stacking. Shared HUD, prediction, snapshots and bots use the same state.
 - The accepted weapons/Tactical operative and first-person fits are retained. Source GLBs are preserved. Ten DEV-only texture exports total 5,310,428 bytes instead of 78,885,652, with mesh/node/accessor/material/metadata identity tests. Shield's baked opaque viewport has a runtime cutout aligned to its existing window; health uses the reviewed preview in development and a procedural fallback in release/noart. No grip-editor JSON has arrived: final third-person grip application remains pending.
