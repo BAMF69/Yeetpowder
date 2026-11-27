@@ -364,3 +364,93 @@
 .rs-killerpic { width:2.2em; height:2.2em; }
 .rs-killerpic:empty { display:none; }
 .rs-couchpic { width:3.4em; height:3.4em; }
+
+/* ---- Grunge pass (2026-11-27, Elaina: "more grungy and less cartoony", art A-0023) ---------------------------
+   Worn gunmetal plates with cut corners, film grain and scratches, cream stencil-heavy type like the logo, and the
+   art's hot pink rim light for focus and picks. Overrides the first neon pass above; the layout is unchanged. */
+.mk, .rs {
+  --mk-ink:#0b0908; --mk-tile:#15120f; --mk-tile-hi:#2a241e; --mk-line:#4a3f34; --mk-pink:#ff2e88; --mk-cyan:#ff2e88;
+  --mk-yellow:#f2e4c8; --mk-mute:#a8977f; --mk-cream:#f2e4c8;
+  --mk-grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  --mk-scratch:repeating-linear-gradient(115deg, rgba(255,240,220,.025) 0 1px, transparent 1px 9px), repeating-linear-gradient(28deg, rgba(0,0,0,.18) 0 1px, transparent 1px 13px);
+  --mk-cut:polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+.mk { color:var(--mk-cream);
+  background:radial-gradient(ellipse at 50% 40%, rgba(11,9,8,.55), rgba(11,9,8,.92) 75%), var(--mk-grain), var(--mk-art, none) center / cover no-repeat, #0b0908; }
+.mk-logo .mk-name { color:var(--mk-cream); font-style:italic; letter-spacing:-.02em;
+  text-shadow:0 2px 0 #2a1810, 0 0 18px rgba(255,46,136,.45);
+  -webkit-mask-image:var(--mk-grain), linear-gradient(#000,#000); mask-image:linear-gradient(#000,#000); }
+.mk-logo .mk-tag { color:var(--mk-pink); }
+.mk-title, .mk-word, .mk-goword, .mk-opname { font-style:italic; letter-spacing:.04em; text-shadow:0 2px 0 rgba(0,0,0,.7); }
+.mk-title { color:var(--mk-cream); }
+.mk-sub, .mk-lbl, .mk-chipword { color:var(--mk-mute); }
+
+/* plates: gunmetal with grain, scratches, a lit top edge and cut corners */
+.mk .mk-tile, .mk .mk-back, .mk .mk-arrow, .mk .mk-step, .mk .mk-chip {
+  border-radius:0; clip-path:var(--mk-cut); border:1px solid var(--mk-line); color:var(--mk-cream);
+  background:var(--mk-grain), var(--mk-scratch), linear-gradient(170deg, var(--mk-tile-hi), var(--mk-tile) 55%, #0d0b09);
+  box-shadow:inset 0 1px 0 rgba(255,236,210,.14), inset 0 -2px 0 rgba(0,0,0,.5); }
+.mk .mk-chip, .mk .mk-step, .mk .mk-back { --mk-cut:polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+.mk .item.focused:not(.mk-hero):not([aria-pressed="true"]) { background:var(--mk-grain), var(--mk-scratch), linear-gradient(170deg, #3a2a2a, #1c1414 60%, #110c0c); }
+.mk .mk-tile.focused, .mk .mk-chip.focused, .mk .mk-back.focused, .mk .mk-arrow.focused, .mk .mk-go.focused {
+  border-color:var(--mk-pink); box-shadow:inset 0 0 0 1px var(--mk-pink), inset 0 0 24px rgba(255,46,136,.28), 0 0 18px rgba(255,46,136,.35); }
+.mk .mk-stepper.focused { border-color:var(--mk-pink); box-shadow:0 0 14px rgba(255,46,136,.3); border-radius:0; }
+.mk .mk-tile.focused { transform:none; }
+.mk .mk-tile[aria-pressed="true"], .mk .mk-chip.item[aria-pressed="true"] {
+  border-color:var(--mk-pink); color:#fff; background:var(--mk-grain), linear-gradient(170deg, #4a1630, #22101a 70%); box-shadow:inset 0 0 0 1px var(--mk-pink), 0 0 14px rgba(255,46,136,.3); }
+.mk .mk-chip[aria-pressed="true"] .mk-chipword { color:#ffd3e6; }
+.mk .mk-picture[aria-pressed="true"] { background:none; }
+.mk-picture .mk-scene { filter:saturate(.55) contrast(1.1) brightness(.8); }
+.mk-picture[aria-pressed="true"] .mk-scene { filter:saturate(.8) contrast(1.1); }
+
+/* PLAY and GO: the hot pink burst (A-0023), darkened under the word */
+.mk .mk-hero, .mk .mk-hero.item.focused { color:var(--mk-cream); border-color:#ff5aa0;
+  background:linear-gradient(180deg, rgba(20,3,11,.15), rgba(20,3,11,.7)), var(--mk-hero-art, none) center / cover, #c2135f; }
+.mk .mk-hero .mk-word { text-shadow:0 3px 0 #2a0614, 0 0 22px rgba(0,0,0,.8); }
+.mk .mk-hero .mk-sub { color:#ffd3e6; }
+.mk .mk-go.item, .mk .mk-go.item.focused { clip-path:var(--mk-cut); border-radius:0; color:var(--mk-cream);
+  background:var(--mk-grain), linear-gradient(115deg, #c2135f, #ff2e88 55%, #ff7ab3); text-shadow:0 2px 0 #4a0622; }
+.mk .mk-go .mk-goword { color:var(--mk-cream); }
+.mk-num { color:var(--mk-cream); font-style:italic; }
+.mk-people { color:var(--mk-pink); }
+.mk-code input { background:#15120f; color:var(--mk-cream); border-color:var(--mk-line); border-radius:0; }
+.mk-code input:focus { border-color:var(--mk-pink); box-shadow:0 0 12px rgba(255,46,136,.4); }
+.mk-namechip { border-radius:0; background:#15120f; border-color:var(--mk-line); }
+.mk-namechip .mk-icon { color:var(--mk-pink); }
+.mk-opchoice.on { border-color:var(--mk-pink); }
+.mk-opchoice { border-radius:50%; }
+/* the flat operator icons get the same grain and a slightly warm, worn grade */
+.op-icon { filter:saturate(.8) contrast(1.05) sepia(.12); }
+
+/* title and loading */
+.yp-title .press { color:var(--mk-cream, #f2e4c8); font-style:italic; font-weight:900; letter-spacing:.2em; text-transform:uppercase;
+  text-shadow:0 2px 0 #2a0614, 0 0 16px rgba(0,0,0,.9); background:rgba(11,9,8,.55); padding:.4em 1.2em; }
+.screen.yp-loading { align-items:flex-end; background:#0b0908 center / cover no-repeat; }
+.yp-loading .panel { margin-bottom:8vh; background:rgba(11,9,8,.78); border:1px solid #4a3f34; border-radius:0; color:#f2e4c8; }
+.yp-loading .heading { font-style:italic; text-transform:uppercase; letter-spacing:.06em; }
+.yp-loading .bar { border-radius:0; border-color:#4a3f34; background:#15120f; }
+.yp-loading .fill { background:linear-gradient(90deg, #c2135f, #ff2e88); border-radius:0; }
+
+/* respawn screen in the same metal */
+.rs { color:var(--mk-cream); background:radial-gradient(ellipse at center, rgba(11,9,8,.45), rgba(11,9,8,.9) 80%), var(--mk-grain); }
+.rs-killer { border-radius:0; clip-path:var(--mk-cut); border-color:var(--mk-pink); background:rgba(11,9,8,.85); }
+.rs-gun, .rs-yeeted { color:var(--mk-pink); }
+.rs-scores, .rs-portrait, .rs-btn, .rs-keys, .rs-couch { border-radius:0; background:var(--mk-grain), rgba(21,18,15,.88); border-color:var(--mk-line); }
+.rs-btn:hover, .rs-btn:focus-visible { border-color:var(--mk-pink); }
+.rs-row.me, .rs-toggle[aria-pressed="true"] { color:#ff7ab3; }
+.rs-toggle[aria-pressed="true"] { border-color:var(--mk-pink); }
+.rs-arc { stroke:var(--mk-cream); }
+.rs-spawn.ready .rs-arc, .rs-couch.ready .rs-arc { stroke:var(--mk-pink); }
+.rs-face { background:var(--mk-grain), #1a1612; color:var(--mk-cream); }
+.rs-spawn.ready .rs-face, .rs-couch.ready .rs-face { background:var(--mk-grain), radial-gradient(circle at 50% 35%, #ff7ab3, #ff2e88 45%, #9e0f4c); color:var(--mk-cream); text-shadow:0 2px 0 #4a0622; }
+.rs-word, .rs-opname { font-style:italic; }
+/* the burst's top band only: the image's own logo stays out of the PLAY tile */
+.mk .mk-hero, .mk .mk-hero.item.focused { background-size:auto, 340% auto; background-position:center, 50% 2%; background-repeat:no-repeat; }
+/* drawn map pictures and operator icons: graded and grained toward the worn-metal art */
+.mk-picture .mk-scene { filter:saturate(.4) sepia(.3) contrast(1.15) brightness(.7); }
+.mk-picture[aria-pressed="true"] .mk-scene { filter:saturate(.65) sepia(.15) contrast(1.15) brightness(.85); }
+.mk-picture::after, .mk-portrait::after, .rs-portrait::after { content:""; position:absolute; inset:0; pointer-events:none;
+  background:var(--mk-grain), var(--mk-scratch); mix-blend-mode:overlay; }
+.mk-portrait, .rs-portrait { position:relative; }
+.op-icon { filter:saturate(.7) contrast(1.1) sepia(.2) brightness(.95); }
+.mk .mk-hero, .mk .mk-hero.item.focused { background-size:auto, cover; background-position:center, center; }

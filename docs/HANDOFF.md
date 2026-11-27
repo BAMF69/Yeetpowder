@@ -3,7 +3,7 @@
 > Rewritten at the end of every session by `/end-session`. Read first by `/start-session`.
 > Keep under ~60 lines. It is a baton, not a diary.
 
-**Last updated:** 2026-11-27
+**Last updated:** 2026-11-27 (follow-up: art and grunge pass)
 **Branch / commit:** claude/nifty-faraday-7l1db4 (cloud session), pushed; built on main 862f84e
 **Engine version:** see `docs/ENGINE.md`
 
@@ -28,6 +28,15 @@
   gamepads, GPU frame time. Map tiles are drawn SVG stand-ins, not renders of the maps.
 - Cloud container notes: Git LFS assets needed `git lfs pull`; Playwright wanted browser build 1248, linked to the
   installed 1243 under /opt/pw-browsers (container only, nothing in the repo).
+
+## 2026-11-27 follow-up
+- Merged the Shark Island bot fix (claude/nifty-carson-za2ptt); the island test now starts on the shore. 588/588 tests.
+- Operator icons (`src/shell/operatorIcons.ts`) and renames (Viking, Samurai, Black Ops, Black Widow).
+- Grunge pass with Elaina's new art (A-0023): title_burst title, metal menu backdrops, flames/barrel loading screens.
+  Verified: check, 588 tests, smoke boot plus the menus and pseudo drives on the production build. Stills:
+  captures/progress/mk-00-title, mk-01-home, mk-03-make, mk-06-bots, mk-11-loading-1, rs-02-ready.
+- Open: is image 2 or 3 the "hot pink flash" title (3 chosen)? The load_barrel image looks like the Bond gunbarrel
+  opening: decide before release. Map tiles are still drawn stand-ins.
 
 ## Next step (specific, first action)
 - Elaina plays the new menus on a phone and a laptop and dies a few times: is the respawn wait right, are any

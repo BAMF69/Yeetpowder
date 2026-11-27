@@ -29,10 +29,18 @@ import { operatorIcon } from "./operatorIcons";
 
 type Build = (root: HTMLElement, m: GridMenu, s: Screen) => void;
 
+/** url(...) for a file in public/assets/ui/, absolute against the page (itch.io and Pages subfolders included). */
+function uiArt(file: string): string { return `url("${new URL(`assets/ui/${file}`, document.baseURI).href}")`; }
+
 /** A full-window icon screen; render() rebuilds it and puts focus back on the same control. */
 function mkScreen(id: string, build: Build, extra: Partial<Screen> = {}): Screen {
   const root = el("section", "screen mk");
   root.dataset.screen = id;
+  // the worn-metal backdrop (ASSET_LOG A-0023): the riveted plate on the home screen, the engraved one elsewhere.
+  // Set from code because Vite rewrites url() inside the stylesheet, and as absolute URLs because a url() in a custom
+  // property resolves against the stylesheet that uses it (dist/assets/), not the page: uiArt() keeps subfolders working.
+  root.style.setProperty("--mk-art", uiArt(id === "menu" ? "bg_metal.webp" : "bg_plate.webp"));
+  root.style.setProperty("--mk-hero-art", uiArt("play_tile.webp")); // the PLAY tile's flames (a crop of load_flames)
   const s: Screen = { id, root, ...extra };
   s.render = () => {
     const keep = s.menu?.focused?.id;

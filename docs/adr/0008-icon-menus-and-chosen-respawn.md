@@ -51,3 +51,19 @@ which sanitises it like a join. Every roster follows within a snapshot. This hol
   checks the water entry and fails until the bot's edge avoidance is fixed.
 - Browser helpers drive the new screens by `data-item` ids; the shell drives (`menus`, `pseudo`, `display`,
   `content`) go through the new tree.
+
+## Addendum 2026-11-27: grunge look, new art, operator icons
+
+Elaina supplied new title and menu art (ASSET_LOG A-0023) and asked for a grungier, less cartoony look:
+
+- The title screen is `title_burst.webp`, full bleed. Menus sit on the worn-metal art, darkened: `bg_metal` on
+  home, `bg_plate` elsewhere. Loading screens alternate between `load_flames` and `load_barrel`, and the PLAY tile
+  shows a logo-free crop of the flames.
+- Plates are gunmetal with grain, scratches and cut corners; type is cream and italic, like the logo; focus and
+  picks use the art's hot pink rim light. The drawn map pictures and operator icons are graded and grained toward
+  the same look.
+- Art URLs are set from code as absolute URLs. A relative `url()` inside a CSS custom property resolves against
+  the built stylesheet in `dist/assets/` and 404s; the smoke drives caught this.
+- Every operator has a flat head-and-shoulders icon drawn from its real model (`operatorIcons.ts`). Four operators
+  are renamed: Viking, Samurai, Black Ops, Black Widow. Their ids are unchanged.
+- Release check: `load_barrel` closely resembles the Bond gunbarrel opening (see A-0023).

@@ -25,7 +25,9 @@ import { settingsScreen } from "./settingsScreen";
 import { Menu, buttonItem, el, glyph, glyphText, tl, val } from "./ui";
 
 // ---- Tunables ----------------------------------------------------------------
-const LOADING_MIN_S = 0.6; // the bar is visible at least this long (no flash of a loading screen)
+const LOADING_MIN_S = 0.6;
+const LOADING_ART = ["load_flames.webp", "load_barrel.webp"]; // public/assets/ui/, shown in turn (ASSET_LOG A-0023)
+let loadingTurn = 0; // the bar is visible at least this long (no flash of a loading screen)
 const CREDITS_SPEED = 24; // pixels per second of auto-scroll (0 with reduce motion)
 const HUD_ACTIONS = ["move_left", "move_right", "jump", "attack", "interact", "pause"];
 
@@ -65,9 +67,11 @@ export function boot(shell: Shell): Screen {
 
 export function title(shell: Shell): Screen {
   const s = built("title", "", (root) => {
-    // Yeetpowder: the logo art is the title screen (letterboxed on its own near-black, never cropped); the game's
-    // name is the screen's aria-label for screen readers. Art: public/assets/ui/title_logo.jpg (docs/ASSET_LOG.md A-0002).
-    root.style.background = "#0e0c0a url(assets/ui/title_logo.jpg) center / contain no-repeat";
+    // Yeetpowder: the logo art is the title screen, full bleed (the logo sits in the middle, so a crop at the edges
+    // only loses flame); the game's name is the screen's aria-label for screen readers.
+    // Art: public/assets/ui/title_burst.webp (docs/ASSET_LOG.md A-0023, Elaina 2026-11-27).
+    root.style.background = "#14030b url(assets/ui/title_burst.webp) center / cover no-repeat";
+    root.classList.add("yp-title");
     root.style.alignItems = "flex-end";
     const col = el("div", "");
     col.style.textAlign = "center";
@@ -160,7 +164,9 @@ export function loading(shell: Shell, key: GameKey): Screen {
   let loaded = 0;
   let started = false;
   let created = false;
-  const s = built("loading", "dim", (root) => {
+  const s = built("loading", "yp-loading", (root) => {
+    // full-bleed art behind the bar, one of two pictures in turn (A-0023)
+    root.style.backgroundImage = `url(assets/ui/${LOADING_ART[loadingTurn++ % LOADING_ART.length]})`;
     const p = panel("narrow");
     const bar = el("div", "bar");
     fill = el("div", "fill");

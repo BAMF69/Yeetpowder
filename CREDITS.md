@@ -66,7 +66,7 @@
 
 - Atkinson Hyperlegible, Copyright 2020 Braille Institute of America, Inc. (SIL Open Font License 1.1) (license: OFL-1.1; source: https://github.com/googlefonts/atkinson-hyperlegible)
 
-## Logo / title art
+## Logo / title art (RETIRED 2026-11-27: superseded by A-0023 bg_metal.webp, the same design)
 
 - none (license: Own work; check OpenAI's terms for commercial use before release; source: Made by Elaina the Great with ChatGPT image generation (2026-11-19); made with AI assistance (pre-generated); modified)
 
@@ -97,3 +97,7 @@
 ## Tileable terrain PBR textures (5 materials, 15 JPG maps)
 
 - Terrain textures from Poly Haven (https://polyhaven.com), CC0 1.0. (license: CC0 1.0 Universal; docs/licenses/CC0-1.0.txt; source: https://polyhaven.com/a/aerial_sand ; https://polyhaven.com/a/rock_face_03 ; https://polyhaven.com/a/asphalt_03 ; https://polyhaven.com/a/corrugated_iron ; https://polyhaven.com/a/concrete_floor; modified)
+
+## Title, menu and loading art (5 images, 1672x941 WebP)
+
+- none (license: Own work as stated by the developer; confirm the generator and its commercial terms before release; source: Supplied by Elaina the Great in chat, 2026-11-27 (from their Pictures/Yeetpowder folder); made with AI assistance (pre-generated); modified)
