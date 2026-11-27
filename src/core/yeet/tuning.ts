@@ -100,8 +100,12 @@ export const TUNING = {
     spinDamping: 3.2,
     maxPitch: 1.55,
     hp: 100,
-    /** Seconds from being knocked out to respawning (Fight Back). */
+    /** Seconds the knockout tumble lasts (the third-person camera watches you fly). */
     respawnDelay: 2.2,
+    /** Seconds after a knockout before the respawn screen's SPAWN works (Elaina, 2026-11-26). Bots spawn then. */
+    respawnUnlock: 10,
+    /** Seconds after a knockout when you respawn anyway, if you never pressed SPAWN. */
+    respawnAuto: 30,
   },
 
   bonk: {

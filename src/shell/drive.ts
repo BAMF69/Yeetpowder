@@ -56,6 +56,7 @@ import type { GameKey } from "./host";
 import { MAX_SLIDER_STEPS, MENU_TARGET, slideAction } from "./driveLogic";
 import { SETTINGS_FILE } from "./meta";
 import { TABS } from "./settingsScreen";
+import { GridMenu } from "./menuKit";
 import { glyphText } from "./ui";
 
 // ---- Tunables ----------------------------------------------------------------
@@ -117,7 +118,40 @@ class Driver {
     const menu = this.shell.top?.menu;
     if (!menu || !menu.items.some((i) => i.id === id)) throw new Error(`no item "${id}" on screen "${this.shell.topId}"`);
     for (let n = 0; n <= menu.items.length && menu.focused?.id !== id; n++) await this.press("ui_down");
+    // a tile grid (GridMenu) moves spatially, so ui_down alone may never reach a tile: focus it by id
+    // (spatial moves have their own test, tests/spatialNav.test.ts)
+    if (menu.focused?.id !== id && menu instanceof GridMenu) menu.focusId(id);
     if (menu.focused?.id !== id) throw new Error(`could not focus "${id}"`);
+  }
+
+  /** Home -> Settings tile -> the settings hub -> a tab tile (iconMenus.ts, 2026-11-26). */
+  async openSettings(): Promise<void> {
+    await this.choose("menu", "settings");
+    await this.choose("settings-hub", "sound");
+    await this.screen("settings");
+  }
+
+  /** Home -> Settings -> Credits. */
+  async openCredits(): Promise<void> {
+    await this.choose("menu", "settings");
+    await this.choose("settings-hub", "credits");
+    await this.screen("credits");
+  }
+
+  /** Home -> Solo -> Fight Back (the old menu's Play). */
+  async playFightBack(): Promise<void> {
+    await this.choose("menu", "solo");
+    await this.choose("solo", "fight");
+  }
+
+  /** Back (ui_cancel) until the home screen, through any hub on the way; a no-op on the home screen. */
+  async backToMenu(): Promise<void> {
+    for (let n = 0; n < 3 && this.shell.topId !== "menu"; n++) {
+      await waitFor("a screen", () => !!this.shell.top);
+      await frames(STEP_FRAMES);
+      if (this.shell.topId !== "menu") await this.press("ui_cancel");
+    }
+    await this.screen("menu");
   }
 
   async choose(screen: string, id: string): Promise<void> {
@@ -167,8 +201,7 @@ class Driver {
   /** Main menu -> settings -> Display, with the mode staged one step on (not applied). */
   async stagedMode(): Promise<void> {
     await this.toMenu();
-    await this.choose("menu", "menu.settings");
-    await this.screen("settings");
+    await this.openSettings();
     await this.tab("display");
     await this.focus("display.mode");
     await this.press("ui_right");
@@ -194,28 +227,24 @@ class Driver {
 
 async function menus(shell: Shell, d: Driver): Promise<void> {
   await d.toMenu();
-  await d.choose("menu", "menu.settings");
-  await d.screen("settings");
+  await d.openSettings();
   await d.tab("audio");
   await d.slideTo("audio.master", () => shell.settings.audio.master, MENU_TARGET.master);
   await d.tab("access");
   await d.setValue("access.reduce_motion", () => shell.settings.access.reduce_motion, MENU_TARGET.reduceMotion, "ui_right");
   await d.press("ui_cancel"); // back saves
-  await d.screen("menu");
+  await d.backToMenu();
   const { settings, problems } = settingsLoad(shell.store.read(SETTINGS_FILE));
   if (problems.length || slideAction(settings.audio.master, MENU_TARGET.master) || settings.access.reduce_motion !== MENU_TARGET.reduceMotion) {
     throw new Error(`${SETTINGS_FILE} does not hold the new values (master ${settings.audio.master}, reduce_motion ${settings.access.reduce_motion})`);
   }
-  await d.choose("menu", "menu.quit");
-  await d.screen("quit");
 }
 
 // content (#171, #207): Blood and Clean language toggled from their rows with ui_right; the focus stays on the row,
 // the row shows its new value, clean language reaches the translator, and Back saves both
 async function content(shell: Shell, d: Driver): Promise<void> {
   await d.toMenu();
-  await d.choose("menu", "menu.settings");
-  await d.screen("settings");
+  await d.openSettings();
   await d.tab("access");
   const rows: [string, () => boolean][] = [
     ["content.clean_language", () => shell.settings.content.clean_language],
@@ -236,14 +265,12 @@ async function content(shell: Shell, d: Driver): Promise<void> {
     Log.info("drive", `DRIVE_CONTENT ${id} ${before} -> ${read()}, focus kept, the row shows ${shown}`);
   }
   await d.press("ui_cancel"); // back saves
-  await d.screen("menu");
+  await d.backToMenu();
   const { settings } = settingsLoad(shell.store.read(SETTINGS_FILE));
   if (settings.content.clean_language !== wanted["content.clean_language"] || settings.content.blood !== wanted["content.blood"]) {
     throw new Error(`${SETTINGS_FILE} does not hold the switches (${JSON.stringify(settings.content)})`);
   }
   Log.info("drive", `DRIVE_CONTENT saved ${JSON.stringify(settings.content)}`);
-  await d.choose("menu", "menu.quit");
-  await d.screen("quit");
 }
 
 async function display(shell: Shell, d: Driver): Promise<void> {
@@ -293,14 +320,14 @@ async function display(shell: Shell, d: Driver): Promise<void> {
   await d.press("ui_right");
   await d.press("ui_cancel");
   await d.press("ui_cancel");
-  await d.screen("menu");
+  await d.backToMenu();
   if (shell.settings.display.mode !== before) throw new Error(`the discarded change was applied (mode ${shell.settings.display.mode})`);
   Log.info("drive", "DRIVE_DISPLAY discarded");
 }
 
 async function crash(shell: Shell, d: Driver): Promise<void> {
   await d.toMenu();
-  await d.choose("menu", "menu.play");
+  await d.playFightBack();
   await d.screen("play");
   shell.plantedCrash = true; // the play world throws in its next update; the crash hook logs DRIVE_DONE crash
   await waitFor("the crash screen", () => shell.topId === "crash");
@@ -325,10 +352,9 @@ async function pseudoSteps(shell: Shell, d: Driver): Promise<void> {
   await d.pastConsent();
   await d.pseudoWait();
   await d.press("ui_accept");
-  await d.screen("menu");
+  await d.backToMenu();
   await d.pseudoWait();
-  await d.choose("menu", "menu.settings");
-  await d.screen("settings");
+  await d.openSettings();
   for (const t of TABS) {
     await d.tab(t);
     await d.pseudoWait();
@@ -355,14 +381,13 @@ async function pseudoSteps(shell: Shell, d: Driver): Promise<void> {
   await d.press("ui_accept");
   await d.toastsGone();
   await d.press("ui_cancel"); // back saves: the "saved" toast is checked on the menu, then left to go
-  await d.screen("menu");
+  await d.backToMenu();
   await d.pseudoWait();
   await d.toastsGone();
-  await d.choose("menu", "menu.credits");
-  await d.screen("credits");
+  await d.openCredits();
   await d.pseudoWait();
   await d.press("ui_cancel");
-  await d.screen("menu");
+  await d.backToMenu();
   await d.game("juice");
   shell.subtitles.say("demo.welcome");
   shell.subtitles.finish(); // a line still typing is skipped by the check: check the whole line once more
@@ -373,15 +398,12 @@ async function pseudoSteps(shell: Shell, d: Driver): Promise<void> {
   await d.pseudoWait();
   await d.choose("pause", "pause.quit");
   await d.toMenu();
-  await d.choose("menu", "menu.play"); // the loading screen is checked on the way
+  await d.playFightBack(); // the loading screen is checked on the way
   await d.screen("play");
   await d.pseudoWait();
   await d.press("pause");
   await d.choose("pause", "pause.quit");
   await d.toMenu();
-  await d.choose("menu", "menu.quit");
-  await d.screen("quit");
-  await d.pseudoWait();
 }
 
 async function show(shell: Shell, d: Driver, what: string): Promise<void> {
@@ -391,15 +413,13 @@ async function show(shell: Shell, d: Driver, what: string): Promise<void> {
       break;
     case "settings":
       await d.toMenu();
-      await d.choose("menu", "menu.settings");
-      await d.screen("settings");
+      await d.openSettings();
       await d.tab("audio");
       await d.focus("audio.master"); // a control with visible focus
       break;
     case "content":
       await d.toMenu();
-      await d.choose("menu", "menu.settings");
-      await d.screen("settings");
+      await d.openSettings();
       await d.tab("access");
       await d.focus("content.clean_language"); // the last row: the list scrolls it into view
       break;
@@ -432,8 +452,7 @@ async function show(shell: Shell, d: Driver, what: string): Promise<void> {
       break;
     case "credits": {
       await d.toMenu();
-      await d.choose("menu", "menu.credits");
-      await d.screen("credits");
+      await d.openCredits();
       shell.settings.access.reduce_motion = true; // the text stands still (this run's own settings, never saved)
       const box = shell.top?.root.querySelector<HTMLElement>(".credits");
       if (box) box.scrollTop = 0; // the first lines in view
@@ -502,10 +521,9 @@ async function access(shell: Shell, d: Driver, options: string): Promise<void> {
   await report(shell, d, shell.topId);
   await d.pastConsent();
   await d.press("ui_accept");
-  await d.screen("menu");
+  await d.backToMenu();
   await report(shell, d, "main_menu");
-  await d.choose("menu", "menu.settings");
-  await d.screen("settings");
+  await d.openSettings();
   for (const t of TABS) {
     await d.tab(t);
     await report(shell, d, "settings/" + t);
@@ -519,13 +537,12 @@ async function access(shell: Shell, d: Driver, options: string): Promise<void> {
     }
   }
   await d.press("ui_cancel");
-  await d.screen("menu");
+  await d.backToMenu();
   await d.toastsGone();
-  await d.choose("menu", "menu.credits");
-  await d.screen("credits");
+  await d.openCredits();
   await report(shell, d, "credits");
   await d.press("ui_cancel");
-  await d.screen("menu");
+  await d.backToMenu();
   await d.game("juice");
   shell.subtitles.say("demo.welcome");
   shell.subtitles.finish();

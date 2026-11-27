@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { shell } from "../shell/app";
 import { Log } from "../core/log";
 import { couchViews, type CouchFrame } from "../core/yeet/couch";
-import { YeetSim, type TaggedEvent } from "../core/yeet/sim";
+import { YeetSim, downFor, type TaggedEvent } from "../core/yeet/sim";
 import { TUNING } from "../core/yeet/tuning";
 import { firearmId } from "../core/yeet/tuning";
 import { equipmentStatus } from "../core/yeet/equipment";
@@ -31,7 +31,8 @@ import { loadMeshyArt, operativeArt, ART_WEAPONS } from "./yeet/meshyArt";
 import { MatchReplay, followCamera } from "./yeet/matchReplay";
 import { RemoteBuffer, INTERP_MS } from "./net/remote";
 import { GrenadeGuide } from "./yeet/grenadeGuide";
-import { localProfile } from "./playerProfile";
+import { localProfile, saveProfile } from "./playerProfile";
+import { CouchRespawnBadge } from "./respawnScreen";
 import { OPERATORS, type PlayerProfile } from "../net/profile";
 
 export class ArenaWorld implements World {
@@ -55,6 +56,8 @@ export class ArenaWorld implements World {
   private readonly toolbar = document.createElement("div");
   private toolbarTitle: HTMLDivElement | null = null;
   private readonly cards: HTMLDivElement[] = [];
+  /** Couch: one respawn badge per local player's view (respawnScreen.ts). */
+  private readonly badges: CouchRespawnBadge[] = [];
   private readonly cinema: MatchReplay;
   private readonly sound = new YeetSound();
   private readonly fx: Effects;
@@ -120,6 +123,7 @@ export class ArenaWorld implements World {
       const cross = document.createElement("span"); cross.textContent = "+"; cross.style.cssText = "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:24px monospace";
       const card = document.createElement("div"); card.dataset.player = String(i + 1); card.style.cssText = "position:absolute;bottom:8px;left:10px;padding:6px;background:#141822cc;border-radius:6px;white-space:pre-line";
       region.append(cross, card); this.cards.push(card); this.hud.append(region);
+      this.badges.push(new CouchRespawnBadge(region, shell.i18n));
     });
     this.toolbar.style.cssText = "position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:50;padding:10px;background:#141822e8;border:2px solid #ffd84a;border-radius:12px;color:white;font:16px system-ui;text-align:center;max-height:85vh;overflow:auto";
     document.body.append(this.toolbar);
@@ -161,10 +165,16 @@ export class ArenaWorld implements World {
         this.connected[i] = connected;
         if (f.pause) shell.pauseGame();
         const p = this.sim.players[i];
+        // knocked out: A spawns (once it unlocks; the sim decides), LB / RB switch operator instead of weapon
+        if (p.dead > 0 && p.dead <= TUNING.player.respawnAuto && p.sharkT === 0) {
+          if (f.input.jump) f.input.spawn = true;
+          if (f.cycle) this.couchOperator(i, f.cycle);
+          f.cycle = 0;
+        }
         if (f.cycle) f.input.select = TUNING.weaponOrder.indexOf(p.owned[(p.owned.indexOf(p.weapon) + f.cycle + p.owned.length) % p.owned.length]);
         const old = this.pending[i];
         this.pending[i] = old ? { ...f, dYaw: old.dYaw + f.dYaw, dPitch: old.dPitch + f.dPitch, input: { ...f.input,
-          jump: old.input.jump || f.input.jump, firePressed: old.input.firePressed || f.input.firePressed,
+          jump: old.input.jump || f.input.jump, spawn: old.input.spawn || f.input.spawn, firePressed: old.input.firePressed || f.input.firePressed,
           reload: old.input.reload || f.input.reload, heal: old.input.heal || f.input.heal, slash: old.input.slash || f.input.slash,
           select: f.input.select >= 0 ? f.input.select : old.input.select } } : f;
       });
@@ -173,7 +183,7 @@ export class ArenaWorld implements World {
         this.acc -= TUNING.step;
         this.pending.forEach((f, i) => {
           this.room!.push(i, [{ ...f.input, seq: ++this.seq[i], dYaw: f.dYaw, dPitch: f.dPitch }]);
-          this.pending[i] = { ...f, dYaw: 0, dPitch: 0, input: { ...f.input, jump: false, firePressed: false, reload: false, heal: false, slash: false, select: -1 } };
+          this.pending[i] = { ...f, dYaw: 0, dPitch: 0, input: { ...f.input, jump: false, spawn: false, firePressed: false, reload: false, heal: false, slash: false, select: -1 } };
         });
         this.room.step(); this.active = this.room.active;
         const snap = this.room.snapshot(); for (const e of snap.events) this.event(e);
@@ -202,6 +212,8 @@ export class ArenaWorld implements World {
       const speed = Math.hypot(p.vel.x, p.vel.y, p.vel.z);
       this.cards[i].textContent = `${this.profile(i).name} · ${this.sim.kos[i]} KOs · Tab scores\n${TUNING.weapons[p.weapon].name} · ${p.mag[firearmId(p.weapon)]}/${TUNING.weapons[firearmId(p.weapon)].mag} · ${this.sim.level.infiniteHp ? "HP ∞" : "HP " + Math.ceil(p.hp)}${this.room!.options.mode === "lives" ? " · " + this.match.lives[i] + " lives" : ""}\n${speed.toFixed(1)} yeters per second${!this.connected[i] ? " · Connect controller " + (i + 1 - Number(this.controls!.keyboard)) : ""}${p.sharkT > 0 ? " · SHARK APPROACHING!" : p.dead > 0 ? " · KNOCKED OUT" : ""}`;
       this.cards[i].textContent += "\n" + equipmentStatus(p);
+      const down = p.dead > 0 && p.dead <= TUNING.player.respawnAuto && p.sharkT === 0;
+      this.badges[i]?.update(down ? { downFor: downFor(p, TUNING), killer: this.lastKiller[i] ?? "", operator: this.profile(i).operator } : null);
     });
     else this.spectatorCamera();
   }
@@ -230,6 +242,7 @@ export class ArenaWorld implements World {
   }
   private event(e: TaggedEvent): void {
     if (e.type === "sharkApproach") this.props.shark(e.at);
+    if (e.type === "pvpDown") this.lastKiller[e.target] = this.profile(e.by).name;
     if (e.type === "pvpDown") { this.killBanner.textContent = `${this.profile(e.by).name} KNOCKED OUT ${this.profile(e.target).name}`; this.killUntil = performance.now() + 2200; this.sound.play("ko"); }
     if (e.type === "blast" || e.type === "explode") {
       this.fx.explosion(new THREE.Vector3(e.at.x, e.at.y, e.at.z), e.type === "blast" ? e.radius : 4);
@@ -249,6 +262,16 @@ export class ArenaWorld implements World {
     for (let i = 0; i < this.active.length; i++) { this.target = (this.target + dir + this.active.length) % this.active.length; if (this.active[this.target]) break; }
     this.overview = false; this.showToolbar();
   }
+  /** Couch: a knocked-out player's LB / RB steps their operator (player 1 on keyboard also saves it). */
+  private couchOperator(i: number, d: number): void {
+    const ids = Object.keys(OPERATORS) as PlayerProfile["operator"][];
+    const cur = this.profile(i);
+    const next = { ...cur, operator: ids[(ids.indexOf(cur.operator) + d + ids.length) % ids.length] };
+    this.room?.setProfile(i, next);
+    if (i === 0 && this.controls?.keyboard) saveProfile(next);
+  }
+  private readonly lastKiller: string[] = [];
+
   private profile(i: number): PlayerProfile { return this.room?.profiles[i] ?? this.session?.latest?.profiles?.[i] ?? { name: `Player ${i + 1}`, operator: "navy" }; }
   private spectatorCamera(): void {
     if (!this.active[this.target]) this.cycle(1);

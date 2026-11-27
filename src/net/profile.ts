@@ -7,13 +7,13 @@ export const OPERATORS = {
   "camo-soldier": { name: "Camo Soldier", color: "#d0dae6" },
   "field-survivor-4000": { name: "Field Survivor", color: "#d0dae6" },
   "ninja": { name: "Ninja", color: "#d0dae6" },
-  "samurai-titan": { name: "Samurai Titan", color: "#d0dae6" },
-  "samurai-warrior": { name: "Samurai Warrior", color: "#d0dae6" },
-  "shadow-vanguard": { name: "Shadow Vanguard", color: "#d0dae6" },
+  "samurai-titan": { name: "Viking", color: "#d0dae6" },
+  "samurai-warrior": { name: "Samurai", color: "#d0dae6" },
+  "shadow-vanguard": { name: "Black Ops", color: "#d0dae6" },
   "soldier": { name: "Soldier", color: "#d0dae6" },
   "t-pose-robot": { name: "Robot", color: "#d0dae6" },
   "tactical-operator": { name: "Tactical Operator", color: "#d0dae6" },
-  "tactical-shadow-4000": { name: "Tactical Shadow", color: "#d0dae6" },
+  "tactical-shadow-4000": { name: "Black Widow", color: "#d0dae6" },
 } as const;
 export type OperatorId = keyof typeof OPERATORS;
 export interface PlayerProfile { name: string; operator: OperatorId }

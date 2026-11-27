@@ -3,9 +3,44 @@
 > Rewritten at the end of every session by `/end-session`. Read first by `/start-session`.
 > Keep under ~60 lines. It is a baton, not a diary.
 
-**Last updated:** 2026-11-25
-**Branch / commit:** codex/art-integration at 9284a6c, with an uncommitted integration of main 6983335 and the continuation below
+**Last updated:** 2026-11-27 (follow-up: art and grunge pass)
+**Branch / commit:** claude/nifty-faraday-7l1db4 (cloud session), pushed; built on main 862f84e
 **Engine version:** see `docs/ENGINE.md`
+
+## This session: icon menus and the respawn screen (ADR 0008)
+- Elaina approved the clickable mockup `docs/mockups/menu-redesign.html`, then set the rules: SPAWN unlocks 10 s
+  after a knockout, auto-respawn at 30 s, name and operator changeable any time (online too), one word per icon.
+- Menus: `src/shell/iconMenus.ts` (Home: Play, Party, Solo, Couch, Settings, Operator; no screen over six choices),
+  `menuKit.ts` (GridMenu + spatial d-pad nav), `icons.ts`, `roomSetup.ts` rules, `launch.ts`. Old dropdown form and
+  profile form deleted; deep links (?quick, ?online&room, ?couch, ?make-room) open the new screens.
+- Respawn: `TUNING.player.respawnUnlock/respawnAuto`, `YeetInput.spawn`, `{t:"profile"}` -> `Room.setProfile`;
+  overlay `src/game/respawnScreen.ts` (YeetWorld) and per-player couch badges (ArenaWorld).
+- Verified: check (types + 11 shaders); 573/574 tests; smoke boot and drives menus, content, display, pseudo
+  (--locale pseudo --timeout 120: 35 screens, nothing truncated); pseudo-plant fails only on its planted label (as
+  designed). Browser helpers updated and passing: operator, couch, solo playtest; party passed 2 of 4 runs.
+  Own checks: phone-landscape/portrait stills of every menu, a full respawn flow (early press ignored, operator
+  change reaches the room roster, spawn after unlock, no pause) and couch pad flow (RB operator, A spawn).
+- Known failing: `tests/soloPlaytest.test.ts` island-edge bot test. The bot already walked into the water before this
+  session; the old 2.2 s respawn hid it. A separate task was suggested for the bot fix.
+- Intermittent: `tools/test_party_browser.mjs`. Suspected: a bot knocks out the joining client and the respawn screen
+  hides the room card's Players button (by design while down). Not confirmed.
+- Not verified: feel with humans (is 10 s too long?), real phone touch on the new menus and the respawn screen, real
+  gamepads, GPU frame time. Map tiles are drawn SVG stand-ins, not renders of the maps.
+- Cloud container notes: Git LFS assets needed `git lfs pull`; Playwright wanted browser build 1248, linked to the
+  installed 1243 under /opt/pw-browsers (container only, nothing in the repo).
+
+## 2026-11-27 follow-up
+- Merged the Shark Island bot fix (claude/nifty-carson-za2ptt); the island test now starts on the shore. 588/588 tests.
+- Operator icons (`src/shell/operatorIcons.ts`) and renames (Viking, Samurai, Black Ops, Black Widow).
+- Grunge pass with Elaina's new art (A-0023): title_burst title, metal menu backdrops, flames/barrel loading screens.
+  Verified: check, 588 tests, smoke boot plus the menus and pseudo drives on the production build. Stills:
+  captures/progress/mk-00-title, mk-01-home, mk-03-make, mk-06-bots, mk-11-loading-1, rs-02-ready.
+- Title is title_metal (Elaina's pick); title_burst joined the loading rotation. Art made with Codex imagegen (A-0023).
+  Open: load_barrel looks like the Bond gunbarrel opening: decide before release. Map tiles are still drawn stand-ins.
+
+## Next step (specific, first action)
+- Elaina plays the new menus on a phone and a laptop and dies a few times: is the respawn wait right, are any
+  icons unclear? Then `/playtest-report` and tune `TUNING.player.respawnUnlock` / the icons one change at a time.
 
 ## Current art/gameplay continuation
 - Work in `C:/Users/shane/Documents/Claude/Yeetpowder/build/art-integration`. Shane confirmed the parent checkout as his gameplay checkout; its tracked files and untracked art/shopping work are preserved. The main merge is prepared without a commit; props.ts import conflict was resolved keeping projectile previews and static batching. Do not reset this worktree to clear the pending merge.
@@ -30,7 +65,7 @@ The toy is playable (Toy tier, nothing committed yet for it). One gray-box room:
 - 2026-11-21: moved to the Vertical slice tier ("Move on anyway", no recorded 2-minute playtest). Slice brief agreed (docs/VERTICAL_SLICE.md Decisions). Gunblades first build is in (keys 5/6, F slash; Sandbox has both, Fight Back has them as pickups on the flanks). Hold-F moves added (TUNING.reaper.hook/yeetreap, TUNING.sakura.dash/ultra). Next: Elaina plays them; poses (reversed blade, hook) are not yet checked in a still.
 - ROADMAP Now: playtest and tune the toy.
 
-## Next step (specific, first action)
+## Earlier next step (historical)
 - Elaina plays it (`python tools/dev.py run`, click to lock the mouse) and pastes notes; run `/playtest-report`, then tune `src/core/yeet/tuning.ts` one change at a time.
 
 ## Open questions / decisions pending

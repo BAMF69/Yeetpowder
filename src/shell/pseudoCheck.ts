@@ -32,6 +32,9 @@ function intersects(a: DOMRect, b: { left: number; right: number; top: number; b
 
 /** On screen, not hidden, and not scrolled out of view inside a scroll box. */
 function visible(e: HTMLElement): boolean {
+  // screen-reader-only text (data-sr: the icon menus' hidden labels) is never drawn, so it cannot be clipped;
+  // it still goes through the translator, so the untranslated-text check still sees it
+  if (e.closest("[data-sr]")) return false;
   const r = e.getBoundingClientRect();
   if (r.width <= 0 || r.height <= 0) return false;
   const st = getComputedStyle(e);
