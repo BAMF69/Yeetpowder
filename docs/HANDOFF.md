@@ -36,7 +36,7 @@
   Verified: check, 588 tests, smoke boot plus the menus and pseudo drives on the production build. Stills:
   captures/progress/mk-00-title, mk-01-home, mk-03-make, mk-06-bots, mk-11-loading-1, rs-02-ready.
 - Title is title_metal (Elaina's pick); title_burst joined the loading rotation. Art made with Codex imagegen (A-0023).
-  Open: load_barrel looks like the Bond gunbarrel opening: decide before release. Map tiles are still drawn stand-ins.
+  load_barrel stays as a 007 homage (Elaina's call). Map tiles are still drawn stand-ins.
 
 ## Next step (specific, first action)
 - Elaina plays the new menus on a phone and a laptop and dies a few times: is the respawn wait right, are any
