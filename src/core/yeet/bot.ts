@@ -26,6 +26,7 @@
 //   steer: goal direction -> wall probes -> WASD relative to where it faces; jump low obstacles
 
 import { rayArena } from "./arena";
+import { bodyLanding, shotLanding, solidGround } from "./botFooting";
 import { NO_INPUT, type PlayerState, type YeetInput, type YeetSim } from "./sim";
 import type { Tuning, WeaponId } from "./tuning";
 import type { Vec3 } from "./vec";
@@ -169,7 +170,7 @@ export class BotBrain {
       look = { yaw: this.launch.yaw, pitch: LAUNCH_PITCH };
       const lined = Math.abs(wrap(look.yaw - pl.yaw)) < LAUNCH_ALIGN && Math.abs(look.pitch - pl.pitch) < LAUNCH_ALIGN;
       if (lined && pl.weapon === "shotgun" && pl.cooldown <= 0 && pl.mag.shotgun > 0 && pl.reloading === 0 && pl.onGround) {
-        input.firePressed = true;
+        input.firePressed = true; // over water, the footing check below can still call it off
         this.launch = null;
       } else if (now > this.launch.until) {
         this.launch = null;
@@ -223,17 +224,23 @@ export class BotBrain {
     }
     // Retreat and strafe are checked in world space too: backing away from an enemy must not mean backing into water.
     if (sim.level.water && pl.onGround) {
-      const safe = (x: number, z: number) => sim.arena.boxes.some((b) => b.max.y >= sim.level.water!.y + 0.2 && b.max.y <= pl.pos.y + 0.7 && b.min.x <= x - 0.6 && b.max.x >= x + 0.6 && b.min.z <= z - 0.6 && b.max.z >= z + 0.6);
+      const safe = (x: number, z: number) => solidGround(sim, x, z, pl.pos.y + 0.7);
       const yaw = pl.yaw + dYaw, fx = -Math.sin(yaw), fz = -Math.cos(yaw);
       const dx = Math.cos(yaw) * input.moveX + fx * input.moveZ, dz = -Math.sin(yaw) * input.moveX + fz * input.moveZ;
       if (!safe(pl.pos.x + dx * 2.5 + pl.vel.x * 0.25, pl.pos.z + dz * 2.5 + pl.vel.z * 0.25)) {
         const retreat = sim.level.spawns?.filter((p) => safe(p.x, p.z)).sort((a, b) => Math.hypot(a.x - pl.pos.x, a.z - pl.pos.z) - Math.hypot(b.x - pl.pos.x, b.z - pl.pos.z))[0] ?? sim.level.spawn;
-        const keys = keysFor(retreat.x - pl.pos.x, retreat.z - pl.pos.z, yaw);
+        // a unit direction: keysFor clamps each key, so a raw 10 m delta would skew toward where it faces
+        const rx = retreat.x - pl.pos.x, rz = retreat.z - pl.pos.z, rd = Math.max(1e-6, Math.hypot(rx, rz));
+        const keys = keysFor(rx / rd, rz / rd, yaw);
         input.moveX = keys.moveX; input.moveZ = keys.moveZ; input.sprint = false; input.jump = false;
+        // Still sliding above run speed? Keys there only air-steer (and add speed), so it cannot turn: let go and
+        // friction drops it to walking speed in a step, where the feet stop it at once (sim.ts move).
+        if (Math.hypot(pl.vel.x, pl.vel.z) > this.t.player.runSpeed) { input.moveX = 0; input.moveZ = 0; }
         // A recoil-heavy shot near the edge can be as dangerous as walking backwards.
         input.firePressed = false; input.fireHeld = false; this.launch = null;
       }
     }
+    if (sim.level.water) this.keepFooting(sim, pl, input, pl.yaw + dYaw, pl.pitch + dPitch);
 
     this.debug.state = this.state;
     this.debug.target = target;
@@ -242,6 +249,24 @@ export class BotBrain {
     if (pl.weapon === "shield") input.aiming = false; // offensive shield use is the hip Pea Pistol
     input.heal = pl.hp < this.t.player.hp && pl.healthUses > 0 && pl.healCooldown === 0 && pl.healing === 0;
     return { input, dYaw, dPitch };
+  }
+
+  /**
+   * On a level with water: drop a jump or shot whose motion would end in the sea (botFooting.ts). The jump is
+   * judged first; a shot on the same step is then an air shot (the sim jumps before it shoots), with air recoil.
+   */
+  private keepFooting(sim: YeetSim, pl: PlayerState, input: YeetInput, yaw: number, pitch: number): void {
+    const jumpVel = { ...pl.vel, y: Math.max(pl.vel.y, this.t.player.jumpSpeed) };
+    // A hop while still sliding fast (after a shot's kick) turns friction's stop into a flight off the shore.
+    if (input.jump && pl.onGround && !bodyLanding(sim, pl.pos, jumpVel, false)) input.jump = false;
+    const jumping = input.jump && pl.onGround;
+    // Any shot (a launch, recoil away from an enemy inland, a mid-air shot's doubled kick) must leave it on land.
+    if ((input.firePressed || input.fireHeld) && !shotLanding(sim, pl.pos, jumping ? jumpVel : pl.vel, yaw, pitch,
+      pl.weapon, input.aiming, pl.onGround && !jumping)) {
+      input.firePressed = false;
+      input.fireHeld = false;
+      this.launch = null;
+    }
   }
 
   // ---- perception ------------------------------------------------------------------
