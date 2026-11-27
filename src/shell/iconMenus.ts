@@ -25,6 +25,7 @@ import { OPERATORS, playerProfile, type OperatorId } from "../net/profile";
 import { localProfile, saveProfile } from "../game/playerProfile";
 import { cleanCode } from "../net/protocol";
 import { OPERATOR_IDS, livePortrait } from "./portrait";
+import { operatorIcon } from "./operatorIcons";
 
 type Build = (root: HTMLElement, m: GridMenu, s: Screen) => void;
 
@@ -56,8 +57,6 @@ type Preview = { select(id: OperatorId): void; dispose(): void };
 // ---- home -------------------------------------------------------------------------------------------------
 /** extras(root) runs after every redraw (the version corner, the pseudo-plant label): a redraw clears the root. */
 export function home(shell: Shell, extras: (root: HTMLElement) => void = () => {}): Screen {
-  let portrait: { get(): Preview | undefined } | undefined;
-  let open = true;
   const i = shell.i18n;
   const s = mkScreen("menu", (root, m) => {
     const logo = el("div", "mk-logo");
@@ -70,7 +69,7 @@ export function home(shell: Shell, extras: (root: HTMLElement) => void = () => {
       tile(m, i, { id: "couch", icon: "couch", label: "mk.couch", accept: () => shell.push(couchHub(shell)) }).el,
       tile(m, i, { id: "settings", icon: "gear", label: "mk.settings", accept: () => shell.push(settingsHub(shell)) }).el,
     );
-    // the operator tile shows who you are now: a live portrait, the operator's name, your name
+    // the operator tile shows who you are now: the operator's icon, its name, your name
     const profile = localProfile();
     const op = tile(m, i, { id: "operator", label: "mk.operator", accept: () => shell.push(operatorScreen(shell)) });
     sr(op.el.querySelector<HTMLElement>(".mk-word")!).classList.add("mk-hidden-label");
@@ -78,14 +77,12 @@ export function home(shell: Shell, extras: (root: HTMLElement) => void = () => {
     op.el.prepend(pic);
     op.el.append(val(OPERATORS[profile.operator].name, "mk-opname", "operator.name"), val(profile.name, "mk-sub", "player.name"));
     grid.append(op.el);
-    portrait?.get()?.dispose();
-    portrait = livePortrait(pic, profile.operator, shell.params.has("noart"), () => open);
+    pic.append(operatorIcon(profile.operator, "op-icon mk-opicon"));
     root.append(logo, grid);
     extras(root);
   }, {
     cancel: () => shell.reset(title(shell)),
-    enter: () => { open = true; s.render?.(); }, // back from the operator screen: show the new pick
-    leave: () => { open = false; portrait?.get()?.dispose(); portrait = undefined; },
+    enter: () => { s.render?.(); }, // back from the operator screen: show the new pick
   });
   return s;
 }
@@ -348,8 +345,15 @@ export function operatorScreen(shell: Shell): Screen {
     const center = el("div", "mk-opcenter");
     const pic = el("div", "mk-portrait mk-bigportrait");
     const name = val(OPERATORS[profile.operator].name, "mk-opname", "operator.name");
-    const dots = el("div", "mk-dots");
-    const drawDots = () => dots.replaceChildren(...OPERATOR_IDS.map((id) => { const d = el("i"); if (id === profile.operator) d.className = "on"; return d; }));
+    // every operator as a small icon: tap one to pick it; the current one is ringed
+    const dots = el("div", "mk-opstrip");
+    const drawDots = () => dots.replaceChildren(...OPERATOR_IDS.map((id) => {
+      const b = el("div", id === profile.operator ? "mk-opchoice on" : "mk-opchoice");
+      b.dataset.op = id; b.setAttribute("role", "button");
+      b.append(operatorIcon(id));
+      b.addEventListener("click", () => step(OPERATOR_IDS.indexOf(id) - OPERATOR_IDS.indexOf(profile.operator)));
+      return b;
+    }));
     drawDots();
     const chipEl = el("label", "mk-namechip");
     const input = el("input");

@@ -352,3 +352,15 @@
 .rs-couch.ready .rs-face { background:linear-gradient(135deg, var(--mk-pink), var(--mk-yellow)); color:#160c1c; }
 .rs-couch .rs-word { font-size:1.05em; }
 .rs-couchhint { display:block; white-space:pre; }
+/* operator icons (operatorIcons.ts) */
+.op-icon { width:100%; height:100%; display:block; }
+.mk-tile .mk-portrait { display:flex; align-items:center; justify-content:center; }
+.mk-opicon { max-width:9em; max-height:100%; aspect-ratio:1; width:auto; }
+.mk-opstrip { display:flex; gap:.3em; flex-wrap:wrap; justify-content:center; max-width:34em; }
+.mk-opchoice { width:2.2em; height:2.2em; border-radius:50%; border:2px solid transparent; cursor:pointer; opacity:.7; }
+.mk-opchoice.on { border-color:var(--mk-yellow); opacity:1; }
+.mk-opchoice:hover { opacity:1; border-color:var(--mk-cyan); }
+.rs-portrait { padding:.2em; box-sizing:border-box; }
+.rs-killerpic { width:2.2em; height:2.2em; }
+.rs-killerpic:empty { display:none; }
+.rs-couchpic { width:3.4em; height:3.4em; }

@@ -244,6 +244,8 @@ export class YeetWorld implements World {
   private kos = 0;
   /** The respawn screen (respawnScreen.ts): up while you are knocked out. */
   private respawn: RespawnScreen | null = null;
+  /** Who knocked you out last, for the respawn screen's icon (a player's operator; none for dummies). */
+  private killerOp: PlayerProfile["operator"] | undefined;
   private flipT = 99;
   /** Launch kick-out: seconds since it started (99 = idle), when it may next play, and whether it is on. */
   private kickT = 99;
@@ -732,6 +734,7 @@ export class YeetWorld implements World {
     const press = this.respawn.update(down ? {
       downFor: downFor(pl, TUNING),
       killer: this.killer,
+      killerOperator: this.killerOp,
       scores: this.sim.players.map((_, i) => ({ name: i === me ? localProfile().name : this.playerName(i),
         score: this.sim.kos[i] + (!this.link && i === 0 ? this.kos : 0), me: i === me }))
         .sort((a, b) => b.score - a.score).slice(0, 6),
@@ -1043,6 +1046,7 @@ export class YeetWorld implements World {
         break;
       case "playerDown":
         this.killer = this.views[e.dummy]?.name ?? "a dummy";
+        this.killerOp = undefined;
         this.hud.feedLine("WAS KNOCKED OUT BY", this.killer);
         this.sound.play("ko");
         this.sound.play("crowd_aww");
@@ -1552,6 +1556,7 @@ export class YeetWorld implements World {
     if (e.type === "pvpDown") {
       if (e.target === me) {
         this.killer = this.playerName(e.by);
+        this.killerOp = this.link?.profiles[e.by]?.operator;
         this.hud.feedLine("WAS KNOCKED OUT BY", this.killer);
         this.sound.play("ko");
         this.sound.play("crowd_aww");

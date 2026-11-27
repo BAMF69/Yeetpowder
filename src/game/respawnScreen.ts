@@ -2,7 +2,7 @@
 // respawnScreen.ts
 // Purpose : The respawn screen (mockup docs/mockups/menu-redesign.html, Elaina 2026-11-26): it comes up over the
 //           live game while you are knocked out. Who got you, one big SPAWN ring (locked 10 s, then yours to press
-//           until the 30 s auto-respawn), the scores, an operator carousel with a live 3D portrait, your name, an
+//           until the 30 s auto-respawn), the scores, an operator carousel with the operator icons, your name, an
 //           Auto-spawn toggle and Leave.
 // Usage   : const rs = new RespawnScreen(host, { i18n, noart, onProfile, onLeave });
 //           every frame: const press = rs.update(dead ? { downFor, killer, scores, goal } : null)  // true = SPAWN
@@ -18,7 +18,8 @@ import { TUNING } from "../core/yeet/tuning";
 import { respawnView } from "../core/yeet/respawnView";
 import { OPERATORS, playerProfile, type OperatorId, type PlayerProfile } from "../net/profile";
 import { icon } from "../shell/icons";
-import { OPERATOR_IDS, livePortrait } from "../shell/portrait";
+import { OPERATOR_IDS } from "../shell/portrait";
+import { operatorIcon } from "../shell/operatorIcons";
 import { shell } from "../shell/app";
 import { localProfile, saveProfile } from "./playerProfile";
 
@@ -30,6 +31,8 @@ export interface DownState {
   /** Seconds since the knockout (sim.ts downFor). */
   downFor: number;
   killer: string;
+  /** The killer's operator (their icon in the chip), when a player got you. */
+  killerOperator?: OperatorId;
   scores: ScoreRow[];
   /** "First to 10" and the like, or "" */
   goal: string;
@@ -60,8 +63,9 @@ export class RespawnScreen {
   private auto = readAuto();
   private pressed = false;
   private profile = localProfile();
-  private portrait: ReturnType<typeof livePortrait> | undefined;
   private readonly killer: HTMLElement;
+  private readonly killerPic: HTMLElement;
+  private shownKiller: string | undefined = "";
   private readonly ring: SVGCircleElement;
   private readonly spawnBtn: HTMLButtonElement;
   private readonly spawnLabel: HTMLElement;
@@ -80,6 +84,7 @@ export class RespawnScreen {
     this.root.dataset.screen = "respawn";
 
     const top = div("rs-killer", this.root);
+    this.killerPic = div("rs-killerpic", top);
     top.append(icon("gun", "rs-gun"));
     this.killer = div("rs-killername", top);
     div("rs-yeeted", top, t("mk.yeeted"));
@@ -164,7 +169,7 @@ export class RespawnScreen {
     saveProfile(this.profile);
     this.opName.textContent = OPERATORS[this.profile.operator].name;
     if (redrawName) this.name.value = this.profile.name;
-    this.portrait?.get()?.select(this.profile.operator);
+    this.pic.replaceChildren(operatorIcon(this.profile.operator));
     Log.debug("ui", `RESPAWN_PROFILE ${this.profile.operator} "${this.profile.name}"`);
     this.o.onProfile(this.profile);
   }
@@ -176,6 +181,10 @@ export class RespawnScreen {
     const v = respawnView(state.downFor, TUNING.player, this.auto);
     this.killer.textContent = state.killer;
     this.killer.hidden = !state.killer; // a fall or the shark: no name, just "yeeted you"
+    if (state.killerOperator !== this.shownKiller) {
+      this.shownKiller = state.killerOperator;
+      this.killerPic.replaceChildren(...(state.killerOperator ? [operatorIcon(state.killerOperator)] : []));
+    }
     this.spawnBtn.classList.toggle("ready", !v.locked);
     this.spawnBtn.disabled = v.locked;
     this.ring.setAttribute("stroke-dasharray", `${(v.ring * 100).toFixed(1)} 100`);
@@ -209,7 +218,7 @@ export class RespawnScreen {
     this.name.value = this.profile.name;
     this.opName.textContent = OPERATORS[this.profile.operator].name;
     this.pressed = false;
-    this.portrait = livePortrait(this.pic, this.profile.operator as OperatorId, this.o.noart, () => this.open);
+    this.pic.replaceChildren(operatorIcon(this.profile.operator));
     Log.debug("ui", "RESPAWN_OPEN");
   }
 
@@ -217,8 +226,6 @@ export class RespawnScreen {
     this.open = false;
     this.root.hidden = true;
     this.name.blur();
-    this.portrait?.get()?.dispose();
-    this.portrait = undefined;
     Log.debug("ui", "RESPAWN_CLOSE");
   }
 
@@ -243,6 +250,8 @@ export class CouchRespawnBadge {
   private readonly count: HTMLElement;
   private readonly killer: HTMLElement;
   private readonly op: HTMLElement;
+  private readonly opPic: HTMLElement;
+  private shownOp = "";
   private readonly face: HTMLElement;
 
   constructor(parent: HTMLElement, private readonly i18n: I18n) {
@@ -260,6 +269,7 @@ export class CouchRespawnBadge {
     div("rs-word", this.face, i18n.t("mk.spawn"));
     this.count = div("rs-count", this.face);
     wrap.append(svg, this.face);
+    this.opPic = div("rs-couchpic", this.root);
     this.op = div("rs-opname", this.root);
     div("rs-hints rs-couchhint", this.root, `A · ${i18n.t("mk.spawn")}   LB RB · ${i18n.t("mk.operator")}`);
     parent.append(this.root);
@@ -274,5 +284,6 @@ export class CouchRespawnBadge {
     this.count.textContent = v.locked ? String(v.seconds) : this.i18n.t("mk.auto_in", { n: v.seconds });
     this.killer.textContent = state.killer ? `${state.killer} · ${this.i18n.t("mk.yeeted")}` : this.i18n.t("mk.yeeted");
     this.op.textContent = `◀ ${OPERATORS[state.operator].name} ▶`;
+    if (state.operator !== this.shownOp) { this.shownOp = state.operator; this.opPic.replaceChildren(operatorIcon(state.operator)); }
   }
 }
