@@ -57,6 +57,7 @@ detail.
 | M4 Release candidate (v1.0.0-rc.N, then v1.0.0) | `/release-check` green | |
 
 ## Done (recent, newest first)
+- 2026-11-26: Icon-first menus (six choices max: Play, Party, Solo, Couch, Settings, Operator; picture/icon room setup) and the respawn screen (SPAWN unlocks at 10 s, auto at 30 s, operator and name changes mid-match, couch badges). ADR 0008. Needs Elaina's play on phone and laptop
 - 2026-11-22: Sound pass: crowd reactions (ooh, cheer, aww) and a yeetpowder fizz made in code; match music (surf / spy chiptune loop) on the music bus; sound captions through the subtitle bar; announcer lines written and wired (voices pending); pink muzzle flashes, tracers and puffs (design doc Lore); GDD and design doc export synced to the game (gdd-sync)
 - 2026-11-22: First art pass (/shader item): painted textures in code, ceilings with light panels, wall band, steel doors, crates, hazard trim, interior lighting; kit shader goldens unchanged (11/11)
 - 2026-11-22: Art pass 2: first-person navy sleeves with folded cuffs and black tactical gloves; the six weapons rebuilt as faceted painted low-poly models (gunModels.ts, 300-1,200 triangles each, tested); third-person body and opponents still placeholders

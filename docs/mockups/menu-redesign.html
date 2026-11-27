@@ -380,7 +380,7 @@ body { background: var(--ink); color: var(--text); font-family: var(--ui); paddi
       </div>
       <button class="spawnbtn" data-spawn aria-label="Respawn">
         <svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="none" stroke="#ffffff22" stroke-width="7"/><circle data-arc cx="50" cy="50" r="46" fill="none" stroke="var(--cyan)" stroke-width="7" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/></svg>
-        <span class="face"><svg><use href="#i-respawn"/></svg><b>SPAWN</b><small data-spawnlbl>2.2</small></span>
+        <span class="face"><svg><use href="#i-respawn"/></svg><b>SPAWN</b><small data-spawnlbl>10</small></span>
       </button>
       <div class="side">
         <div class="opcar">
@@ -394,14 +394,14 @@ body { background: var(--ink); color: var(--text); font-family: var(--ui); paddi
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <button class="toggle" data-autotoggle aria-pressed="false"><svg><use href="#i-auto"/></svg>AUTO-SPAWN</button>
-      <div class="pads"><span><kbd>A</kbd>Spawn</span><span><kbd class="sq">LB</kbd><kbd class="sq">RB</kbd>Operator</span><span><kbd>Y</kbd>Name</span><span><kbd class="sq">⏎</kbd><kbd class="sq">Q</kbd><kbd class="sq">E</kbd>keys</span></div>
+      <div class="pads"><span><kbd>A</kbd>Spawn</span><span><kbd class="sq">◀</kbd><kbd class="sq">▶</kbd>Operator</span><span><kbd>Y</kbd>Name</span><span><kbd class="sq">⏎</kbd><kbd class="sq">Q</kbd><kbd class="sq">E</kbd>keys</span></div>
       <button class="back" data-go="home" aria-label="Leave match" style="width:auto;padding:0 14px;height:40px;font:900 12px var(--ui);letter-spacing:.1em;gap:6px;display:flex"><svg style="width:18px;height:18px"><use href="#i-door"/></svg>LEAVE</button>
     </div>
   </section>
 
 </div></div>
 
-<p class="note">Tap anything: every tile leads somewhere. <b>Home</b> has six choices. <b>Respawn</b> runs the real timing: the button unlocks after 2.2 s (today's respawn delay), then you spawn whenever you tap it. If you do nothing, it spawns you at 10 s, and changing operator or name adds time, up to 30 s. With <b>Auto-spawn</b> on you skip the wait and spawn the moment it unlocks.</p>
+<p class="note">Tap anything: every tile leads somewhere. <b>Home</b> has six choices. <b>Respawn</b> runs the real timing: the button unlocks 10 s after you are knocked out, then you spawn whenever you tap it. If you do nothing, it spawns you at 30 s. You can change operator and name the whole time (and any time in a match). With <b>Auto-spawn</b> on you skip the wait and spawn the moment it unlocks.</p>
 
 <script>
 // Operators: the game's real list (src/net/profile.ts). Portraits here are flat stand-ins; the game would show
@@ -493,7 +493,7 @@ document.addEventListener("click", (e) => {
 $$("[data-name]").forEach(inp => inp.addEventListener("input", () => { playerName = inp.value.trim() || "Player"; renderOp(); bump(); }));
 
 // respawn timing: lock for MIN, then wait for a tap; auto at AUTO, extended by interaction up to CAP
-const MIN = 2.2, AUTO = 10, EXTEND = 5, CAP = 30;
+const MIN = 10, AUTO = 30, EXTEND = 0, CAP = 30; // agreed 2026-11-26: unlock 10 s, auto 30 s
 let t0 = 0, autoAt = AUTO, raf = 0, auto = false;
 const btn = $("[data-spawn]"), arc = $("[data-arc]"), lbl = $("[data-spawnlbl]");
 function startDeath() { t0 = performance.now(); autoAt = AUTO; cancelAnimationFrame(raf); tick(); }

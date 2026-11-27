@@ -28,18 +28,23 @@ try {
   if (!process.argv.includes('--legacy-only') && !process.argv.includes('--quick-only')) {
   await go('aim');
   await page.locator('[data-screen="title"]').click();
-  await page.locator('.yeet-menu').waitFor();
+  await page.locator('[data-screen="menu"]:not(.hidden)').waitFor();
   await page.screenshot({ path: 'captures/progress/party-menu-polish.png' });
-  await page.getByText('Player & Operator', { exact: true }).click();
-  await page.fill('input[name=playerName]', 'Elaina'); await page.selectOption('select[name=operator]', 'mint');
+  // the icon menus (iconMenus.ts): every control has a data-item id
+  const item = (id) => page.locator(`.screen:not(.hidden) [data-item="${id}"]`).last();
+  await item('operator').click();
+  await page.fill('input[name=playerName]', 'Elaina');
+  const savedOp = () => page.evaluate(() => JSON.parse(localStorage.getItem('yeetpowder.playerProfile') || '{}').operator ?? 'navy');
+  assert.equal(await savedOp(), 'mint'); // seeded by the init script above
+  await item('op-next').click(); assert.equal(await savedOp(), 'violet', 'the next arrow saves the next operator');
+  await item('op-prev').click(); assert.equal(await savedOp(), 'mint', 'the previous arrow steps back');
   await page.screenshot({ path: 'captures/progress/player-operator.png' });
-  await page.getByRole('button', { name: 'Save operator', exact: true }).click();
-  await page.getByText('Arenas', { exact: true }).click();
-  await page.getByText('Industrial Yard — Party (8-spawn layout)', { exact: true }).click();
-  await page.getByText('Choose opponent count & rules', { exact: true }).click();
-  await page.selectOption('select[name=opponents]', '3');
-  await page.selectOption('select[name=botSkill]', 'easy');
-  await page.locator('button[type=submit]').click(); await ready();
+  await item('back').click();
+  await item('solo').click(); await item('bots').click();
+  await item('map-industrial').click();
+  for (let i = 0; i < 2; i++) await page.locator('.screen:not(.hidden) [data-item="opponents"] [data-dir="left"]').click(); // 5 -> 3 bots
+  await item('skill-easy').click();
+  await item('go').click(); await ready();
   assert.equal(await world('return w.sim.players.length;'), 4);
   assert.equal(await world('return w.partySession.latest.profiles[0].name;'), 'Elaina');
   assert.equal(await world('return w.partySession.latest.profiles[0].operator;'), 'mint');
@@ -49,7 +54,7 @@ try {
   assert(await world('return w.pickups.views.filter(v => v.weapon !== "health").every(v => v.gun.children[0]?.children.length > 1);'));
   await world('const r=w.partySession.transport.room; r.brains.fill(null); r.sim.players.forEach((p,i)=>{if(i) p.dead=1e9;}); const hp=r.sim.pickups.find(p=>p.weapon==="health"); r.sim.players[0].hp=25; r.sim.players[0].pos={...hp.pos}; return true;');
   await until('return w.partySession.transport.room.sim.players[0].healthUses === 3;');
-  await world('const r=w.partySession.transport.room; r.push(0,[{moveX:0,moveZ:0,jump:false,fireHeld:false,firePressed:false,select:-1,reset:false,aiming:false,sprint:false,reload:false,slash:false,slashHeld:false,heal:true,seq:r.acks[0]+1,dYaw:0,dPitch:0,round:r.round}]);return true;');
+  await world('const r=w.partySession.transport.room; r.push(0,[{moveX:0,moveZ:0,jump:false,fireHeld:false,firePressed:false,select:-1,reset:false,aiming:false,sprint:false,reload:false,slash:false,slashHeld:false,heal:true,seq:Math.max(r.acks[0],r.queuedSeq[0])+1,dYaw:0,dPitch:0,round:r.round}]);return true;');
   await until('return w.partySession.transport.room.sim.players[0].hp === 100;');
   await world('const p=w.partySession.transport.room.sim.players[0]; p.weapon="grenade"; p.owned.push("grenade"); return true;');
   await until('return w.vm.weapon === "grenade" && w.grenadeGuide.root.visible;');

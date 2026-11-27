@@ -65,6 +65,9 @@ damage. Aiming holsters the pistol and uses both hands/viewport, preventing all 
 still halved. Rear damage is unprotected. Keyboard V, touch HEAL and gamepad D-pad Up use a health charge.
 Grenades have an 8 m blast radius, longer aimed throws and a trajectory/blast guide; shotgun spread is 0.15 rad.
 Sharks visibly approach for 2 s before consuming a victim. Respawns are seeded, varied and avoid occupied points.
+After a knockout the respawn screen lets you choose when to come back: SPAWN unlocks after 10 s and you return
+automatically at 30 s; meanwhile you can switch operator and rename (any time, online too). Menus are icon-first,
+six choices at most per screen (ADR 0008, Elaina 2026-11-26).
 
 The Yeet Coliseum adds an open-air circular arena, 104 m across, with three concentric raised perimeter rings,
 four stairways, eight spawns and distributed weapon pickups. Couch Mode supports 2–4 local split-screen players,

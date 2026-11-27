@@ -116,17 +116,16 @@ export function consent(shell: Shell): Screen {
  * Arenas / opponents / bot-difficulty lists it led to were folded into Party, Solo and Couch (2026-11-26).
  */
 export function menu(shell: Shell): Screen {
-  const s = iconMenus.home(shell);
-  if (shell.drive === "pseudo-plant") {
-    // a label far too small for its text, on one line: .label wraps anywhere, and a wrapped label fits (#175)
-    const planted = tl(shell.i18n, "menu.settings", "label", {}, "div");
-    planted.dataset.id = "plant.too_small"; // the name every engine's pseudo-plant drive reports
-    planted.style.cssText = "width:2.5em;white-space:nowrap;overflow:hidden";
-    planted.dataset.box = "";
-    s.root.append(planted);
-  }
-  s.root.append(tl(shell.i18n, "version", "corner", { v: GAME_VERSION }, "div"));
-  return s;
+  return iconMenus.home(shell, (root) => {
+    if (shell.drive === "pseudo-plant") {
+      // a label far too small for its text, on one line: .label wraps anywhere, and a wrapped label fits (#175)
+      const planted = tl(shell.i18n, "menu.settings", "label", {}, "div");
+      planted.dataset.id = "plant.too_small"; // the name every engine's pseudo-plant drive reports
+      planted.style.cssText = "width:2.5em;white-space:nowrap;overflow:hidden";
+      root.append(planted);
+    }
+    root.append(tl(shell.i18n, "version", "corner", { v: GAME_VERSION }, "div"));
+  });
 }
 
 export function creditsScreen(shell: Shell): Screen {

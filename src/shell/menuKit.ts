@@ -47,6 +47,9 @@ export class GridMenu extends Menu {
   }
 }
 
+/** Marks a label screen-reader-only (drawn nowhere; the pseudo check skips its layout, never its words). */
+export function sr<E extends HTMLElement>(e: E): E { e.dataset.sr = ""; return e; }
+
 function button(cls: string): HTMLElement {
   const e = el("div", cls);
   e.setAttribute("role", "button");
@@ -129,7 +132,7 @@ export function stepper<T extends number>(m: Menu, i18n: I18n, spec: StepperSpec
   const plus = button("mk-step"); plus.append(icon("plus"));
   const out = val("", "mk-num", spec.id + ".value");
   const people = el("span", "mk-people");
-  const name = tl(i18n, spec.label, "mk-hidden-label");
+  const name = sr(tl(i18n, spec.label, "mk-hidden-label"));
   e.append(name, minus, out);
   if (spec.icon) e.append(icon(spec.icon, "mk-icon mk-stepicon"));
   if (spec.people) e.append(people);
@@ -151,7 +154,7 @@ export function stepper<T extends number>(m: Menu, i18n: I18n, spec: StepperSpec
 export function bar(m: Menu, i18n: I18n, title: string, back: () => void): { el: HTMLElement; right: HTMLElement } {
   const e = el("div", "mk-bar");
   const b = button("mk-back");
-  b.append(icon("back"), tl(i18n, "mk.back", "mk-hidden-label"));
+  b.append(icon("back"), sr(tl(i18n, "mk.back", "mk-hidden-label")));
   m.add({ id: "back", el: b, accept: back });
   const right = el("div", "mk-bar-right");
   e.append(b, tl(i18n, title, "mk-title", {}, "div"), right);

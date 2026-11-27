@@ -14,7 +14,7 @@
 import type { Screen, Shell } from "./app";
 import { GAME_NAME } from "./meta";
 import { icon, mapScene } from "./icons";
-import { GridMenu, bar, chip, goButton, group, pick, pictureTile, stepper, tile, toggle } from "./menuKit";
+import { GridMenu, sr, bar, chip, goButton, group, pick, pictureTile, stepper, tile, toggle } from "./menuKit";
 import { el, tl, val } from "./ui";
 import { launchRoom, type RoomKind } from "./launch";
 import { settingsScreen } from "./settingsScreen";
@@ -54,7 +54,8 @@ function typingGuard(root: HTMLElement): void {
 type Preview = { select(id: OperatorId): void; dispose(): void };
 
 // ---- home -------------------------------------------------------------------------------------------------
-export function home(shell: Shell): Screen {
+/** extras(root) runs after every redraw (the version corner, the pseudo-plant label): a redraw clears the root. */
+export function home(shell: Shell, extras: (root: HTMLElement) => void = () => {}): Screen {
   let portrait: { get(): Preview | undefined } | undefined;
   let open = true;
   const i = shell.i18n;
@@ -72,7 +73,7 @@ export function home(shell: Shell): Screen {
     // the operator tile shows who you are now: a live portrait, the operator's name, your name
     const profile = localProfile();
     const op = tile(m, i, { id: "operator", label: "mk.operator", accept: () => shell.push(operatorScreen(shell)) });
-    op.el.querySelector(".mk-word")!.classList.add("mk-hidden-label");
+    sr(op.el.querySelector<HTMLElement>(".mk-word")!).classList.add("mk-hidden-label");
     const pic = el("div", "mk-portrait");
     op.el.prepend(pic);
     op.el.append(val(OPERATORS[profile.operator].name, "mk-opname", "operator.name"), val(profile.name, "mk-sub", "player.name"));
@@ -80,6 +81,7 @@ export function home(shell: Shell): Screen {
     portrait?.get()?.dispose();
     portrait = livePortrait(pic, profile.operator, shell.params.has("noart"), () => open);
     root.append(logo, grid);
+    extras(root);
   }, {
     cancel: () => shell.reset(title(shell)),
     enter: () => { open = true; s.render?.(); }, // back from the operator screen: show the new pick
@@ -340,9 +342,9 @@ export function operatorScreen(shell: Shell): Screen {
     const head = bar(m, i, "mk.operator", () => shell.back());
     const stage = el("div", "mk-opstage");
     const prev = m.add({ id: "op-prev", el: el("div", "mk-arrow"), accept: () => step(-1) });
-    prev.el.append(icon("back"), tl(i, "mk.prev", "mk-hidden-label"));
+    prev.el.append(icon("back"), sr(tl(i, "mk.prev", "mk-hidden-label")));
     const next = m.add({ id: "op-next", el: el("div", "mk-arrow"), accept: () => step(1) });
-    next.el.append(icon("next"), tl(i, "mk.next", "mk-hidden-label"));
+    next.el.append(icon("next"), sr(tl(i, "mk.next", "mk-hidden-label")));
     const center = el("div", "mk-opcenter");
     const pic = el("div", "mk-portrait mk-bigportrait");
     const name = val(OPERATORS[profile.operator].name, "mk-opname", "operator.name");
