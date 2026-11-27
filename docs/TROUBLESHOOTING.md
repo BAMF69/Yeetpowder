@@ -76,8 +76,8 @@
 - Symptom: a bot near the island shore gets a `sharkApproach` event (it is in the water) with no enemy touching it.
 - Root cause: two separate things.
   1. The test fixture: `{ x: 17.5, z: 0 }` is open water (the island top is x, z in [-13, 13]; the east platform starts
-     at x = 21). The bot was airborne from frame 0, so no movement rule could save it. Not changed: the fixture
-     belongs to its owner. `tests/botFooting.test.ts` uses real shore starts.
+     at x = 21). The bot was airborne from frame 0, so no movement rule could save it. Fixed 2026-11-27: the
+     fixture now starts on the shore at x = 12.5. `tests/botFooting.test.ts` uses real shore starts too.
   2. The bot: the old redirect only checked where *walking* led. Found one at a time with a 576-run shore sweep
      (later 1152 runs x 10 s): a Boomstick launch toward the Gatling platform flies ~40 m and overshoots it; hip
      shots at an enemy inland push the shooter out to sea; a mid-air shot kicks twice as hard (`airRecoil`); a jump

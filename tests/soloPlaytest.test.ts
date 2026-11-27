@@ -80,7 +80,8 @@ describe("solo playtest fixes", () => {
     expect(step(sim, 12).some((e) => e.type === "eaten")).toBe(true); expect(sim.player.swallowed).toBe(true); expect(sim.player.dead).toBeGreaterThan(0);
   });
   it("redirects island retreat controls toward solid ground without an edge recoil shot", () => {
-    const sim = new YeetSim(TUNING, levelById("island"), 2); sim.players[1].pos = { x: 17.5, y: 0, z: 0 }; sim.players[1].onGround = true;
+    // On the shore (the island top spans x, z in [-13, 13]); x = 17.5 was open water, so it fell in on frame 0.
+    const sim = new YeetSim(TUNING, levelById("island"), 2); sim.players[1].pos = { x: 12.5, y: 0, z: 0 }; sim.players[1].onGround = true;
     const brain = new BotBrain(TUNING, 1, "medium", 10);
     // Checks the water entry itself: the old end-state check passed only because a 2.2 s respawn hid the fall.
     let entered = false;
