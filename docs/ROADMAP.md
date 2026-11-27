@@ -30,6 +30,7 @@
 - [ ] 
 
 ## Parking lot (ideas, no commitment)
+- Story + tutorial campaign "Brace Before You Blast" (19 levels, 4 acts, one verb per level): draft in `docs/STORY_CAMPAIGN.md` (2026-11-27). Prototype levels 2, 6, 9 first.
 - Gatling Copter at x2 thrust climbs ~100 m in 5 s when aimed straight down: maybe a height falloff or more drag if it stops feeling like hovering
 - Limited reserve ammo and ammo pickups (magazines are in; reserve is infinite for now)
 - Fight Back win condition (knock them all out within a time? waves?) and dummies that move
