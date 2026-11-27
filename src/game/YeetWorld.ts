@@ -36,7 +36,7 @@ import { AUTOPLAY_SECONDS, autoplayStep } from "../core/yeet/autoplay";
 import { levelById } from "../core/yeet/levels";
 import { parseMatch } from "../core/yeet/matchSetup";
 import { buildProps } from "./yeet/props";
-import { NO_INPUT, PLAYER_CODE, YeetSim, type PlayerState, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
+import { NO_INPUT, PLAYER_CODE, YeetSim, downFor, type PlayerState, type TaggedEvent, type YeetEvent, type YeetInput } from "../core/yeet/sim";
 import { TUNING, type WeaponId } from "../core/yeet/tuning";
 import { len, normalize, vec, type Vec3 } from "../core/yeet/vec";
 import { aimAssist, anglesTo, pickTarget, turnToward } from "../core/yeet/aimAssist";
@@ -69,7 +69,8 @@ import { equipmentStatus } from "../core/yeet/equipment";
 import { SceneryViews } from "./yeet/scenery";
 import { MatchReplay } from "./yeet/matchReplay";
 import { localProfile } from "./playerProfile";
-import { OPERATORS } from "../net/profile";
+import { OPERATORS, type PlayerProfile } from "../net/profile";
+import { RespawnScreen } from "./respawnScreen";
 import { GrenadeGuide } from "./yeet/grenadeGuide";
 import { ScoreOverlay } from "./yeet/scoreOverlay";
 
@@ -241,6 +242,8 @@ export class YeetWorld implements World {
   private chaseYaw = 0;
   private bodyRoll = 0;
   private kos = 0;
+  /** The respawn screen (respawnScreen.ts): up while you are knocked out. */
+  private respawn: RespawnScreen | null = null;
   private flipT = 99;
   /** Launch kick-out: seconds since it started (99 = idle), when it may next play, and whether it is on. */
   private kickT = 99;
@@ -271,7 +274,7 @@ export class YeetWorld implements World {
   };
   private readonly onLockChange = () => {
     // Esc frees the mouse: open the pause menu so the game never runs on without you
-    if (!this.editingGrips && !this.fps.locked && !this.autoplay && !this.cinema.playing && shell.top?.gameplay) shell.pauseGame();
+    if (!this.editingGrips && !this.fps.locked && !this.autoplay && !this.cinema.playing && !this.respawn?.visible && shell.top?.gameplay) shell.pauseGame();
   };
 
   constructor(aspect: number) {
@@ -347,6 +350,11 @@ export class YeetWorld implements World {
     const host = document.getElementById("game")!;
     this.canvas = host.querySelector("canvas") ?? host;
     this.hud = new YeetHud(host, TUNING.weaponOrder.map((w) => TUNING.weapons[w].name));
+    this.respawn = shell.params.has("mapview") ? null : new RespawnScreen(host, {
+      i18n: shell.i18n, noart: shell.params.has("noart"),
+      onProfile: (p) => this.profileChanged(p),
+      onLeave: () => shell.quitToTitle(),
+    });
     this.scoreOverlay = this.link ? null : new ScoreOverlay(() => this.sim.players.map((_, i) => `${i === 0 ? localProfile().name : this.playerName(i)} · ${this.sim.kos[i] + (i === 0 ? this.kos : 0)} KOs`));
     this.hud.setVisible(!shell.params.has("mapview"));
     this.fps = new FpsInput(this.canvas);
@@ -405,6 +413,7 @@ export class YeetWorld implements World {
   }
 
   dispose(): void {
+    this.respawn?.dispose();
     this.scoreOverlay?.dispose();
     this.grenadeGuide.dispose();
     this.cinema.dispose();
@@ -502,7 +511,9 @@ export class YeetWorld implements World {
     }
     if (f.cameraToggle) this.toggleKick();
     if (f.hintToggle) this.hud.toggleHint();
+    const spawnPress = this.respawnFrame();
     let first = this.frameInput(f, aiming);
+    if (spawnPress) first = { ...first, spawn: true };
     if (this.carry) {
       const c = this.carry;
       first = { ...first, firePressed: first.firePressed || c.firePressed, jump: first.jump || c.jump,
@@ -644,7 +655,7 @@ export class YeetWorld implements World {
       scoped: !this.editingGrips && this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
       hp: this.sim.level.infiniteHp ? null : fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
-      banner: pl.sharkT > 0 ? "SHARK INCOMING!" : pl.dead > 0 ? `KNOCKED OUT by ${this.killer}` : "",
+      banner: pl.sharkT > 0 ? "SHARK INCOMING!" : pl.dead > 0 && !this.respawn ? `KNOCKED OUT by ${this.killer}` : "",
       kos: fight ? this.kos : null,
       level: duel?.party ? `${this.sim.level.name} · ${duel.party.options.mode === "ringout" ? "HP ∞ · " : ""}You ${this.sim.kos[duel.slot]} KOs` : duel && duel.ready
         ? `Duel · room ${duel.code} · You ${this.sim.kos[duel.slot]} – ${this.sim.kos[other]} Player ${other + 1}`
@@ -705,6 +716,36 @@ export class YeetWorld implements World {
       this.touch.letGo();
       shell.pauseGame();
     }
+  }
+
+  /**
+   * The respawn screen for this frame: shown while you are knocked out (not while a shark holds you, not in
+   * autoplay), the mouse freed so its buttons work. Returns true when SPAWN should be pressed this step.
+   */
+  private respawnFrame(): boolean {
+    if (!this.respawn) return false;
+    const pl = this.sim.player;
+    const down = !this.autoplay && pl.dead > 0 && pl.dead <= TUNING.player.respawnAuto && pl.sharkT === 0;
+    const wasOpen = this.respawn.visible;
+    const me = this.link?.slot ?? 0;
+    const party = this.link?.party?.options;
+    const press = this.respawn.update(down ? {
+      downFor: downFor(pl, TUNING),
+      killer: this.killer,
+      scores: this.sim.players.map((_, i) => ({ name: i === me ? localProfile().name : this.playerName(i),
+        score: this.sim.kos[i] + (!this.link && i === 0 ? this.kos : 0), me: i === me }))
+        .sort((a, b) => b.score - a.score).slice(0, 6),
+      goal: party && (party.mode === "kills" || party.mode === "ringout") ? shell.i18n.t("mk.first_to", { n: party.scoreLimit }) : "",
+    } : null);
+    if (this.respawn.visible !== wasOpen) { this.hud.setVisible(!this.respawn.visible); this.link?.cover(this.respawn.visible); } // one screen at a time
+    if (this.respawn.visible && !wasOpen) this.fps.unlock(); // the pause handler skips this (respawn.visible)
+    return press;
+  }
+
+  /** Your name or operator changed on the respawn screen: your own body now, everyone else via the room. */
+  private profileChanged(p: PlayerProfile): void {
+    this.body.setOperator(p.operator);
+    this.link?.sendProfile(p);
   }
 
   private frameInput(f: FpsFrame, aiming: boolean): YeetInput {

@@ -24,6 +24,7 @@ import { DEFAULT_DRAFT, GOAL, MAP_FAMILIES, MODES, familyAllowed, publicAllowed,
 import { OPERATORS, playerProfile, type OperatorId } from "../net/profile";
 import { localProfile, saveProfile } from "../game/playerProfile";
 import { cleanCode } from "../net/protocol";
+import { OPERATOR_IDS, livePortrait } from "./portrait";
 
 type Build = (root: HTMLElement, m: GridMenu, s: Screen) => void;
 
@@ -49,18 +50,8 @@ function typingGuard(root: HTMLElement): void {
   root.addEventListener("keydown", (e) => { if (e.key !== "Escape" && (e.target as HTMLElement).matches("input")) e.stopPropagation(); });
 }
 
-// ---- operators ------------------------------------------------------------------------------------------
-export const OPERATOR_IDS = Object.keys(OPERATORS) as OperatorId[];
+// ---- operators: OPERATOR_IDS and livePortrait live in portrait.ts (the respawn screen uses them too) ----------
 type Preview = { select(id: OperatorId): void; dispose(): void };
-
-/** A live 3D portrait of an operator in host (the profile screen's renderer, loaded on demand). */
-export function livePortrait(host: HTMLElement, op: OperatorId, noart: boolean, alive: () => boolean): { get(): Preview | undefined } {
-  let preview: Preview | undefined;
-  void import("../game/yeet/operatorPreview").then(({ operatorPreview }) => {
-    if (alive()) preview = operatorPreview(host, op, noart);
-  }).catch(() => { host.append(icon("person", "mk-icon")); }); // no WebGL: a plain figure, the choice still saves
-  return { get: () => preview };
-}
 
 // ---- home -------------------------------------------------------------------------------------------------
 export function home(shell: Shell): Screen {
