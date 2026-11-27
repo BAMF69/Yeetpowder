@@ -1,0 +1,204 @@
+<title>Yeetpowder Grunge Styles</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Oswald:wght@500;700&family=Rubik+Dirt&family=Teko:wght@500;700&family=Saira+Stencil+One&family=Special+Elite&display=swap">
+<style>
+/* Layout: three phone-landscape home screens stacked, one per style direction, each scaled to the page width.
+   Single dark look on purpose (the game's menus). Textures are drawn in code; pink blasts use the game's own art. */
+:root {
+  color-scheme: dark;
+  --page: #0b0908; --ink: #0b0908; --cream: #f2e4c8; --mute: #a8977f; --pink: #ff2e88; --rust: #8a3d14;
+  --ui: system-ui, "Segoe UI", sans-serif;
+  /* film grain */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .11 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  /* rust: blotchy orange-brown patches from low-frequency noise pushed through a hard alpha curve */
+  --rust-tex: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='r'><feTurbulence type='fractalNoise' baseFrequency='.028 .045' numOctaves='6' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .44  0 0 0 0 .17  0 0 0 0 .05  -5.5 0 0 0 2.75'/><feComponentTransfer><feFuncA type='gamma' amplitude='.85' exponent='1.6'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23r)'/></svg>");
+  /* fine rust speckle */
+  --speck: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='2' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .62  0 0 0 0 .3  0 0 0 0 .1  16 0 0 0 -11.4'/></filter><rect width='100%' height='100%' filter='url(%23s)'/></svg>");
+  --scratch: repeating-linear-gradient(112deg, rgba(255,240,220,.035) 0 1px, transparent 1px 11px), repeating-linear-gradient(24deg, rgba(0,0,0,.22) 0 1px, transparent 1px 15px);
+  --brushed: repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, rgba(0,0,0,.04) 1px 2px);
+  /* four rivets, one per corner */
+  --rivets:
+    radial-gradient(circle at 11px 11px, #d8cbb5 0 1.2px, #7b6c5a 2px, #2a221c 4px, rgba(0,0,0,.6) 5px, transparent 6px),
+    radial-gradient(circle at calc(100% - 11px) 11px, #d8cbb5 0 1.2px, #7b6c5a 2px, #2a221c 4px, rgba(0,0,0,.6) 5px, transparent 6px),
+    radial-gradient(circle at 11px calc(100% - 11px), #d8cbb5 0 1.2px, #7b6c5a 2px, #2a221c 4px, rgba(0,0,0,.6) 5px, transparent 6px),
+    radial-gradient(circle at calc(100% - 11px) calc(100% - 11px), #d8cbb5 0 1.2px, #7b6c5a 2px, #2a221c 4px, rgba(0,0,0,.6) 5px, transparent 6px);
+}
+html, body { min-height: 100%; }
+body { margin: 0; background: var(--page); color: var(--cream); font-family: var(--ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; box-sizing: border-box; }
+.wrap { max-width: 1000px; margin: 0 auto; display: grid; gap: 30px; }
+header h1 { margin: 0 0 4px; font: 400 26px "Black Ops One", var(--ui); letter-spacing: .02em; }
+header h1 span { color: var(--pink); }
+header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 70ch; font-size: 14px; }
+.variant { display: grid; gap: 10px; }
+.vhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.vhead h2 { margin: 0; font: 400 22px "Black Ops One", var(--ui); }
+.vhead .tag { font: 700 11px var(--ui); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); background: var(--pink); padding: 3px 8px; }
+.vhead p { margin: 0; color: var(--mute); font-size: 13px; flex-basis: 100%; line-height: 1.5; max-width: 80ch; }
+.fit { position: relative; width: 100%; }
+.device { position: absolute; left: 0; top: 0; width: 844px; height: 390px; transform-origin: 0 0; border-radius: 20px; overflow: hidden; box-shadow: 0 0 0 6px #221d18, 0 20px 50px #000b; }
+
+/* ---------- shared screen structure ---------- */
+.scr { position: absolute; inset: 0; padding: 16px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; isolation: isolate; }
+.scr > .bg { position: absolute; inset: 0; z-index: -2; }
+.scr > .fx { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.logo { display: flex; align-items: center; gap: 14px; position: relative; z-index: 2; }
+.grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.35fr 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 11px; position: relative; z-index: 1; }
+.grid .hero { grid-row: 1 / 3; }
+.grid .op { grid-column: 4; grid-row: 1 / 3; }
+.tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; cursor: pointer; border: 0; color: inherit; padding: 10px; }
+.tile svg.ic { width: 40%; max-width: 56px; aspect-ratio: 1; height: auto; position: relative; z-index: 1; }
+.tile .w { position: relative; z-index: 1; }
+.tile .sub { position: relative; z-index: 1; }
+.face { width: 74%; max-width: 112px; aspect-ratio: 1; position: relative; z-index: 1; }
+.face svg { width: 100%; height: 100%; display: block; filter: saturate(.65) contrast(1.15) sepia(.3) brightness(.9); }
+.hole { position: absolute; width: 36px; height: 36px; pointer-events: none; z-index: 2; }
+.burst { position: absolute; pointer-events: none; }
+
+/* ---------- A: Riveted Steel ---------- */
+.A { font-family: "Oswald", var(--ui); }
+.A > .bg { background: radial-gradient(ellipse at 50% 40%, rgba(11,9,8,.35), rgba(11,9,8,.88) 78%), var(--rust-tex) 0 0 / 520px, var(--grain), url(img/bg_metal.webp) center / cover; }
+.A .logo b { font: 400 34px "Black Ops One", var(--ui); color: var(--cream); letter-spacing: .01em;
+  text-shadow: 0 1px 0 #fff3, 0 -1px 0 #000, 0 3px 0 #2a1810, 0 0 22px rgba(255,46,136,.35);
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -7 6.3'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>"); }
+.A .logo i { font: 700 12px "Oswald", var(--ui); color: var(--pink); letter-spacing: .26em; font-style: normal; }
+.A .tile { background: var(--rivets), var(--speck) 0 0 / 240px, var(--rust-tex) var(--ox, 0) var(--oy, 0) / 380px, var(--grain), var(--scratch), var(--brushed), linear-gradient(172deg, #3a342d, #1e1a16 58%, #120f0c);
+  box-shadow: inset 0 1px 0 rgba(255,236,210,.18), inset 0 -3px 0 rgba(0,0,0,.6), inset 0 0 0 1px #4d4237, 0 3px 0 #000;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+.A .tile .w { font: 700 17px "Oswald", var(--ui); text-transform: uppercase; letter-spacing: .14em; color: var(--cream); text-shadow: 0 2px 0 #000, 0 -1px 0 rgba(255,255,255,.12); }
+.A .tile svg.ic { color: #d9ccb3; filter: drop-shadow(0 2px 0 #000) drop-shadow(0 -1px 0 rgba(255,255,255,.15)); }
+.A .tile:hover, .A .tile.focus { box-shadow: inset 0 0 0 2px var(--pink), inset 0 0 30px rgba(255,46,136,.35), 0 0 22px rgba(255,46,136,.45); }
+.A .hero { background: var(--rivets), linear-gradient(180deg, rgba(20,3,11,.05), rgba(20,3,11,.75)), url(img/play_tile.webp) center / cover; }
+.A .hero .w { font: 400 36px "Black Ops One", var(--ui); letter-spacing: .04em; text-shadow: 0 3px 0 #2a0614, 0 0 20px #000; }
+.A .sub { font: 500 12px "Oswald", var(--ui); color: #ffd3e6; letter-spacing: .06em; }
+.A .op .sub { color: var(--mute); }
+
+/* ---------- B: Blast Zone ---------- */
+.B { font-family: "Teko", var(--ui); }
+.B > .bg { background: radial-gradient(ellipse at 18% 60%, rgba(255,46,136,.25), transparent 45%), radial-gradient(ellipse at 50% 45%, rgba(11,9,8,.25), rgba(11,9,8,.9) 75%), var(--grain), url(img/title_burst.webp) center / cover; filter: saturate(1.05); }
+.B > .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(10,4,7,.55), rgba(10,4,7,.72)); }
+.B .logo b { font: 400 40px "Rubik Dirt", var(--ui); color: var(--cream); letter-spacing: .02em; transform: rotate(-2deg); text-shadow: 0 0 2px #000, 4px 4px 0 #c2135f, 0 0 26px rgba(255,46,136,.6); }
+.B .logo i { font: 700 15px "Teko", var(--ui); color: #ffb3d4; letter-spacing: .3em; font-style: normal; transform: rotate(-2deg); }
+.B .tile { background: var(--speck) var(--ox, 0) var(--oy, 0) / 200px, var(--grain), var(--scratch), linear-gradient(165deg, rgba(48,38,34,.94), rgba(22,17,15,.96) 60%);
+  border: 2px solid #3b2f2a; box-shadow: 0 6px 0 #000, inset 0 0 0 1px rgba(255,255,255,.04);
+  clip-path: polygon(0 4%, 6% 0, 52% 2%, 100% 0, 98% 48%, 100% 100%, 46% 98%, 0 100%, 2% 52%); }
+.B .tile .w { font: 700 24px "Teko", var(--ui); text-transform: uppercase; letter-spacing: .08em; line-height: .9; color: var(--cream); text-shadow: 2px 2px 0 #000; }
+.B .tile svg.ic { color: var(--cream); filter: drop-shadow(2px 2px 0 #c2135f); }
+.B .tile:hover, .B .tile.focus { border-color: var(--pink); box-shadow: 0 6px 0 #000, inset 0 0 26px rgba(255,46,136,.45); }
+.B .hero { background: radial-gradient(circle at 50% 42%, rgba(255,255,255,.3), transparent 30%), url(img/play_tile.webp) center / cover; border-color: #ff5aa0; }
+.B .hero .w { font: 400 46px "Rubik Dirt", var(--ui); text-shadow: 3px 3px 0 #000, 0 0 24px #000; }
+.B .sub { font: 500 15px "Teko", var(--ui); color: #ffd3e6; letter-spacing: .08em; }
+.B .op .sub { color: var(--mute); }
+
+/* ---------- C: Stencil & Spray ---------- */
+.C { font-family: "Special Elite", var(--ui); }
+.C > .bg { background: radial-gradient(ellipse at 50% 40%, rgba(16,12,9,.2), rgba(11,9,8,.85) 80%), var(--rust-tex) 40px 10px / 460px, var(--rust-tex) 200px 120px / 300px, var(--speck), var(--grain), url(img/bg_plate.webp) center / cover; }
+.C .logo b { font: 400 36px "Saira Stencil One", var(--ui); color: var(--cream); letter-spacing: .04em; opacity: .92;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='120'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='.08 .5' numOctaves='3' seed='9'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -6 5.4'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>"); }
+.C .logo i { font: 400 13px "Special Elite", var(--ui); color: var(--pink); letter-spacing: .12em; font-style: normal; }
+.C .tile { background: var(--rivets), var(--rust-tex) var(--ox, 0) var(--oy, 0) / 300px, var(--speck) 0 0 / 180px, var(--grain), var(--scratch), linear-gradient(175deg, #4a443a, #2a2620 55%, #1a1713);
+  box-shadow: inset 0 0 0 2px #19150f, inset 0 0 0 4px #5a5244, inset 0 8px 18px rgba(0,0,0,.35), 0 4px 0 #000; }
+.C .tile::before { content: ""; position: absolute; inset: 7px; border: 1px dashed rgba(242,228,200,.12); pointer-events: none; }
+.C .tile .w { font: 400 22px "Saira Stencil One", var(--ui); text-transform: uppercase; letter-spacing: .1em; color: #e9dcc0; opacity: .9; }
+.C .tile svg.ic { color: #e9dcc0; opacity: .88; }
+.C .tile:hover, .C .tile.focus { box-shadow: inset 0 0 0 2px #19150f, inset 0 0 0 4px var(--pink), inset 0 0 26px rgba(255,46,136,.3), 0 4px 0 #000; }
+.C .hero { background: var(--rivets), linear-gradient(180deg, rgba(20,3,11,.1), rgba(20,3,11,.7)), url(img/play_tile.webp) center / cover; }
+.C .hero .w { font: 400 40px "Saira Stencil One", var(--ui); color: var(--cream); text-shadow: 0 3px 0 #2a0614; }
+.C .sub { font: 400 12px "Special Elite", var(--ui); color: #ffd3e6; }
+.C .op .sub { color: var(--mute); }
+.C .spray { position: absolute; font: 400 15px "Special Elite", var(--ui); color: var(--pink); transform: rotate(-8deg); text-shadow: 0 0 6px rgba(255,46,136,.8); z-index: 4; pointer-events: none; }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13 2 4 14h6l-1 8 9-12h-6z"/></symbol>
+    <symbol id="i-party" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="8" cy="7" r="3"/><circle cx="16.5" cy="8" r="2.5"/><path d="M2 20c0-4 2.7-7 6-7s6 3 6 7z"/><path d="M14.5 20c0-2-.5-3.8-1.6-5.2.9-.8 2.2-1.3 3.6-1.3 3 0 5.5 2.6 5.5 6.5z"/></g></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><g fill="currentColor"><rect x="4" y="7" width="16" height="12" rx="3"/><rect x="11" y="2" width="2" height="5"/><circle cx="12" cy="2.5" r="1.6"/></g><g fill="#0b0908"><circle cx="9" cy="12.5" r="1.8"/><circle cx="15" cy="12.5" r="1.8"/><rect x="8.5" y="15.6" width="7" height="1.6" rx=".8"/></g></symbol>
+    <symbol id="i-couch" viewBox="0 0 24 24"><path fill="currentColor" d="M5 6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4a3 3 0 0 0-3 3H8a3 3 0 0 0-3-3zM1 12a2 2 0 0 1 4 0v3h14v-3a2 2 0 1 1 4 0v6H1zM3 19h2v2H3zm16 0h2v2h-2z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6 1.9.8 2.2-1.5 2.4 2.4-1.5 2.2.8 1.9 2.6.5v3.4l-2.6.5-.8 1.9 1.5 2.2-2.4 2.4-2.2-1.5-1.9.8-.5 2.6h-3.4l-.5-2.6-1.9-.8-2.2 1.5-2.4-2.4 1.5-2.2-.8-1.9L2 13.7v-3.4l2.6-.5.8-1.9-1.5-2.2 2.4-2.4 2.2 1.5 1.9-.8zM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7"/></symbol>
+    <!-- a bullet hole: torn rim, dark core, radial cracks -->
+    <symbol id="hole" viewBox="0 0 40 40">
+      <g stroke="#0c0a08" stroke-width="1.1" stroke-linecap="round" opacity=".85" fill="none"><path d="M20 20 6 12M20 20l16-5M20 20l-3 18M20 20 4 27M20 20l13 13M20 20l2-17"/></g>
+      <g stroke="#d8c7a8" stroke-width=".5" opacity=".35" fill="none"><path d="M20 20 6 13M20 20l16-4M20 20l13 12"/></g>
+      <circle cx="20" cy="20" r="8.5" fill="#6b5a46"/><circle cx="20" cy="20" r="7" fill="#b8a286" opacity=".55"/>
+      <path d="M20 13.5l2 1.6 2.6-.4.6 2.5 2 1.7-1.2 2.3.6 2.5-2.4 1-1 2.4-2.4-.8-2.3 1.2-1.5-2.1-2.6-.4.3-2.6-1.6-2 1.9-1.8-.1-2.6 2.6-.3z" fill="#1a1410"/>
+      <circle cx="20" cy="20" r="3.6" fill="#030202"/>
+    </symbol>
+    <!-- a pink blast: jagged starburst with a hot core -->
+    <symbol id="blast" viewBox="0 0 200 200">
+      <path d="M100 4l12 50 40-36-18 48 52-6-44 30 50 22-54 2 32 44-46-26 4 54-28-46-20 50-4-54-44 30 28-46-54 4 46-26-46-26 54 6-26-46 46 28-2-52 26 44z" fill="#ff2e88" opacity=".9"/>
+      <path d="M100 38l8 34 28-22-12 32 34-4-30 20 32 16-36 2 20 28-30-16 2 34-18-30-12 32-4-34-28 18 18-28-34 2 30-18-30-18 34 4-16-30 30 18-2-34 16 30z" fill="#ff8fc0"/>
+      <circle cx="100" cy="100" r="22" fill="#fff0f6"/>
+    </symbol>
+    <!-- spray splatter -->
+    <symbol id="splat" viewBox="0 0 120 120">
+      <g fill="#ff2e88"><circle cx="60" cy="60" r="20"/><circle cx="84" cy="44" r="7"/><circle cx="34" cy="78" r="9"/><circle cx="92" cy="80" r="4"/><circle cx="24" cy="40" r="5"/><circle cx="70" cy="96" r="5"/><circle cx="104" cy="58" r="3"/><circle cx="14" cy="64" r="3"/><circle cx="48" cy="22" r="3"/><circle cx="66" cy="12" r="2"/><path d="M60 60l40-30-2 4zM60 60 18 98l4 0zM60 60l46 26-2 2z"/></g>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header>
+    <h1>YEET<span>POWDER</span> · grunge styles</h1>
+    <p>Three directions for the menus, shown on the home screen at phone size. Same six choices and layout as the game; only the dressing changes. Hover a tile to see its focus look. Pick one, or mix parts (for example A's rivets with B's font).</p>
+  </header>
+  <div id="variants"></div>
+</div>
+
+<script>
+(()=>{var h={navy:{name:"Vanguard",color:"#6286d9"},ember:{name:"Ember",color:"#f3a36c"},mint:{name:"Riptide",color:"#64d6b1"},violet:{name:"Spectre",color:"#c18df2"},"alien-t-pose":{name:"Alien",color:"#d0dae6"},"camo-soldier":{name:"Camo Soldier",color:"#d0dae6"},"field-survivor-4000":{name:"Field Survivor",color:"#d0dae6"},ninja:{name:"Ninja",color:"#d0dae6"},"samurai-titan":{name:"Viking",color:"#d0dae6"},"samurai-warrior":{name:"Samurai",color:"#d0dae6"},"shadow-vanguard":{name:"Black Ops",color:"#d0dae6"},soldier:{name:"Soldier",color:"#d0dae6"},"t-pose-robot":{name:"Robot",color:"#d0dae6"},"tactical-operator":{name:"Tactical Operator",color:"#d0dae6"},"tactical-shadow-4000":{name:"Black Widow",color:"#d0dae6"}};var t='<circle cx="50" cy="50" r="48" fill="#0b1426"/>',e='<path d="M50 0h50v100H50z" fill="#000" opacity=".16"/>',c=(l,a=0)=>`<path d="M${8-a} 100C${10-a} ${80-a/2} ${26-a} 69 50 69s${40+a} ${11-a/2} ${42+a} 31z" fill="${l}"/>`,r=l=>`<path d="M42 54h16v18H42z" fill="${l}"/>`,o=(l,a=14,n=17,d=42)=>`<ellipse cx="50" cy="${d}" rx="${a}" ry="${n}" fill="${l}"/>`,i=(l="#1a1410",a=42)=>`<path d="M42 ${a}h5v2.4h-5zM53 ${a}h5v2.4h-5z" fill="${l}"/>`,s=(l="#2a1d14",a=38)=>`<path d="M41 ${a}l7 1v1.6l-7-.6zM59 ${a}l-7 1v1.6l7-.6z" fill="${l}"/>`,f=(l="#1c2230")=>`<path d="M28 100l4-24 10-5 8 8 8-8 10 5 4 24z" fill="${l}"/><path d="M42 71l8 8 8-8" stroke="#0e121b" stroke-width="2" fill="none"/>`;function p(l){return t+c(l)+f()+r("#b9c3d6")+o("#c9d2e2")+'<path d="M36 38c0-14 8-19 15-19 9 0 14 6 14 16l-3-6c-5 2-14 2-21-1z" fill="#1d2027"/>'+i("#2b3445")+s("#1d2027")+'<path d="M46 52h8" stroke="#8d97ab" stroke-width="1.6"/>'+e}var b={navy:p("#2c3d7c"),ember:p("#b5602f"),mint:p("#2a8a6c"),violet:p("#6f45a8"),"alien-t-pose":t+'<path d="M30 100c2-14 9-22 20-22s18 8 20 22z" fill="#8fd61f"/><path d="M46 62h8v18h-8z" fill="#7cc219"/><path d="M50 14c17 0 26 11 26 24 0 15-13 30-26 30S24 53 24 38c0-13 9-24 26-24z" fill="#a6e82a"/><path d="M30 38c4-6 12-6 15 1 1 6-4 9-9 8-5-1-8-4-6-9zM70 38c-4-6-12-6-15 1-1 6 4 9 9 8 5-1 8-4 6-9z" fill="#0c0f0a"/><circle cx="35" cy="39" r="1.8" fill="#fff"/><circle cx="61" cy="39" r="1.8" fill="#fff"/><path d="M47 60q3 1.5 6 0" stroke="#5f9614" stroke-width="1.4" fill="none"/>'+e,"camo-soldier":t+c("#5d6448")+'<path d="M18 92c6-4 10-2 14-6M64 84c5 2 9 0 14 4M36 78c4 2 8 0 10 3M54 90c3-2 7-1 9-4" stroke="#3e4430" stroke-width="5" stroke-linecap="round" fill="none"/>'+r("#4d5340")+o("#b08868")+'<path d="M34 46c4 2 28 2 32 0v8c-2 9-9 14-16 14s-14-5-16-14z" fill="#6b7252"/><path d="M40 52c3 1 6 0 8 2M54 56c3-1 6 0 8-2" stroke="#474d36" stroke-width="3" fill="none"/><path d="M33 36c0-12 8-17 17-17s17 5 17 17c-2-2-30-2-34 0z" fill="#646b4c"/><path d="M30 37h40v4H30z" fill="#555b40"/><path d="M42 26c4-2 8 0 10-2" stroke="#424832" stroke-width="3" fill="none"/>'+i("#1d1a14",43)+e,"field-survivor-4000":t+c("#454a39")+'<path d="M30 100l6-26 6-3v29zM70 100l-6-26-6-3v29z" fill="#353a2c"/>'+r("#a37a5b")+o("#b98a66")+'<path d="M37 49c3 11 8 15 13 15s10-4 13-15c-4 4-22 4-26 0z" fill="#5a4636" opacity=".55"/><path d="M35 36c-1-12 7-18 16-18 10 0 15 6 14 15-3-5-8-6-12-6-6 0-14 2-18 9z" fill="#2a211b"/>'+i("#24180f")+s()+'<path d="M34 66c6 6 26 6 32 0l2 8c-8 6-28 6-36 0z" fill="#6d7462"/>'+e,ninja:t+c("#15161b")+'<path d="M40 70l10 18 10-18" stroke="#2a2c33" stroke-width="3" fill="none"/>'+r("#111216")+o("#16171c",16,19)+'<path d="M36 38h28v8H36z" fill="#c69a7a"/>'+i("#120d0a",40)+'<path d="M34 38c0-11 7-18 16-18s16 7 16 18z" fill="#1c1d23"/>'+e,"samurai-titan":t+c("#3a2c22",10)+'<path d="M4 88c4-10 10-14 18-14 5-6 12-6 16-2M96 88c-4-10-10-14-18-14-5-6-12-6-16-2" stroke="#2a1f17" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M22 80c4-3 8-2 10 1M66 81c3-3 8-3 11 0" stroke="#4d3b2d" stroke-width="3" fill="none"/>'+r("#6e4a33")+o("#8a5e41",15,17,40)+'<path d="M35 44c2 18 9 30 15 30s13-12 15-30c-4 5-26 5-30 0z" fill="#2b211c"/><path d="M36 34c0-10 6-15 14-15s14 5 14 15c-4-4-24-4-28 0z" fill="#241b16"/><ellipse cx="50" cy="16" rx="5" ry="4" fill="#241b16"/>'+i("#1a110b",39)+s("#1a120d",35)+e,"samurai-warrior":t+c("#3b4f86")+'<path d="M16 84h68M14 92h72" stroke="#2c3b66" stroke-width="3"/><path d="M30 72h40v5H30z" fill="#c9a24a"/><path d="M22 64c4-14 14-22 28-22s24 8 28 22c-8-4-16-6-28-6s-20 2-28 6z" fill="#1d2230"/>'+r("#8f6a4c")+o("#b2865f",13,15,45)+i("#1d140d",45)+s("#1d140d",41)+'<path d="M32 38c0-12 8-18 18-18s18 6 18 18c-4-3-32-3-36 0z" fill="#262c3b"/><path d="M30 37h40v4H30z" fill="#1d2230"/><path d="M50 24c-6-6-12-8-16-7 3 3 8 6 16 9 8-3 13-6 16-9-4-1-10 1-16 7z" fill="#d8b04e"/><circle cx="50" cy="18" r="3" fill="#d8b04e"/>'+e,"shadow-vanguard":t+c("#1f2227")+'<path d="M14 82c6-8 14-11 22-11M86 82c-6-8-14-11-22-11" stroke="#2e3239" stroke-width="7" stroke-linecap="round" fill="none"/>'+f("#272b31")+r("#16181c")+o("#1b1d22",16,19)+'<path d="M34 38c0-12 7-19 16-19s16 7 16 19z" fill="#262a30"/><ellipse cx="43" cy="42" rx="6" ry="5" fill="#d6c63a"/><ellipse cx="57" cy="42" rx="6" ry="5" fill="#d6c63a"/><path d="M49 42h2" stroke="#16181c" stroke-width="2"/><ellipse cx="41.5" cy="40.5" rx="2" ry="1.4" fill="#fff6a8"/><ellipse cx="55.5" cy="40.5" rx="2" ry="1.4" fill="#fff6a8"/><path d="M40 52h20v6H40z" fill="#111317"/>'+e,soldier:t+c("#5e7a3e")+'<path d="M20 90c5-3 9-1 12-5M66 84c4 2 8 0 12 4M38 80c4 2 7 0 9 3" stroke="#46602c" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M36 100V80h10v20zM54 100V80h10v20z" fill="#4c6331"/>'+r("#a8805f")+o("#bf9068")+'<path d="M38 50c3 9 7 13 12 13s9-4 12-13c-3 3-21 3-24 0z" fill="#6a4f3a" opacity=".45"/>'+i("#22170f",43)+s("#2a1d14",39)+'<path d="M31 38c0-13 8-20 19-20s19 7 19 20z" fill="#5b7a3c"/><path d="M28 37h44v4H28z" fill="#4b6830"/><path d="M40 26c4-1 7 1 10-1M54 30c3 0 5-2 8-1" stroke="#43602a" stroke-width="3" fill="none"/>'+e,"t-pose-robot":t+'<path d="M14 100V78l10-6h52l10 6v22z" fill="#d9dde2"/><path d="M20 84l6 4M72 82l5 6M38 92l5-2" stroke="#c46a2c" stroke-width="3" stroke-linecap="round"/><path d="M44 60h12v14H44z" fill="#3a3f47"/><path d="M31 22h38v38H31z" fill="#e6e9ec"/><path d="M31 22h38v6H31z" fill="#c7ccd2"/><path d="M37 36h8v7h-8zM55 36h8v7h-8z" fill="#ff7a2e"/><path d="M39 38h3v3h-3zM57 38h3v3h-3z" fill="#ffd2a8"/><path d="M41 50h18M41 54h18" stroke="#6a7079" stroke-width="2"/><path d="M33 30c3 1 4 4 3 6M64 52c2-1 3 1 3 3" stroke="#c46a2c" stroke-width="2.4" stroke-linecap="round" fill="none"/>'+e,"tactical-operator":t+c("#8a8a62")+f("#5a5e4a")+r("#2c2e2b")+o("#33363a",15,18)+'<path d="M38 44l12-3 12 3-2 10-10 4-10-4z" fill="#22252a"/><path d="M40 41h20v3H40z" fill="#4a4e55"/><path d="M33 37c0-12 8-18 17-18s17 6 17 18c-4-3-30-3-34 0z" fill="#9b8a5e"/><path d="M38 28h24v6H38z" fill="#2a2c30"/><ellipse cx="44" cy="31" rx="4" ry="2.6" fill="#55606c"/><ellipse cx="56" cy="31" rx="4" ry="2.6" fill="#55606c"/>'+e,"tactical-shadow-4000":t+c("#e7d6cc")+'<path d="M34 100c0-14 4-24 8-28h16c4 4 8 14 8 28z" fill="#15161a"/><path d="M40 72l2-6M60 72l-2-6" stroke="#15161a" stroke-width="2.4"/><path d="M45 70q5 6 10 0" stroke="#9aa0a8" stroke-width="1.2" fill="none"/><circle cx="50" cy="76" r="1.6" fill="#9aa0a8"/>'+r("#dcc8bc")+o("#efe0d6",13,16,43)+'<path d="M33 46c-3-18 6-28 17-28s20 10 17 28c-2-7-4-10-6-12-6 3-16 3-22 0-3 3-4 7-6 12z" fill="#141418"/><path d="M33 44c-1 8 1 14 5 18l-2-14zM67 44c1 8-1 14-5 18l2-14z" fill="#141418"/>'+i("#1b1618",43)+'<path d="M47 53q3 1.5 6 0" stroke="#b9737a" stroke-width="1.6" fill="none"/>'+e},v=0;function z(l,a="op-icon"){let n=Object.hasOwn(b,l)?l:"navy",d=document.createElementNS("http://www.w3.org/2000/svg","svg");d.setAttribute("viewBox","0 0 100 100"),d.setAttribute("class",a),d.setAttribute("role","img");let M=`opclip${++v}`;return d.innerHTML=`<title>${h[n].name}</title><clipPath id="${M}"><circle cx="50" cy="50" r="48"/></clipPath><g clip-path="url(#${M})">${b[n]}</g>`,d}window.OPI={operatorIcon:z,OPERATORS:h};})();
+</script>
+<script>
+const { operatorIcon } = window.OPI;
+const V = [
+  { id: "A", name: "Riveted Steel", tag: "Black Ops One + Oswald",
+    blurb: "Heavy riveted gunmetal plates with rust bleeding through, brushed metal and scratches. Military stencil logo with a worn edge; pink only as rim light and in the PLAY blast. The most readable of the three." },
+  { id: "B", name: "Blast Zone", tag: "Rubik Dirt + Teko",
+    blurb: "The hot pink explosion behind everything, torn and chipped plates, a distressed logo knocked off-angle with a pink drop shadow, starburst blasts and bullet holes punched through. Loudest and most arcade." },
+  { id: "C", name: "Stencil & Spray", tag: "Saira Stencil One + Special Elite",
+    blurb: "Rusted bulkhead panels with double-bolted frames, spray-stencilled words that fade where the paint failed, typewriter labels and pink spray-paint tags. Dirtiest and most hand-made." },
+];
+const tiles = [
+  ["party", "Party"], ["bot", "Solo"], ["couch", "Couch"], ["gear", "Settings"],
+];
+function screen(v) {
+  const holes = {
+    A: [[260, 72, 1], [598, 330, .8], [812, 46, .9], [452, 210, .7]],
+    B: [[300, 120, 1.1], [520, 300, 1], [640, 80, .9], [180, 330, 1], [760, 250, .8], [420, 60, .7]],
+    C: [[240, 300, 1], [700, 140, .9], [470, 58, .8]],
+  }[v.id];
+  const bursts = {
+    A: [[-30, 200, 140, .35]],
+    B: [[-50, 140, 230, .9], [640, -60, 170, .75], [720, 290, 130, .6]],
+    C: [],
+  }[v.id];
+  const splats = v.id === "C" ? [[560, 268, 70, .55], [110, 300, 54, .5], [770, 20, 46, .45]] : [];
+  return `<div class="scr ${v.id}">
+    <div class="bg"></div>
+    ${bursts.map(([x, y, s, o]) => `<svg class="burst" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;opacity:${o};z-index:${v.id === "B" ? 0 : -1};filter:drop-shadow(0 0 18px #ff2e88)"><use href="#blast"/></svg>`).join("")}
+    ${splats.map(([x, y, s, o]) => `<svg class="burst" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;opacity:${o};z-index:2"><use href="#splat"/></svg>`).join("")}
+    <div class="logo"><b>YEETPOWDER</b><i>RECOIL · LAUNCH · REPEAT</i></div>
+    <div class="grid">
+      <button class="tile hero" style="--ox:0;--oy:0"><svg class="ic"><use href="#i-bolt"/></svg><span class="w">PLAY</span><span class="sub">Jump into a match</span></button>
+      ${tiles.map(([ic, w], i) => `<button class="tile${i === 3 ? " focus" : ""}" style="--ox:${-i * 97}px;--oy:${-i * 61}px"><svg class="ic"><use href="#i-${ic}"/></svg><span class="w">${w}</span></button>`).join("")}
+      <button class="tile op" style="--ox:-300px;--oy:-90px"><span class="face" data-face></span><span class="w">Viking</span><span class="sub">Elaina</span></button>
+    </div>
+    ${v.id === "C" ? `<span class="spray" style="left:600px;top:20px">yeet or be yeeted</span>` : ""}
+    <div class="fx">${holes.map(([x, y, s]) => `<svg class="hole" style="left:${x}px;top:${y}px;transform:scale(${s}) rotate(${(x * 7) % 360}deg)"><use href="#hole"/></svg>`).join("")}</div>
+  </div>`;
+}
+const host = document.getElementById("variants");
+host.innerHTML = V.map((v) => `<section class="variant">
+  <div class="vhead"><h2>${v.id} · ${v.name}</h2><span class="tag">${v.tag}</span><p>${v.blurb}</p></div>
+  <div class="fit"><div class="device">${screen(v)}</div></div>
+</section>`).join("");
+document.querySelectorAll("[data-face]").forEach((e) => e.append(operatorIcon("samurai-titan")));
+function fit() {
+  document.querySelectorAll(".fit").forEach((f) => {
+    const d = f.querySelector(".device"), s = Math.min(f.clientWidth / 844, 1.18);
+    d.style.transform = `scale(${s})`; f.style.height = 390 * s + "px";
+  });
+}
+addEventListener("resize", fit); fit();
+</script>
