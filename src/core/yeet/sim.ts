@@ -56,6 +56,11 @@ export interface YeetInput {
   reload: boolean;
   /** Use one charge of a carried health pack (one-shot press). */
   heal?: boolean;
+  /**
+   * Knocked out: come back now (the respawn screen's SPAWN, one-shot press). Ignored until
+   * TUNING.player.respawnUnlock seconds after the knockout; at respawnAuto you come back anyway.
+   */
+  spawn?: boolean;
   /** Slash with a gunblade (F pressed this step). */
   slash: boolean;
   /** F held: past a moment it becomes the hold move (scythe hook, katana dash stance). */
@@ -67,6 +72,11 @@ export interface YeetInput {
 export const NO_INPUT: YeetInput = {
   moveX: 0, moveZ: 0, jump: false, firePressed: false, fireHeld: false, select: -1, reset: false, aiming: false, sprint: false, reload: false, slash: false, slashHeld: false,
 };
+
+/** Seconds a knocked-out player has been down (meaningful while dead is counting down from respawnAuto). */
+export function downFor(p: PlayerState, t: Tuning): number { return t.player.respawnAuto - p.dead; }
+/** True once a knocked-out player may press SPAWN (the respawn screen's button unlocks). */
+export function canSpawn(p: PlayerState, t: Tuning): boolean { return p.dead > 0 && p.dead <= t.player.respawnAuto && downFor(p, t) >= t.player.respawnUnlock; }
 
 export type FlipKind = "backflip" | "frontflip" | "cartwheel";
 
@@ -758,7 +768,7 @@ export class YeetSim {
     v.hp = 0;
     v.damage = 0;
     v.healing = 0; v.shielding = false;
-    v.dead = this.t.player.respawnDelay;
+    v.dead = this.t.player.respawnAuto; // counts down; SPAWN works once respawnUnlock has passed
     v.crashing = false;
     v.tumbling = this.t.player.respawnDelay;
     v.tumbleAge = 1e-6;
@@ -794,7 +804,7 @@ export class YeetSim {
     }
     if (pl.dead > 0) {
       pl.dead -= dt;
-      if (pl.dead <= 0) {
+      if (pl.dead <= 0 || (input.spawn && canSpawn(pl, t))) {
         this.respawnPlayer(true);
         ev.push({ type: "playerRespawn" });
         return;

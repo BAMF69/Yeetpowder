@@ -117,6 +117,12 @@ export class DuelLink {
   private snapTimes: number[] = [];
   private corrections: number[] = [];
 
+  /** The respawn screen is up: tuck the room card away (never the results, which need their buttons). */
+  cover(on: boolean): void { if (this.match?.phase !== "finished") this.root.style.visibility = on ? "hidden" : ""; }
+
+  /** Rename or swap operator mid-match (the respawn screen): the room sanitises it and every roster follows. */
+  sendProfile(profile: PlayerProfile): void { this.net?.send({ t: "profile", profile }); }
+
   constructor(params: URLSearchParams, party: PartySession | null = null) {
     window.addEventListener("keydown", this.scoreDown); window.addEventListener("keyup", this.scoreUp);
     this.party = party;

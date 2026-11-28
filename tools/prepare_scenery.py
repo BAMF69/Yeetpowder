@@ -1,6 +1,6 @@
 """Stage the reviewed arena scenery for production and write its provenance manifest.
 
-Two families, both verified 2026-11-26 (docs/ASSET_LOG.md A-0019 and A-0023):
+Two families, both verified 2026-11-26 (docs/ASSET_LOG.md A-0019 and A-0026):
   * 17 original vinish.dev GLBs (CC BY 4.0): copied byte-for-byte, embedded attribution and clips retained.
   * 14 community remeshes: CC0 Meshy community listings (author, licence and, where the page shows it, the exact
     face count of the original download checked against the listing), remeshed on the project's Meshy account.

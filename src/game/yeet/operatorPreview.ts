@@ -8,7 +8,9 @@ export function operatorPreview(host: HTMLElement, initial: OperatorId, noart: b
   enableOperatorArt(!noart);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-  renderer.setSize(320, 230, false); renderer.domElement.style.cssText = "width:100%;height:230px;display:block";
+  // Sized to its host box (the icon menus' portrait tiles, the respawn carousel); 320x230 when the box has no size yet.
+  const size = () => ({ w: host.clientWidth || 320, h: host.clientHeight || 230 });
+  renderer.setSize(size().w, size().h, false); renderer.domElement.style.cssText = "width:100%;height:100%;display:block";
   renderer.domElement.setAttribute("aria-label", "Animated preview of selected operator"); host.append(renderer.domElement);
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(36, 320 / 230, 0.1, 30);
   scene.add(new THREE.HemisphereLight(0xd5eeff, 0x343048, 2.4));
@@ -19,7 +21,9 @@ export function operatorPreview(host: HTMLElement, initial: OperatorId, noart: b
   let frame = 0, previous = performance.now(), disposed = false;
   const draw = (now: number) => {
     if (disposed) return;
-    const width = host.clientWidth || 320; renderer.setSize(width, 230, false); camera.aspect = width / 230; camera.updateProjectionMatrix();
+    const { w, h } = size();
+    if (renderer.domElement.width !== Math.round(w * renderer.getPixelRatio())) renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
     op.root.rotation.y = Math.sin(now / 3500) * 0.4; op.update(Math.min((now - previous) / 1000, 0.05), camera); previous = now;
     renderer.render(scene, camera); frame = requestAnimationFrame(draw);
   };

@@ -1,4 +1,4 @@
-// Run after dev.py build, with npm run duel:server running. Exercise actual room forms and two game clients.
+// Run after dev.py build, with npm run duel:server running. Exercise the icon room setup screen and two game clients.
 import assert from 'node:assert/strict';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
@@ -41,18 +41,22 @@ async function playing(p) {
 }
 try {
   const form = await page('make-room');
-  await form.locator('select[name=mode]').waitFor();
-  await form.selectOption('select[name=mode]', 'ringout');
-  assert.equal(await form.locator('select[name=level]').inputValue(), 'island-party');
-  assert.equal(await form.locator('select[name=scoreLimit]').isVisible(), true);
-  assert.equal(await form.locator('select[name=minutes]').isVisible(), false);
-  await form.selectOption('select[name=mode]', 'timed');
-  assert.equal(await form.locator('select[name=minutes]').isVisible(), true);
-  await form.selectOption('select[name=mode]', 'lives');
-  assert.equal(await form.locator('select[name=lives]').isVisible(), true);
+  // the icon setup screen (iconMenus.ts roomSetup): every control has a data-item id
+  const item = (id) => form.locator(`.screen:not(.hidden) [data-item="${id}"]`).last();
+  const isOff = (id) => item(id).evaluate((e) => e.classList.contains('mk-off'));
+  const goalIcon = () => form.locator('.screen:not(.hidden) [data-item="goal"] .mk-stepicon use, .screen:not(.hidden) [data-item="goal"] .mk-stepicon path').count();
+  await item('mode-ringout').click();
+  assert.equal(await item('map-island').getAttribute('aria-pressed'), 'true', 'Ring Out moves the map to Shark Island');
+  assert.equal(await isOff('map-junkyard'), true, 'Ring Out greys out maps without water');
+  assert.equal(await form.locator('.screen:not(.hidden) [data-item="goal"] .mk-num').innerText(), '10', 'Ring Out counts kills to win');
+  await item('mode-timed').click();
+  assert.equal(await isOff('map-junkyard'), false);
+  assert.ok(await goalIcon() > 0);
+  await item('mode-lives').click();
+  assert.equal(await isOff('vis-public'), true, 'lives rooms cannot be public');
   await form.screenshot({ path: 'captures/progress/make-room-options.png' });
-  await form.selectOption('select[name=mode]', 'ringout');
-  await form.locator('button[type=submit]').click();
+  await item('mode-ringout').click();
+  await item('go').click();
   await playing(form);
   assert.match(await form.locator('.yh-level').innerText(), /HP ∞/);
   await form.screenshot({ path: 'captures/progress/ring-out-room.png' });
@@ -82,7 +86,7 @@ try {
   assert.match(await offline.locator('.yd-panel h2').innerText(), /Offline · 1 player \+ 7 bots/);
   await offline.screenshot({ path: 'captures/progress/quick-play-eight.png' });
   assert.deepEqual(errors, []);
-  console.log('PARTY_BROWSER_OK: four mode controls, authoritative map selection, two clients, bot labels, disconnect fill, offline eight-combatant match');
+  console.log('PARTY_BROWSER_OK: icon mode/map rules, authoritative map selection, two clients, bot labels, disconnect fill, offline eight-combatant match');
 } catch (error) {
   let index = 0;
   for (const p of browser.contexts().flatMap((c) => c.pages())) {

@@ -15,7 +15,7 @@ import { AUTOPLAY_SECONDS, autoplayStep } from "../src/core/yeet/autoplay";
 import { duelLevel, fightLevel, levelById, sandboxLevel, TOWER_TOP, type Level } from "../src/core/yeet/levels";
 // The outdoor maps as played: their scenery colliders are added by levelById (the 2026-11-26 level pass).
 const islandLevel = () => levelById("island"), industrialLevel = () => levelById("industrial"), junkyardLevel = () => levelById("junkyard");
-import { NO_INPUT, PLAYER_CODE, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../src/core/yeet/sim";
+import { NO_INPUT, PLAYER_CODE, canSpawn, YeetSim, type TaggedEvent, type YeetEvent, type YeetInput } from "../src/core/yeet/sim";
 import { TUNING } from "../src/core/yeet/tuning";
 import { aimDir, vec } from "../src/core/yeet/vec";
 
@@ -940,7 +940,7 @@ describe("Fight Back: guns and pickups", () => {
     sim.pickups[0].taken = true;
     sim.player.hp = 1;
     sim.balls.push({ pos: vec(sim.player.pos.x, 1, sim.player.pos.z - 0.3), vel: vec(0, 0, 20), life: 1, owner: 0 });
-    const ev = run(sim, TUNING.player.respawnDelay + 0.2);
+    const ev = run(sim, TUNING.player.respawnAuto + 0.2); // nobody pressed SPAWN: back at respawnAuto
     expect(has(ev, "playerDown")).toBe(true);
     expect(has(ev, "playerRespawn")).toBe(true);
     expect(sim.player.owned).toEqual(["pistol", "shotgun"]);
@@ -998,9 +998,43 @@ describe("Fight Back: the dummies shoot back", () => {
     for (let i = 0; i < 60 * 120 && downs === 0; i++) if (has(sim.step(NO_INPUT), "playerDown")) downs++;
     expect(downs).toBe(1);
     expect(sim.helpless).toBe(true);
-    run(sim, TUNING.player.respawnDelay + 0.1);
+    run(sim, TUNING.player.respawnAuto + 0.1);
     expect(sim.player.pos).toEqual(fightLevel().spawn);
     expect(sim.player.dead).toBe(0);
+  });
+});
+
+describe("respawn screen rules (SPAWN unlocks at respawnUnlock, auto at respawnAuto)", () => {
+  const downed = () => {
+    const sim = newSim(fightLevel());
+    parkDummies(sim);
+    sim.player.hp = 1;
+    sim.balls.push({ pos: vec(sim.player.pos.x, 1, sim.player.pos.z - 0.3), vel: vec(0, 0, 20), life: 1, owner: 0 });
+    for (let i = 0; i < 240 && sim.player.dead === 0; i++) sim.step(NO_INPUT);
+    expect(sim.player.dead).toBeGreaterThan(0);
+    return sim;
+  };
+
+  it("SPAWN does nothing before the unlock", () => {
+    const sim = downed();
+    const ev = run(sim, TUNING.player.respawnUnlock - 0.5, { spawn: true });
+    expect(has(ev, "playerRespawn")).toBe(false);
+    expect(canSpawn(sim.player, TUNING)).toBe(false);
+  });
+
+  it("SPAWN brings you back right after the unlock", () => {
+    const sim = downed();
+    run(sim, TUNING.player.respawnUnlock + 0.1);
+    expect(canSpawn(sim.player, TUNING)).toBe(true);
+    expect(sim.player.dead).toBeGreaterThan(0); // still waiting: nobody pressed
+    expect(has(run(sim, 0.02, { spawn: true }), "playerRespawn")).toBe(true);
+    expect(sim.player.dead).toBe(0);
+  });
+
+  it("with no press you come back at respawnAuto, not before", () => {
+    const sim = downed();
+    expect(has(run(sim, TUNING.player.respawnAuto - 0.5), "playerRespawn")).toBe(false);
+    expect(has(run(sim, 1), "playerRespawn")).toBe(true);
   });
 });
 
@@ -1049,7 +1083,7 @@ describe("duels: two players (vertical slice netcode groundwork)", () => {
     expect(ev.some((e) => e.type === "pvpDown" && e.by === 0 && e.target === 1)).toBe(true);
     expect(sim.kos).toEqual([1, 0]);
     expect(sim.players[1].dead).toBeGreaterThan(0);
-    both(sim, TUNING.player.respawnDelay + 0.2);
+    both(sim, TUNING.player.respawnAuto + 0.2);
     expect(sim.players[1].dead).toBe(0);
     expect(sim.players[1].hp).toBe(TUNING.player.hp);
     expect(sim.players[1].pos.z).toBeCloseTo(-12, 1);

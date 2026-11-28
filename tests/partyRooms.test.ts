@@ -137,3 +137,30 @@ describe("match modes", () => {
     expect(room.sim.kos[0]).toBe(1); expect(room.match.winners).toEqual([0]);
   });
 });
+
+describe("profile changes mid-match (respawn screen)", () => {
+  it("a seated player can rename and swap operator; the snapshot carries it", () => {
+    const room = new Room("PROF", quickOptions());
+    const slot = room.join({ name: "Elaina", operator: "navy" });
+    room.setProfile(slot, { name: "  Yeetmaster<script>  ", operator: "ninja" });
+    expect(room.snapshot().profiles![slot]).toEqual({ name: "Yeetmasterscript", operator: "ninja" });
+  });
+  it("ignores empty seats and junk", () => {
+    const room = new Room("PROF", quickOptions());
+    const before = structuredClone(room.profiles);
+    room.setProfile(3, { name: "ghost", operator: "ninja" }); // a bot seat, no human
+    room.setProfile(99, { name: "x" });
+    room.setProfile(0, "nope");
+    expect(room.profiles).toEqual(before);
+  });
+  it("bots press SPAWN and are back as soon as it unlocks", () => {
+    const room = new Room("BOTS", quickOptions());
+    room.join({ name: "Me", operator: "navy" });
+    const bot = room.sim.players[1];
+    for (let i = 0; i < 400; i++) room.step(); // let the match start
+    bot.hp = 0; bot.dead = TUNING.player.respawnAuto; bot.tumbling = 0;
+    const steps = Math.ceil((TUNING.player.respawnUnlock + 0.5) / TUNING.step);
+    for (let i = 0; i < steps; i++) room.step();
+    expect(bot.dead).toBe(0);
+  });
+});

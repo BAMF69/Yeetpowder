@@ -106,7 +106,7 @@
 **Excluded (rejected or held):** both concrete-barrier candidates (the 1 m concrete barriers stay simple solid
 boxes, as the handoff asked), the static shark remesh (the animated shark is kept), the first forklift, crane and
 container attempts, the unapproved Armored Military Vehicle (so the tank prop is no longer placed), the medkit
-remesh. Provenance: `docs/ASSET_LOG.md` A-0019 and A-0023, `docs/licenses/scenery-sources.json`.
+remesh. Provenance: `docs/ASSET_LOG.md` A-0019 and A-0026, `docs/licenses/scenery-sources.json`.
 
 ## Still awaiting human review
 - Feel of the routes at full speed, sightlines from the perches, and how crowded the Party yards feel with eight

@@ -1,4 +1,4 @@
-// Render the actual selectable assets and exercise the real profile form.
+// Render the actual selectable assets and exercise the real icon Operator screen.
 import assert from "node:assert/strict";
 import { createServer } from "vite";
 import { chromium } from "playwright";
@@ -17,17 +17,24 @@ try {
  if (!arenaOnly) {
  await page.goto(server.resolvedUrls.local[0],{waitUntil:"domcontentloaded",timeout:180000});
  await page.evaluate(async()=>{
-   const {profileScreen}=await import("/src/shell/profileScreen.ts");
-   window.qaScreen=profileScreen({params:new URLSearchParams(),back:()=>{}}); document.body.replaceChildren(window.qaScreen.root);
+   // the icon Operator screen (iconMenus.ts): arrows step the operator, the name saves as you type
+   const {operatorScreen,OPERATOR_IDS}={...await import("/src/shell/iconMenus.ts"),...await import("/src/shell/portrait.ts")};
+   localStorage.removeItem("yeetpowder.playerProfile");
+   window.qaIds=OPERATOR_IDS;
+   window.qaScreen=operatorScreen({params:new URLSearchParams(),back:()=>{},i18n:{t:(k)=>k,locale:"en"}}); document.body.replaceChildren(window.qaScreen.root); window.qaScreen.enter?.();
  });
- await page.waitForSelector("select[name=operator]");
- assert.equal(await page.locator("select[name=operator] option").count(),15);
- await page.locator("select[name=operator]").selectOption("ninja");
+ await page.waitForSelector("[data-item=op-next]");
+ assert.equal(await page.evaluate(()=>window.qaIds.length),15);
+ const steps=await page.evaluate(()=>window.qaIds.indexOf("ninja")-window.qaIds.indexOf("navy"));
+ for (let i=0;i<steps;i++) await page.locator("[data-item=op-next]").click();
  await page.waitForFunction(()=>document.querySelector("canvas[aria-label]"));
  await page.evaluate(async()=>{const {loadOperatorArt}=await import("/src/game/yeet/operatorArt.ts");if(!await loadOperatorArt("ninja"))throw Error("Ninja did not load");});
- await page.locator("input[name=playerName]").fill("Rig Test"); await page.getByText("Save operator",{exact:true}).click();
- assert.equal(await page.evaluate(async()=>(await import("/src/game/playerProfile.ts")).localProfile().operator),"ninja");
- assert(downloads.every(url=>url.endsWith("/ninja.glb")),"profile preview must not download the whole catalogue");
+ await page.locator("input[name=playerName]").fill("Rig Test");
+ const saved=await page.evaluate(async()=>(await import("/src/game/playerProfile.ts")).localProfile());
+ assert.equal(saved.operator,"ninja"); assert.equal(saved.name,"Rig Test");
+ const visited=await page.evaluate(()=>window.qaIds.slice(0,window.qaIds.indexOf("ninja")+1));
+ // the arrows show each operator on the way, so those load; none past the one you stopped on
+ assert(downloads.every(url=>visited.some(id=>url.endsWith(`/${id}.glb`))),"the preview loaded an operator that was never shown: "+downloads.join(" "));
  await page.screenshot({path:"captures/progress/operator-profile.png"});
  await page.evaluate(async()=>{
    window.qaScreen.leave();

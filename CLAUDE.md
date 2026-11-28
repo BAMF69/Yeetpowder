@@ -37,7 +37,9 @@ gets "nothing ran" from `test`: write the first test, or record the gap in `docs
 - **Explain the why.** Short, direct answers. Give the high-level reason for a choice; skip basics unless asked.
 
 ## Guardrails
-- Do not commit, push, or tag unless asked. When asked, follow `docs/sop/SOP-05-git.md`.
+- Commit and push finished work to the session's working branch without asking (Elaina's call, 2026-11-28; the cloud
+  session's stop hook also asks for it): small commits, check and test first, follow `docs/sop/SOP-05-git.md`.
+  Never push to `main`, force-push, rewrite shared history or tag unless asked. Never commit secrets or gitignored files.
 - Never read or write `.env`, `secrets/`, signing keys (`*.pem`, `*.key`, `*.keystore`, `*.jks`, `*.p12`, `*.pfx`, `*.p8`), engine credential files, or store credentials, by any route (file tools, shell, git). Deny rules block the common routes, not every one.
 - Do not add a dependency, plugin, or asset without logging it (`docs/ASSET_LOG.md` for content, `docs/adr/` for tech).
 - Do not edit generated or binary files by hand (see `docs/ENGINE.md` for the list).

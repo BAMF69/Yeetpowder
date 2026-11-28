@@ -2,6 +2,12 @@ import type { PlayerState } from "./sim";
 import { TUNING } from "./tuning";
 
 /** Shared solo, network and couch feedback, derived from authoritative player state. */
+/** The shield's line for the HUD (the health part has its own pips and timer now), or "" with another weapon. */
+export function shieldStatus(p: PlayerState): string {
+  if (p.weapon !== "shield") return "";
+  return p.shielding ? "SHIELD BRACED · FRONT BLAST IMMUNE" : "SHIELD + PISTOL · FRONT BLAST 50%";
+}
+
 export function equipmentStatus(p: PlayerState): string {
   if (p.healing > 0) return `APPLYING HEALTH ${p.healing.toFixed(1)}s · EQUIPMENT HOLSTERED · HEALTH ${p.healthUses}/${TUNING.supplies.healthUses}`;
   const health = p.healCooldown > 0 ? `HEALTH ${p.healthUses}/${TUNING.supplies.healthUses} · ${Math.ceil(p.healCooldown)}s cooldown` :

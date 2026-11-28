@@ -66,7 +66,11 @@ class LocalParty implements Transport {
       }
     }, 8);
   }
-  send(msg: ClientMsg): void { if (msg.t === "rematch") this.room.restart(this.slot); if (msg.t === "next") this.room.nextRound(this.slot); }
+  send(msg: ClientMsg): void {
+    if (msg.t === "rematch") this.room.restart(this.slot);
+    if (msg.t === "next") this.room.nextRound(this.slot);
+    if (msg.t === "profile") this.room.setProfile(this.slot, msg.profile);
+  }
   queue(input: NetInput): void { this.room.push(this.slot, [input]); }
   flush(): void {}
   close(): void { window.clearInterval(this.timer); }

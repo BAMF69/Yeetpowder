@@ -3,6 +3,62 @@
 > Rewritten at the end of every session by `/end-session`. Read first by `/start-session`.
 > Keep under ~60 lines. It is a baton, not a diary.
 
+**Last updated:** 2026-11-28 (Blast Zone HUD)
+**Branch / commit:** claude/compassionate-bardeen-aapgjz (cloud session), pushed; built on main addbe63
+**Engine version:** see `docs/ENGINE.md`
+
+## This session: icon menus and the respawn screen (ADR 0008)
+- Elaina approved the clickable mockup `docs/mockups/menu-redesign.html`, then set the rules: SPAWN unlocks 10 s
+  after a knockout, auto-respawn at 30 s, name and operator changeable any time (online too), one word per icon.
+- Menus: `src/shell/iconMenus.ts` (Home: Play, Party, Solo, Couch, Settings, Operator; no screen over six choices),
+  `menuKit.ts` (GridMenu + spatial d-pad nav), `icons.ts`, `roomSetup.ts` rules, `launch.ts`. Old dropdown form and
+  profile form deleted; deep links (?quick, ?online&room, ?couch, ?make-room) open the new screens.
+- Respawn: `TUNING.player.respawnUnlock/respawnAuto`, `YeetInput.spawn`, `{t:"profile"}` -> `Room.setProfile`;
+  overlay `src/game/respawnScreen.ts` (YeetWorld) and per-player couch badges (ArenaWorld).
+- Verified: check (types + 11 shaders); 573/574 tests; smoke boot and drives menus, content, display, pseudo
+  (--locale pseudo --timeout 120: 35 screens, nothing truncated); pseudo-plant fails only on its planted label (as
+  designed). Browser helpers updated and passing: operator, couch, solo playtest; party passed 2 of 4 runs.
+  Own checks: phone-landscape/portrait stills of every menu, a full respawn flow (early press ignored, operator
+  change reaches the room roster, spawn after unlock, no pause) and couch pad flow (RB operator, A spawn).
+- Known failing: `tests/soloPlaytest.test.ts` island-edge bot test. The bot already walked into the water before this
+  session; the old 2.2 s respawn hid it. A separate task was suggested for the bot fix.
+- Intermittent: `tools/test_party_browser.mjs`. Suspected: a bot knocks out the joining client and the respawn screen
+  hides the room card's Players button (by design while down). Not confirmed.
+- Not verified: feel with humans (is 10 s too long?), real phone touch on the new menus and the respawn screen, real
+  gamepads, GPU frame time. Map tiles are drawn SVG stand-ins, not renders of the maps.
+- Cloud container notes: Git LFS assets needed `git lfs pull`; Playwright wanted browser build 1248, linked to the
+  installed 1243 under /opt/pw-browsers (container only, nothing in the repo).
+
+## 2026-11-27 follow-up
+- Merged the Shark Island bot fix (claude/nifty-carson-za2ptt); the island test now starts on the shore. 588/588 tests.
+- Operator icons (`src/shell/operatorIcons.ts`) and renames (Viking, Samurai, Black Ops, Black Widow).
+- Grunge pass with Elaina's new art (A-0023): title_burst title, metal menu backdrops, flames/barrel loading screens.
+  Verified: check, 588 tests, smoke boot plus the menus and pseudo drives on the production build. Stills:
+  captures/progress/mk-00-title, mk-01-home, mk-03-make, mk-06-bots, mk-11-loading-1, rs-02-ready.
+- Title is title_metal (Elaina's pick); title_burst joined the loading rotation. Art made with Codex imagegen (A-0023).
+  load_barrel stays as a 007 homage (Elaina's call). Map tiles are still drawn stand-ins.
+
+## 2026-11-28: Blast Zone
+- Menus, respawn and loading now use Blast Zone with the worn-edge stencil (ADR 0008 addendum). Riveted diamond plate
+  and engraved gunmetal lettering are kept behind ?menu-type= (src/shell/menuType.ts). Fonts OFL, bundled (A-0024).
+  Stills: captures/progress/mk-01-home, mk-03-make, rs-02-ready, mk-11-loading-0, mk-type-riveted, mk-type-engraved.
+
+## 2026-11-28: Blast Zone HUD (ADR 0009)
+- Elaina approved the HUD concept (docs/mockups/hud/index.html v2, real captures behind sample values) with changes:
+  cascading stamps, bullet-hole touch buttons, phone weapon chip -> picker plus a swipeable bottom-right strip.
+- Built: src/game/yeet/hud.ts (rewritten, two layers), hudLayout.ts, weaponIcons.ts, bulletHole.ts; touchControls.ts
+  restyled (same controls); YeetWorld routes messages: stamps, feed (pickups, knockouts), notices. Fixed: the scope
+  mask hid the touch buttons (it now sits below them). Level name and score moved to the notice line and Tab.
+- Verified: check, 607 tests (tests/hudLook.test.ts new), smoke (play&touch&level=fightback), node
+  tools/test_hud_browser.mjs (scope under buttons, picker and strip switching, small phone landscape and portrait,
+  150 % text). Stills: captures/progress/hud-01..06 and hud-qa-*.
+- Not verified: a real phone (touch feel, the strip swipe vs look drag), real GPU frame time, ArenaWorld (couch and
+  spectators keep their old overlay). Commit and push now happen without asking (CLAUDE.md, Elaina's call).
+
+## Next step (specific, first action)
+- Elaina plays on her phone and laptop: does the HUD read at a glance, do the strip and picker switch guns reliably,
+  are the stamps too many or too few? Also the earlier menu question: is the respawn wait right, are any icons unclear? Then `/playtest-report` and tune `TUNING.player.respawnUnlock` / the icons one change at a time.
+
 **Last updated:** 2026-11-26
 **Branch / commit:** codex/level-design (worktree build/level-design) from origin/main 862f84e; work uncommitted
 **Engine version:** see `docs/ENGINE.md`
@@ -10,7 +66,7 @@
 ## Current: scenery and level-design pass (2026-11-26)
 - All 31 approved scenic models ship and are placed on Industrial Yard, Junkyard and Shark Island, duel and Party
   (design record: `docs/LEVEL_DESIGN.md`). 17 vinish.dev originals unchanged (A-0019); 14 community remeshes
-  (A-0023) verified first: each Meshy listing's JSON-LD licence is CC0 with a named creator, download names match,
+  (A-0026) verified first: each Meshy listing's JSON-LD licence is CC0 with a named creator, download names match,
   11 face counts match exactly; the container retry carries the vinish.dev credit. `python tools/prepare_scenery.py
   [--check]` stages/verifies (1024 px base colour, 512 px other maps; originals kept in assets_src).
 - Core: `scenery.ts` catalog with multi-box colliders; layouts in `scenery{Industrial,Junkyard,Island}.ts`;
@@ -48,7 +104,7 @@ The toy is playable (Toy tier, nothing committed yet for it). One gray-box room:
 - 2026-11-21: moved to the Vertical slice tier ("Move on anyway", no recorded 2-minute playtest). Slice brief agreed (docs/VERTICAL_SLICE.md Decisions). Gunblades first build is in (keys 5/6, F slash; Sandbox has both, Fight Back has them as pickups on the flanks). Hold-F moves added (TUNING.reaper.hook/yeetreap, TUNING.sakura.dash/ultra). Next: Elaina plays them; poses (reversed blade, hook) are not yet checked in a still.
 - ROADMAP Now: playtest and tune the toy.
 
-## Next step (specific, first action)
+## Earlier next step (historical)
 - Elaina plays it (`python tools/dev.py run`, click to lock the mouse) and pastes notes; run `/playtest-report`, then tune `src/core/yeet/tuning.ts` one change at a time.
 
 ## Open questions / decisions pending

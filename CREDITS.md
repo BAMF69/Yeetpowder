@@ -70,13 +70,21 @@
 
 - Atkinson Hyperlegible, Copyright 2020 Braille Institute of America, Inc. (SIL Open Font License 1.1) (license: OFL-1.1; source: https://github.com/googlefonts/atkinson-hyperlegible)
 
-## Logo / title art
+## HUD weapon icons and bullet-hole button rims
+
+- — (license: Project's own; source: Original, drawn as SVG paths in code for Yeetpowder (2026-11-28); made with AI assistance (pre-generated); modified)
+
+## Logo / title art (RETIRED 2026-11-27: superseded by A-0023 bg_metal.webp, the same design)
 
 - none (license: Own work; check OpenAI's terms for commercial use before release; source: Made by Elaina the Great with ChatGPT image generation (2026-11-19); made with AI assistance (pre-generated); modified)
 
 ## Match music "theme" (surf / spy chiptune loop, 24 bars at 168 bpm, 34.3 s)
 
 - none (license: Own work (procedural); source: Written in code: tools/audio/yeet_music.py, rendered by Wavesmith chiptune; original melody (E harmonic minor), quotes no existing theme)
+
+## Menu fonts: Saira Stencil One, Teko (Medium, Bold), Black Ops One, Russo One (5 TTF)
+
+- Fonts under the SIL Open Font License 1.1 (see src/shell/fonts/OFL-*.txt) (license: SIL Open Font License 1.1; source: Google Fonts (fonts.gstatic.com), licence texts from github.com/google/fonts ofl/<name>/OFL.txt, fetched 2026-11-28)
 
 ## Rigged character (the operative)
 
@@ -101,3 +109,7 @@
 ## Tileable terrain PBR textures (5 materials, 15 JPG maps)
 
 - Terrain textures from Poly Haven (https://polyhaven.com), CC0 1.0. (license: CC0 1.0 Universal; docs/licenses/CC0-1.0.txt; source: https://polyhaven.com/a/aerial_sand ; https://polyhaven.com/a/rock_face_03 ; https://polyhaven.com/a/asphalt_03 ; https://polyhaven.com/a/corrugated_iron ; https://polyhaven.com/a/concrete_floor; modified)
+
+## Title, menu and loading art (6 images, 1672x941 WebP, plus one crop)
+
+- none (license: Own work; check OpenAI's terms for commercial use before release; source: Made by Elaina the Great with Codex image generation (OpenAI), supplied in chat 2026-11-27; made with AI assistance (pre-generated); modified)

@@ -266,13 +266,13 @@ export class Shell {
       if (this.drive) {
         runDrive(this, this.drive).catch((err: unknown) => Log.error("drive", `DRIVE_ABORT ${this.drive}: ${err instanceof Error ? err.message : String(err)}`));
       } else if (this.params.has("quick")) {
-        this.push(screens.partyScreen(this, "quick"));
+        this.push(screens.iconMenus.quickScreen(this));
       } else if (this.params.has("online") && this.params.has("room")) {
-        this.push(screens.partyScreen(this, this.params.has("spectate") ? "spectate" : "join"));
+        this.push(screens.iconMenus.joinScreen(this, this.params.has("spectate")));
       } else if (this.params.has("couch") && !this.params.has("play")) {
-        this.push(screens.partyScreen(this, "couch"));
+        this.push(screens.iconMenus.couchHub(this));
       } else if (this.params.has("make-room")) {
-        this.push(screens.partyScreen(this, "create"));
+        this.push(screens.iconMenus.roomSetup(this, "create"));
       } else if (this.params.has("play")) {
         this.startGame("main"); // ?play: straight into the play world (quick iteration, smoke screenshots of play)
       }

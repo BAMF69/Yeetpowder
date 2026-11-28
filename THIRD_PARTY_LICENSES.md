@@ -6,7 +6,7 @@
 
 - **AI-generated reference; no third-party model license granted or assumed**: A-0003 (assets_src/experiments/operative_01/front-v1.png)
 - **CC BY 4.0; docs/licenses/vinish-CC-BY-4.0.txt**: A-0016 (public/assets/vfx/vinish/), A-0017 (public/assets/audio/sfx/vinish/), A-0019 (public/assets/models/scenery/vinish/)
-- **CC0 1.0 (13 models; docs/licenses/CC0-1.0.txt); CC BY 4.0 for the container (docs/licenses/vinish-CC-BY-4.0.txt)**: A-0023 (public/assets/models/scenery/community/; originals assets_src/approved-art/scenery/)
+- **CC0 1.0 (13 models; docs/licenses/CC0-1.0.txt); CC BY 4.0 for the container (docs/licenses/vinish-CC-BY-4.0.txt)**: A-0026 (public/assets/models/scenery/community/; originals assets_src/approved-art/scenery/)
 - **CC0 1.0 Universal; docs/licenses/CC0-1.0.txt**: A-0018 (public/assets/textures/terrain/)
 - **CC0 1.0 Universal; docs/licenses/CC0-1.0.txt; user-supplied provenance**: A-0022 (public/assets/models/approved/)
 - **CC0 1.0 Universal; included archive License.txt**: A-0004 (public/assets/models/quaternius/modular_men/Swat.gltf; License.txt)
@@ -19,7 +19,9 @@
 - **Own work**: A-0011 (public/icons/*.png; public/manifest.webmanifest)
 - **Own work (procedural synthesis, no samples)**: A-0001 (public/assets/audio/sfx/*.wav; recipes assets_src/audio/*.sfx.json; data/audio_events.json)
 - **Own work (procedural)**: A-0006 (made at runtime by src/game/yeet/paint.ts (no files)), A-0007 (built at runtime by src/game/yeet/gunModels.ts, viewmodel.ts and paint.ts (no files)), A-0008 (built at runtime by src/game/yeet/operative.ts, operativePose.ts, glove.ts and paint.ts (no files)), A-0009 (public/assets/audio/sfx/crowd_*.wav, fizz_*.wav; events in data/audio_events.json), A-0010 (public/assets/audio/music/theme.wav; song assets_src/audio/music/theme.song.json; data/music.json)
-- **Own work; check OpenAI's terms for commercial use before release**: A-0002 (public/assets/ui/title_logo.jpg (from docs/concept/keyframes/09 yeetpowder logo.png, JPEG q86))
+- **Own work; check OpenAI's terms for commercial use before release**: A-0002 (was public/assets/ui/title_logo.jpg (from docs/concept/keyframes/09 yeetpowder logo.png, JPEG q86)), A-0023 (public/assets/ui/title_metal.webp, title_burst.webp, load_flames.webp, bg_plate.webp, bg_metal.webp, load_barrel.webp; play_tile.webp (a 270x360 crop of load_flames above its logo, scaled to 405x540))
+- **Project's own**: A-0025 (src/game/yeet/weaponIcons.ts, src/game/yeet/bulletHole.ts)
+- **SIL Open Font License 1.1**: A-0024 (src/shell/fonts/SairaStencilOne-Regular.ttf, Teko-Medium.ttf, Teko-Bold.ttf, BlackOpsOne-Regular.ttf, RussoOne-Regular.ttf; licences src/shell/fonts/OFL-sairastencilone.txt, OFL-teko.txt, OFL-blackopsone.txt, OFL-russoone.txt)
 
 ## License texts
 

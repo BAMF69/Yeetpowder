@@ -30,8 +30,12 @@ let host;
 try {
   if (!process.argv.includes('--quick-only')) {
   await page.goto(`${base}?data-dir=couch-qa&couch&noart`, { waitUntil: 'domcontentloaded', timeout: 120000 });
-  await page.selectOption('select[name=botFill]', 'no');
-  await page.locator('button[type=submit]').click();
+  // the icon menus: Couch hub -> 2 players -> setup (bots off) -> GO
+  const item = (id) => page.locator(`.screen:not(.hidden) [data-item="${id}"]`).last();
+  await item('couch-2').click();
+  await item('botfill').click();
+  assert.equal(await item('botfill').getAttribute('aria-pressed'), 'false');
+  await item('go').click();
   await page.locator('[data-screen="loading"]').waitFor({ state: 'detached' });
   await page.locator('[data-player="2"]').waitFor();
   await ready();
