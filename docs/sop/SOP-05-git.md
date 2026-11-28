@@ -6,7 +6,8 @@ Safe history, easy rollback, no binary bloat, no leaked secrets.
 ## Rules
 - `main` is always buildable. Work on `feat/<name>`, `fix/<name>`, `chore/<name>` branches.
 - Small commits, one idea each. Message: `type(scope): summary` plus a body explaining why.
-- Claude does not commit, push, or tag unless asked. When asked, show `git status` and `git diff --stat` first.
+- Claude commits and pushes finished work to the session's working branch without asking (Elaina, 2026-11-28). Before
+  each commit, look at `git status` and `git diff --stat`. Pushing to `main`, tagging and merging still need asking.
 - Never commit: build output, engine cache folders (see `.gitignore`), `.env`, keys, platform signing files.
 - **Several agents in one working tree** (tip, E54): each stages its own files by name (never `git add -A` or `git add .`),
   and none stashes, hard-resets or deletes worktrees in the shared tree: one game lost other agents' commits to a stale index
