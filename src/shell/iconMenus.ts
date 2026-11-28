@@ -25,9 +25,35 @@ import { OPERATORS, playerProfile, type OperatorId } from "../net/profile";
 import { localProfile, saveProfile } from "../game/playerProfile";
 import { cleanCode } from "../net/protocol";
 import { OPERATOR_IDS, livePortrait } from "./portrait";
+import { menuType } from "./menuType";
 import { operatorIcon } from "./operatorIcons";
 
 type Build = (root: HTMLElement, m: GridMenu, s: Screen) => void;
+
+/** The lettering style for every icon screen (read once from the page's address). */
+function shellParams(): string { return menuType(new URLSearchParams(location.search)); }
+
+/**
+ * Blast Zone decoration behind the tiles: a few pink starbursts and bullet holes, placed per screen so screens differ
+ * but never move between visits. aria-hidden and click-through; only the corners and gaps show between tiles.
+ */
+function blastFx(id: string): HTMLElement {
+  const fx = el("div", "mk-fx");
+  fx.setAttribute("aria-hidden", "true");
+  let seed = [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  const place = (name: string, cls: string, x: number, y: number) => {
+    const e = icon(name, `mk-icon ${cls}`);
+    e.style.left = `${x}%`; e.style.top = `${y}%`;
+    e.style.transform = `translate(-50%, -50%) rotate(${Math.round(rnd() * 360)}deg)`;
+    fx.append(e);
+  };
+  place("blast", "mk-blast mk-blast-big", -2 + rnd() * 6, 55 + rnd() * 30);
+  place("blast", "mk-blast", 88 + rnd() * 12, -4 + rnd() * 10);
+  place("blast", "mk-blast mk-blast-small", 84 + rnd() * 14, 78 + rnd() * 20);
+  for (let k = 0; k < 4; k++) place("hole", "mk-hole", 8 + rnd() * 84, 10 + rnd() * 80);
+  return fx;
+}
 
 /** url(...) for a file in public/assets/ui/, absolute against the page (itch.io and Pages subfolders included). */
 function uiArt(file: string): string { return `url("${new URL(`assets/ui/${file}`, document.baseURI).href}")`; }
@@ -36,11 +62,12 @@ function uiArt(file: string): string { return `url("${new URL(`assets/ui/${file}
 function mkScreen(id: string, build: Build, extra: Partial<Screen> = {}): Screen {
   const root = el("section", "screen mk");
   root.dataset.screen = id;
-  // the worn-metal backdrop (ASSET_LOG A-0023): the riveted plate on the home screen, the engraved one elsewhere.
+  // Blast Zone (Elaina, 2026-11-28): the hot pink burst behind every screen (ASSET_LOG A-0023), darkened by the CSS.
   // Set from code because Vite rewrites url() inside the stylesheet, and as absolute URLs because a url() in a custom
   // property resolves against the stylesheet that uses it (dist/assets/), not the page: uiArt() keeps subfolders working.
-  root.style.setProperty("--mk-art", uiArt(id === "menu" ? "bg_metal.webp" : "bg_plate.webp"));
+  root.style.setProperty("--mk-art", uiArt("title_burst.webp"));
   root.style.setProperty("--mk-hero-art", uiArt("play_tile.webp")); // the PLAY tile's flames (a crop of load_flames)
+  root.dataset.type = shellParams(); // the lettering: worn-edge stencil unless ?menu-type= asks otherwise (menuType.ts)
   const s: Screen = { id, root, ...extra };
   s.render = () => {
     const keep = s.menu?.focused?.id;
@@ -48,6 +75,7 @@ function mkScreen(id: string, build: Build, extra: Partial<Screen> = {}): Screen
     const m = new GridMenu();
     s.menu = m;
     build(root, m, s);
+    root.prepend(blastFx(id));
     if (!(keep && m.focusId(keep))) m.focusFirst();
   };
   s.render();

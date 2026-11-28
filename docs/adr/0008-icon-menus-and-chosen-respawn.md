@@ -68,3 +68,14 @@ Elaina supplied new title and menu art (ASSET_LOG A-0023) and asked for a grungi
 - Every operator has a flat head-and-shoulders icon drawn from its real model (`operatorIcons.ts`). Four operators
   are renamed: Viking, Samurai, Black Ops, Black Widow. Their ids are unchanged.
 - `load_barrel` is kept as a deliberate 007 homage (Elaina, 2026-11-27); see A-0023 for the pre-release note.
+
+## Addendum 2026-11-28: Blast Zone with the worn-edge stencil
+
+Elaina found the first grunge pass too clean and picked the "Blast Zone" direction from `docs/mockups/grunge-styles.html`:
+the hot pink burst behind every icon screen, chipped plates, starbursts and bullet holes (drawn in code, behind the
+tiles so they never cover a label). For the lettering she chose the worn-edge stencil: Saira Stencil One in cream with a
+pink spray shadow and a light nibble at the edges, with Teko for small labels.
+
+The other two lettering options are kept for later and work today: riveted diamond-plate nameplates (Black Ops One) and
+engraved gunmetal plaques (Russo One). `src/shell/menuType.ts` picks one; stencil is the default and `?menu-type=riveted`
+or `?menu-type=engraved` previews the others. All four fonts are OFL and bundled (ASSET_LOG A-0024).

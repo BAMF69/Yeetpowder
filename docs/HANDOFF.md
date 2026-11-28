@@ -4,7 +4,7 @@
 > Keep under ~60 lines. It is a baton, not a diary.
 
 **Last updated:** 2026-11-27 (follow-up: art and grunge pass)
-**Branch / commit:** claude/nifty-faraday-7l1db4 (cloud session), pushed; built on main 862f84e
+**Branch / commit:** menu-remaster (renamed from claude/nifty-faraday-7l1db4 on 2026-11-28), pushed; built on main 81fe932
 **Engine version:** see `docs/ENGINE.md`
 
 ## This session: icon menus and the respawn screen (ADR 0008)
@@ -37,6 +37,11 @@
   captures/progress/mk-00-title, mk-01-home, mk-03-make, mk-06-bots, mk-11-loading-1, rs-02-ready.
 - Title is title_metal (Elaina's pick); title_burst joined the loading rotation. Art made with Codex imagegen (A-0023).
   load_barrel stays as a 007 homage (Elaina's call). Map tiles are still drawn stand-ins.
+
+## 2026-11-28: Blast Zone
+- Menus, respawn and loading now use Blast Zone with the worn-edge stencil (ADR 0008 addendum). Riveted diamond plate
+  and engraved gunmetal lettering are kept behind ?menu-type= (src/shell/menuType.ts). Fonts OFL, bundled (A-0024).
+  Stills: captures/progress/mk-01-home, mk-03-make, rs-02-ready, mk-11-loading-0, mk-type-riveted, mk-type-engraved.
 
 ## Next step (specific, first action)
 - Elaina plays the new menus on a phone and a laptop and dies a few times: is the respawn wait right, are any
