@@ -20,6 +20,7 @@ import { OPERATORS, playerProfile, type OperatorId, type PlayerProfile } from ".
 import { icon } from "../shell/icons";
 import { OPERATOR_IDS } from "../shell/portrait";
 import { operatorIcon } from "../shell/operatorIcons";
+import { menuType } from "../shell/menuType";
 import { shell } from "../shell/app";
 import { localProfile, saveProfile } from "./playerProfile";
 
@@ -82,6 +83,7 @@ export class RespawnScreen {
     this.root = div("rs");
     this.root.hidden = true;
     this.root.dataset.screen = "respawn";
+    this.root.dataset.type = menuType(new URLSearchParams(location.search)); // Blast Zone lettering (menuType.ts)
 
     const top = div("rs-killer", this.root);
     this.killerPic = div("rs-killerpic", top);

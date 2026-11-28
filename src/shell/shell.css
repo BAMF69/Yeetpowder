@@ -454,3 +454,93 @@
 .mk-portrait, .rs-portrait { position:relative; }
 .op-icon { filter:saturate(.7) contrast(1.1) sepia(.2) brightness(.95); }
 .mk .mk-hero, .mk .mk-hero.item.focused { background-size:auto, cover; background-position:center, center; }
+
+/* ---- Blast Zone (2026-11-28, Elaina): the hot pink explosion behind chipped plates, starbursts and bullet holes,
+   with the worn-edge stencil lettering. Two kept alternatives by [data-type] (menuType.ts): riveted diamond plate and
+   engraved gunmetal. Mockup: docs/mockups/grunge-styles.html. Fonts: OFL, src/shell/fonts (ASSET_LOG A-0024). ---- */
+@font-face { font-family: "Saira Stencil One"; src: url("./fonts/SairaStencilOne-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Teko"; src: url("./fonts/Teko-Medium.ttf") format("truetype"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Teko"; src: url("./fonts/Teko-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Black Ops One"; src: url("./fonts/BlackOpsOne-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Russo One"; src: url("./fonts/RussoOne-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+
+.mk, .rs, .yp-loading {
+  --bz-speck:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='2' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .62  0 0 0 0 .3  0 0 0 0 .1  16 0 0 0 -11.4'/></filter><rect width='100%' height='100%' filter='url(%23s)'/></svg>");
+  --bz-chip:polygon(0 4%, 6% 0, 52% 2%, 100% 0, 98% 48%, 100% 100%, 46% 98%, 0 100%, 2% 52%);
+  --bz-chip-s:polygon(0 8%, 10% 0, 55% 4%, 100% 0, 96% 50%, 100% 100%, 45% 96%, 0 100%, 4% 50%);
+  --bz-label:"Teko", system-ui, sans-serif;
+  --bz-word:"Saira Stencil One", system-ui, sans-serif;
+  /* the stencil's light edge wear: fine noise, only a nibble off the edges */
+  --bz-wear:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='120'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 2.25'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>");
+}
+.mk { background:radial-gradient(ellipse at 18% 60%, rgba(255,46,136,.25), transparent 45%), linear-gradient(rgba(10,4,7,.6), rgba(10,4,7,.74)),
+  radial-gradient(ellipse at 50% 45%, rgba(11,9,8,.25), rgba(11,9,8,.85) 75%), var(--mk-grain), var(--mk-art, none) center / cover no-repeat, #14030b; }
+.mk > :not(.mk-fx):not(.corner) { position:relative; z-index:1; }
+.mk > .corner { z-index:2; }
+.mk-fx { position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+.mk-blast { position:absolute; width:20vmin; height:20vmin; opacity:.75; filter:drop-shadow(0 0 18px #ff2e88); }
+.mk-blast-big { width:34vmin; height:34vmin; opacity:.85; }
+.mk-blast-small { width:14vmin; height:14vmin; opacity:.6; }
+.mk-hole { position:absolute; width:6vmin; height:6vmin; min-width:26px; min-height:26px; }
+@media (prefers-reduced-motion: reduce) { .mk-blast { filter:none; } }
+
+/* chipped plates */
+.mk .mk-tile, .mk .mk-back, .mk .mk-arrow, .mk .mk-step, .mk .mk-chip {
+  clip-path:var(--bz-chip); border:2px solid #3b2f2a;
+  background:var(--bz-speck) 0 0 / 200px, var(--mk-grain), var(--mk-scratch), linear-gradient(165deg, rgba(48,38,34,.95), rgba(22,17,15,.97) 60%);
+  box-shadow:0 6px 0 #000, inset 0 0 0 1px rgba(255,255,255,.04); }
+.mk .mk-back, .mk .mk-step, .mk .mk-chip, .mk .mk-arrow { clip-path:var(--bz-chip-s); }
+.mk .item.focused:not(.mk-hero):not([aria-pressed="true"]) { background:var(--bz-speck) 0 0 / 200px, var(--mk-grain), var(--mk-scratch), linear-gradient(165deg, rgba(70,40,50,.95), rgba(32,16,22,.97) 60%); }
+.mk .mk-tile.focused, .mk .mk-chip.focused, .mk .mk-back.focused, .mk .mk-arrow.focused, .mk .mk-go.focused {
+  border-color:var(--mk-pink); box-shadow:0 6px 0 #000, inset 0 0 26px rgba(255,46,136,.45), 0 0 16px rgba(255,46,136,.35); }
+.mk .mk-tile .mk-icon, .mk .mk-back .mk-icon, .mk .mk-arrow .mk-icon { color:var(--mk-cream); filter:drop-shadow(2px 2px 0 #c2135f); }
+.mk .mk-hero, .mk .mk-hero.item.focused { border-color:#ff5aa0;
+  background:radial-gradient(circle at 50% 42%, rgba(255,255,255,.28), transparent 32%), var(--mk-hero-art, none) center / cover, #c2135f; }
+.mk .mk-go.item, .mk .mk-go.item.focused { clip-path:var(--bz-chip-s); }
+
+/* labels and small text: Teko */
+.mk-sub, .mk-lbl, .mk-chipword, .mk-status, .mk-logo .mk-tag, .rs-hints, .rs-count, .rs-goal, .rs-scores, .rs-btnword, .rs-yeeted,
+.mk-namechip input, .rs-name input, .yp-loading .muted { font-family:var(--bz-label); letter-spacing:.08em; }
+.mk-sub { font-size:calc(.85em * var(--text-scale)); font-weight:500; }
+.mk-logo .mk-tag { font-weight:700; font-size:calc(.95em * var(--text-scale)); letter-spacing:.3em; color:#ffb3d4; }
+.mk-chipword { font-size:calc(.68em * var(--text-scale)); font-weight:700; }
+.mk-namechip input, .rs-name input { font-weight:500; font-size:calc(1.15em * var(--text-scale)); letter-spacing:.04em; }
+
+/* ---- lettering: worn-edge stencil (default) ---- */
+[data-type] .mk-word, [data-type] .mk-title, [data-type] .mk-goword, [data-type] .mk-name, [data-type] .mk-bignum, [data-type] .mk-opname, [data-type] .mk-num,
+.rs[data-type] .rs-word, .rs[data-type] .rs-opname, .rs[data-type] .rs-killername, .yp-loading[data-type] .heading {
+  font-family:var(--bz-word); font-style:normal; font-weight:400; letter-spacing:.08em; text-transform:uppercase; color:var(--mk-cream, #f2e4c8); }
+[data-type="stencil"] .mk-word, [data-type="stencil"] .mk-title, [data-type="stencil"] .mk-goword, [data-type="stencil"] .mk-name, [data-type="stencil"] .mk-bignum,
+[data-type="stencil"] .mk-opname, .rs[data-type="stencil"] .rs-word, .rs[data-type="stencil"] .rs-opname, .rs[data-type="stencil"] .rs-killername, .yp-loading[data-type="stencil"] .heading {
+  text-shadow:2px 2px 0 rgba(194,19,95,.85); -webkit-mask-image:var(--bz-wear); mask-image:var(--bz-wear); }
+[data-type="stencil"] .mk-name { font-size:calc(2.1em * var(--text-scale)); text-shadow:3px 3px 0 rgba(194,19,95,.9), 0 0 18px rgba(255,46,136,.5); }
+[data-type] .mk-word { font-size:calc(1.15em * var(--text-scale)); }
+[data-type] .mk-hero .mk-word { font-size:calc(2.2em * var(--text-scale)); }
+[data-type="stencil"] .mk-hero .mk-word { text-shadow:3px 3px 0 #000, 0 0 20px rgba(0,0,0,.8); }
+[data-type] .mk-picture .mk-word { font-size:calc(.85em * var(--text-scale)); }
+[data-type] .mk-title { font-size:calc(1.7em * var(--text-scale)); }
+[data-type] .mk-goword { font-size:calc(1.35em * var(--text-scale)); text-shadow:2px 2px 0 #4a0622; -webkit-mask-image:none; mask-image:none; }
+
+/* ---- lettering: riveted diamond plate (kept for later; ?menu-type=riveted) ---- */
+[data-type="riveted"] { --bz-word:"Black Ops One", system-ui, sans-serif;
+  --bz-tread:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22'><g transform='rotate(45 5.5 5.5)'><rect x='1' y='4.2' width='9' height='2.6' rx='1.3' fill='%23000' opacity='.55' transform='translate(.7 .9)'/><rect x='1' y='4.2' width='9' height='2.6' rx='1.3' fill='%23c9ced4'/><rect x='1.6' y='4.4' width='7.8' height='1' rx='.5' fill='%23fff' opacity='.7'/></g><g transform='rotate(-45 16.5 16.5)'><rect x='12' y='15.2' width='9' height='2.6' rx='1.3' fill='%23000' opacity='.55' transform='translate(.7 .9)'/><rect x='12' y='15.2' width='9' height='2.6' rx='1.3' fill='%23c9ced4'/><rect x='12.6' y='15.4' width='7.8' height='1' rx='.5' fill='%23fff' opacity='.7'/></g></svg>");
+  --bz-plate:radial-gradient(circle at .5em 50%, #f4f4f4 0 1px, #6d7178 1.6px, #2b2d31 3px, transparent 4px), radial-gradient(circle at calc(100% - .5em) 50%, #f4f4f4 0 1px, #6d7178 1.6px, #2b2d31 3px, transparent 4px), var(--bz-tread) 0 0 / 15px, linear-gradient(180deg, #8c9198 0%, #5d6168 45%, #43464b 60%, #6c7077 100%); }
+[data-type="riveted"] .mk-tile:not(.mk-picture) .mk-word, [data-type="riveted"] .mk-name, [data-type="riveted"] .mk-title {
+  display:inline-block; padding:.18em 1.3em .08em; background:var(--bz-plate); color:#f4f5f6; text-shadow:0 0 1px #000, 2px 2px 0 #111, 0 0 6px rgba(0,0,0,.8);
+  box-shadow:0 2px 0 #000, inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.45); flex:none; }
+[data-type="riveted"] .mk-picture .mk-word, [data-type="riveted"] .mk-opname, [data-type="riveted"] .mk-bignum { text-shadow:2px 2px 0 #000; }
+
+/* ---- lettering: engraved gunmetal (kept for later; ?menu-type=engraved) ---- */
+[data-type="engraved"] { --bz-word:"Russo One", system-ui, sans-serif; }
+[data-type="engraved"] .mk-tile:not(.mk-picture) .mk-word, [data-type="engraved"] .mk-name, [data-type="engraved"] .mk-title {
+  display:inline-block; padding:.16em 1em .04em; font-style:italic; flex:none; color:#0e0f11;
+  background:var(--mk-brushed, repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, rgba(0,0,0,.04) 1px 2px)), var(--mk-scratch), linear-gradient(180deg, #6e737b 0%, #50555b 42%, #3d4146 60%, #5a5f65 100%);
+  box-shadow:inset 0 1px 0 rgba(220,230,240,.28), inset 0 -2px 0 rgba(0,0,0,.55), inset 0 0 0 1px #1a1c1f, 0 3px 0 #000, 0 0 14px rgba(255,46,136,.25);
+  text-shadow:0 1.5px 0 rgba(215,224,235,.6), 0 -1px 0 rgba(0,0,0,.9), 0 0 1px rgba(0,0,0,.8); }
+[data-type="engraved"] .mk-picture .mk-word, [data-type="engraved"] .mk-opname, [data-type="engraved"] .mk-bignum { font-style:italic; text-shadow:2px 2px 0 #000; }
+
+/* respawn and loading in Blast Zone */
+.rs { background:radial-gradient(ellipse at center, rgba(20,6,12,.45), rgba(11,9,8,.9) 80%), var(--mk-grain); }
+.rs-scores, .rs-portrait, .rs-btn, .rs-keys, .rs-couch, .rs-killer { clip-path:var(--bz-chip-s); }
+.yp-loading .panel { clip-path:var(--bz-chip-s); background:var(--bz-speck) 0 0 / 200px, rgba(22,17,15,.9); }
+.yp-title .press { font-family:"Saira Stencil One", system-ui, sans-serif; font-style:normal; font-weight:400; text-shadow:2px 2px 0 rgba(194,19,95,.85); }

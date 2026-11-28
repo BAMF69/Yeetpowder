@@ -49,6 +49,9 @@ const ICONS: Record<string, string | [string, string]> = {
   info: `<circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="${INK}" d="M11 10h2v8h-2zm0-4h2v2h-2z"/>`,
   quit: `<path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M12 3v8m-5.5-5a8 8 0 1 0 11 0"/>`,
   star: `<path fill="currentColor" d="m12 2 3 6.6 7 .7-5.3 4.8 1.6 7L12 17.5 5.7 21l1.6-7L2 9.3l7-.7z"/>`,
+  // Blast Zone decoration (iconMenus.ts fx layer): a pink starburst and a bullet hole
+  blast: ["0 0 200 200", `<path d="M100 4l12 50 40-36-18 48 52-6-44 30 50 22-54 2 32 44-46-26 4 54-28-46-20 50-4-54-44 30 28-46-54 4 46-26-46-26 54 6-26-46 46 28-2-52 26 44z" fill="#ff2e88" opacity=".9"/><path d="M100 38l8 34 28-22-12 32 34-4-30 20 32 16-36 2 20 28-30-16 2 34-18-30-12 32-4-34-28 18 18-28-34 2 30-18-30-18 34 4-16-30 30 18-2-34 16 30z" fill="#ff8fc0"/><circle cx="100" cy="100" r="22" fill="#fff0f6"/>`],
+  hole: ["0 0 40 40", `<g stroke="#0c0a08" stroke-width="1.1" stroke-linecap="round" opacity=".85" fill="none"><path d="M20 20 6 12M20 20l16-5M20 20l-3 18M20 20 4 27M20 20l13 13M20 20l2-17"/></g><g stroke="#d8c7a8" stroke-width=".5" opacity=".35" fill="none"><path d="M20 20 6 13M20 20l16-4M20 20l13 12"/></g><circle cx="20" cy="20" r="8.5" fill="#6b5a46"/><circle cx="20" cy="20" r="7" fill="#b8a286" opacity=".55"/><path d="M20 13.5l2 1.6 2.6-.4.6 2.5 2 1.7-1.2 2.3.6 2.5-2.4 1-1 2.4-2.4-.8-2.3 1.2-1.5-2.1-2.6-.4.3-2.6-1.6-2 1.9-1.8-.1-2.6 2.6-.3z" fill="#1a1410"/><circle cx="20" cy="20" r="3.6" fill="#030202"/>`],
   arenas: `<path fill="currentColor" d="M3 8l9-5 9 5v2H3zm1 3h3v7H4zm6.5 0h3v7h-3zM17 11h3v7h-3zM2 19h20v2H2z"/>`,
 };
 

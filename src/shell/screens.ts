@@ -16,6 +16,7 @@
 //           the CSS, text the renderer draws uses core/hud.ts (#309)
 // ---------------------------------------------------------------------------
 import * as iconMenus from "./iconMenus";
+import { menuType } from "./menuType";
 import { glyphName, glyphSet, promptBinding } from "../core/bindings";
 import type { Screen, Shell } from "./app";
 import { creditsText } from "./credits";
@@ -167,6 +168,7 @@ export function loading(shell: Shell, key: GameKey): Screen {
   const s = built("loading", "yp-loading", (root) => {
     // full-bleed art behind the bar, one of two pictures in turn (A-0023)
     root.style.backgroundImage = `url(assets/ui/${LOADING_ART[loadingTurn++ % LOADING_ART.length]})`;
+    root.dataset.type = menuType(shell.params); // Blast Zone lettering (menuType.ts)
     const p = panel("narrow");
     const bar = el("div", "bar");
     fill = el("div", "fill");

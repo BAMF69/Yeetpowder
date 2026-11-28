@@ -38,6 +38,11 @@
 - Title is title_metal (Elaina's pick); title_burst joined the loading rotation. Art made with Codex imagegen (A-0023).
   load_barrel stays as a 007 homage (Elaina's call). Map tiles are still drawn stand-ins.
 
+## 2026-11-28: Blast Zone
+- Menus, respawn and loading now use Blast Zone with the worn-edge stencil (ADR 0008 addendum). Riveted diamond plate
+  and engraved gunmetal lettering are kept behind ?menu-type= (src/shell/menuType.ts). Fonts OFL, bundled (A-0024).
+  Stills: captures/progress/mk-01-home, mk-03-make, rs-02-ready, mk-11-loading-0, mk-type-riveted, mk-type-engraved.
+
 ## Next step (specific, first action)
 - Elaina plays the new menus on a phone and a laptop and dies a few times: is the respawn wait right, are any
   icons unclear? Then `/playtest-report` and tune `TUNING.player.respawnUnlock` / the icons one change at a time.
