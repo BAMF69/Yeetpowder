@@ -1,9 +1,9 @@
 <title>Yeetpowder Grunge Styles</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Oswald:wght@500;700&family=Rubik+Dirt&family=Teko:wght@500;700&family=Saira+Stencil+One&family=Special+Elite&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Russo+One&family=Saira+Stencil+One&family=Teko:wght@500;700&display=swap">
 <style>
-/* Layout: three phone-landscape home screens stacked, one per style direction, each scaled to the page width.
+/* Layout: three phone-landscape home screens stacked, all in the Blast Zone look, one per lettering treatment.
    Single dark look on purpose (the game's menus). Textures are drawn in code; pink blasts use the game's own art. */
 :root {
   color-scheme: dark;
@@ -30,7 +30,7 @@ body { margin: 0; background: var(--page); color: var(--cream); font-family: var
 .wrap { max-width: 1000px; margin: 0 auto; display: grid; gap: 30px; }
 header h1 { margin: 0 0 4px; font: 400 26px "Black Ops One", var(--ui); letter-spacing: .02em; }
 header h1 span { color: var(--pink); }
-header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 70ch; font-size: 14px; }
+header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 72ch; font-size: 14px; }
 .variant { display: grid; gap: 10px; }
 .vhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
 .vhead h2 { margin: 0; font: 400 22px "Black Ops One", var(--ui); }
@@ -39,75 +39,63 @@ header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 70ch; fon
 .fit { position: relative; width: 100%; }
 .device { position: absolute; left: 0; top: 0; width: 844px; height: 390px; transform-origin: 0 0; border-radius: 20px; overflow: hidden; box-shadow: 0 0 0 6px #221d18, 0 20px 50px #000b; }
 
-/* ---------- shared screen structure ---------- */
-.scr { position: absolute; inset: 0; padding: 16px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; isolation: isolate; }
-.scr > .bg { position: absolute; inset: 0; z-index: -2; }
+/* ---------- Blast Zone (shared by all three): the pink explosion, chipped plates, bursts, bullet holes ---------- */
+.scr { position: absolute; inset: 0; padding: 16px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; isolation: isolate; font-family: "Teko", var(--ui); }
+.scr > .bg { position: absolute; inset: 0; z-index: -2;
+  background: radial-gradient(ellipse at 18% 60%, rgba(255,46,136,.25), transparent 45%), radial-gradient(ellipse at 50% 45%, rgba(11,9,8,.25), rgba(11,9,8,.9) 75%), var(--grain), url(img/title_burst.webp) center / cover; }
+.scr > .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(10,4,7,.55), rgba(10,4,7,.72)); }
 .scr > .fx { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .logo { display: flex; align-items: center; gap: 14px; position: relative; z-index: 2; }
+.logo i { font: 700 15px "Teko", var(--ui); color: #ffb3d4; letter-spacing: .3em; font-style: normal; }
 .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.35fr 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 11px; position: relative; z-index: 1; }
 .grid .hero { grid-row: 1 / 3; }
 .grid .op { grid-column: 4; grid-row: 1 / 3; }
-.tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; cursor: pointer; border: 0; color: inherit; padding: 10px; }
-.tile svg.ic { width: 40%; max-width: 56px; aspect-ratio: 1; height: auto; position: relative; z-index: 1; }
-.tile .w { position: relative; z-index: 1; }
-.tile .sub { position: relative; z-index: 1; }
-.face { width: 74%; max-width: 112px; aspect-ratio: 1; position: relative; z-index: 1; }
+.tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; overflow: hidden; cursor: pointer; color: inherit; padding: 10px;
+  background: var(--speck) var(--ox, 0) var(--oy, 0) / 200px, var(--grain), var(--scratch), linear-gradient(165deg, rgba(48,38,34,.94), rgba(22,17,15,.96) 60%);
+  border: 2px solid #3b2f2a; box-shadow: 0 6px 0 #000, inset 0 0 0 1px rgba(255,255,255,.04);
+  clip-path: polygon(0 4%, 6% 0, 52% 2%, 100% 0, 98% 48%, 100% 100%, 46% 98%, 0 100%, 2% 52%); }
+.tile svg.ic { width: 38%; max-width: 54px; aspect-ratio: 1; height: auto; position: relative; z-index: 1; color: var(--cream); filter: drop-shadow(2px 2px 0 #c2135f); }
+.tile:hover, .tile.focus { border-color: var(--pink); box-shadow: 0 6px 0 #000, inset 0 0 26px rgba(255,46,136,.45); }
+.hero { background: radial-gradient(circle at 50% 42%, rgba(255,255,255,.3), transparent 30%), url(img/play_tile.webp) center / cover; border-color: #ff5aa0; }
+.sub { position: relative; z-index: 1; font: 500 15px "Teko", var(--ui); color: #ffd3e6; letter-spacing: .08em; }
+.op .sub { color: var(--mute); }
+.face { width: 72%; max-width: 108px; aspect-ratio: 1; position: relative; z-index: 1; }
 .face svg { width: 100%; height: 100%; display: block; filter: saturate(.65) contrast(1.15) sepia(.3) brightness(.9); }
 .hole { position: absolute; width: 36px; height: 36px; pointer-events: none; z-index: 2; }
 .burst { position: absolute; pointer-events: none; }
+.w { position: relative; z-index: 1; }
 
-/* ---------- A: Riveted Steel ---------- */
-.A { font-family: "Oswald", var(--ui); }
-.A > .bg { background: radial-gradient(ellipse at 50% 40%, rgba(11,9,8,.35), rgba(11,9,8,.88) 78%), var(--rust-tex) 0 0 / 520px, var(--grain), url(img/bg_metal.webp) center / cover; }
-.A .logo b { font: 400 34px "Black Ops One", var(--ui); color: var(--cream); letter-spacing: .01em;
-  text-shadow: 0 1px 0 #fff3, 0 -1px 0 #000, 0 3px 0 #2a1810, 0 0 22px rgba(255,46,136,.35);
-  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -7 6.3'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>"); }
-.A .logo i { font: 700 12px "Oswald", var(--ui); color: var(--pink); letter-spacing: .26em; font-style: normal; }
-.A .tile { background: var(--rivets), var(--speck) 0 0 / 240px, var(--rust-tex) var(--ox, 0) var(--oy, 0) / 380px, var(--grain), var(--scratch), var(--brushed), linear-gradient(172deg, #3a342d, #1e1a16 58%, #120f0c);
-  box-shadow: inset 0 1px 0 rgba(255,236,210,.18), inset 0 -3px 0 rgba(0,0,0,.6), inset 0 0 0 1px #4d4237, 0 3px 0 #000;
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
-.A .tile .w { font: 700 17px "Oswald", var(--ui); text-transform: uppercase; letter-spacing: .14em; color: var(--cream); text-shadow: 0 2px 0 #000, 0 -1px 0 rgba(255,255,255,.12); }
-.A .tile svg.ic { color: #d9ccb3; filter: drop-shadow(0 2px 0 #000) drop-shadow(0 -1px 0 rgba(255,255,255,.15)); }
-.A .tile:hover, .A .tile.focus { box-shadow: inset 0 0 0 2px var(--pink), inset 0 0 30px rgba(255,46,136,.35), 0 0 22px rgba(255,46,136,.45); }
-.A .hero { background: var(--rivets), linear-gradient(180deg, rgba(20,3,11,.05), rgba(20,3,11,.75)), url(img/play_tile.webp) center / cover; }
-.A .hero .w { font: 400 36px "Black Ops One", var(--ui); letter-spacing: .04em; text-shadow: 0 3px 0 #2a0614, 0 0 20px #000; }
-.A .sub { font: 500 12px "Oswald", var(--ui); color: #ffd3e6; letter-spacing: .06em; }
-.A .op .sub { color: var(--mute); }
+/* ---------- 1: Riveted metal. Steel letters (polished gradient, dark edge); tile words on riveted steel nameplates ---------- */
+.t1 .logo b { position: relative; padding: 4px 30px 2px; font: 400 38px "Black Ops One", var(--ui); letter-spacing: .03em;
+  background: var(--rivets), linear-gradient(180deg, #2c2622, #17120f); box-shadow: inset 0 1px 0 rgba(255,236,210,.15), inset 0 0 0 1px #4d4237, 0 4px 0 #000;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+.t1 .logo b span { background: linear-gradient(180deg, #ffffff 0%, #d9dde2 30%, #8b9097 52%, #e7e9ec 66%, #9aa0a7 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 0 #000) drop-shadow(0 0 10px rgba(255,46,136,.45)); }
+.t1 .w { padding: 3px 20px 1px; font: 400 18px "Black Ops One", var(--ui); letter-spacing: .1em; text-transform: uppercase; color: #1d1a17;
+  text-shadow: 0 1px 0 rgba(255,255,255,.45);
+  background: radial-gradient(circle at 8px 50%, #f4f4f4 0 1px, #6d7178 1.6px, #2b2d31 3px, transparent 4px), radial-gradient(circle at calc(100% - 8px) 50%, #f4f4f4 0 1px, #6d7178 1.6px, #2b2d31 3px, transparent 4px),
+    linear-gradient(180deg, #e9ebee 0%, #b9bec4 45%, #8e949b 55%, #c9cdd2 100%);
+  box-shadow: 0 2px 0 #000, inset 0 -1px 0 rgba(0,0,0,.35); }
+.t1 .hero .w { font-size: 30px; padding: 4px 30px 2px; background: radial-gradient(circle at 10px 50%, #f4f4f4 0 1.2px, #6d7178 2px, #2b2d31 3.6px, transparent 5px), radial-gradient(circle at calc(100% - 10px) 50%, #f4f4f4 0 1.2px, #6d7178 2px, #2b2d31 3.6px, transparent 5px), linear-gradient(180deg, #e9ebee 0%, #b9bec4 45%, #8e949b 55%, #c9cdd2 100%); }
 
-/* ---------- B: Blast Zone ---------- */
-.B { font-family: "Teko", var(--ui); }
-.B > .bg { background: radial-gradient(ellipse at 18% 60%, rgba(255,46,136,.25), transparent 45%), radial-gradient(ellipse at 50% 45%, rgba(11,9,8,.25), rgba(11,9,8,.9) 75%), var(--grain), url(img/title_burst.webp) center / cover; filter: saturate(1.05); }
-.B > .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(10,4,7,.55), rgba(10,4,7,.72)); }
-.B .logo b { font: 400 40px "Rubik Dirt", var(--ui); color: var(--cream); letter-spacing: .02em; transform: rotate(-2deg); text-shadow: 0 0 2px #000, 4px 4px 0 #c2135f, 0 0 26px rgba(255,46,136,.6); }
-.B .logo i { font: 700 15px "Teko", var(--ui); color: #ffb3d4; letter-spacing: .3em; font-style: normal; transform: rotate(-2deg); }
-.B .tile { background: var(--speck) var(--ox, 0) var(--oy, 0) / 200px, var(--grain), var(--scratch), linear-gradient(165deg, rgba(48,38,34,.94), rgba(22,17,15,.96) 60%);
-  border: 2px solid #3b2f2a; box-shadow: 0 6px 0 #000, inset 0 0 0 1px rgba(255,255,255,.04);
-  clip-path: polygon(0 4%, 6% 0, 52% 2%, 100% 0, 98% 48%, 100% 100%, 46% 98%, 0 100%, 2% 52%); }
-.B .tile .w { font: 700 24px "Teko", var(--ui); text-transform: uppercase; letter-spacing: .08em; line-height: .9; color: var(--cream); text-shadow: 2px 2px 0 #000; }
-.B .tile svg.ic { color: var(--cream); filter: drop-shadow(2px 2px 0 #c2135f); }
-.B .tile:hover, .B .tile.focus { border-color: var(--pink); box-shadow: 0 6px 0 #000, inset 0 0 26px rgba(255,46,136,.45); }
-.B .hero { background: radial-gradient(circle at 50% 42%, rgba(255,255,255,.3), transparent 30%), url(img/play_tile.webp) center / cover; border-color: #ff5aa0; }
-.B .hero .w { font: 400 46px "Rubik Dirt", var(--ui); text-shadow: 3px 3px 0 #000, 0 0 24px #000; }
-.B .sub { font: 500 15px "Teko", var(--ui); color: #ffd3e6; letter-spacing: .08em; }
-.B .op .sub { color: var(--mute); }
+/* ---------- 2: Engraved metal. Letters cut into brushed bronze plaques: dark recess, lit lower lip ---------- */
+.t2 .logo b, .t2 .w { position: relative;
+  background: var(--brushed), linear-gradient(180deg, #b48f66 0%, #8d6b4a 40%, #6d5238 60%, #a07e5a 100%);
+  box-shadow: inset 0 1px 0 rgba(255,230,190,.45), inset 0 -2px 0 rgba(0,0,0,.45), inset 0 0 0 1px #3b2a1c, 0 3px 0 #000, 0 0 14px rgba(255,46,136,.25);
+  color: #2a1d12; text-shadow: 0 1px 0 rgba(255,228,190,.55), 0 -1px 0 rgba(0,0,0,.75), 0 0 1px rgba(0,0,0,.6); }
+.t2 .logo b { padding: 5px 26px 2px; font: 400 36px "Russo One", var(--ui); letter-spacing: .05em; font-style: italic;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+.t2 .logo b::before { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 0 70%, rgba(255,46,136,.5) 96%, rgba(255,46,136,.8)); mix-blend-mode: screen; pointer-events: none; }
+.t2 .w { padding: 3px 16px 0; font: 400 17px "Russo One", var(--ui); letter-spacing: .1em; text-transform: uppercase; font-style: italic;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.t2 .hero .w { font-size: 30px; padding: 4px 24px 1px; }
 
-/* ---------- C: Stencil & Spray ---------- */
-.C { font-family: "Special Elite", var(--ui); }
-.C > .bg { background: radial-gradient(ellipse at 50% 40%, rgba(16,12,9,.2), rgba(11,9,8,.85) 80%), var(--rust-tex) 40px 10px / 460px, var(--rust-tex) 200px 120px / 300px, var(--speck), var(--grain), url(img/bg_plate.webp) center / cover; }
-.C .logo b { font: 400 36px "Saira Stencil One", var(--ui); color: var(--cream); letter-spacing: .04em; opacity: .92;
-  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='120'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='.08 .5' numOctaves='3' seed='9'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -6 5.4'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>"); }
-.C .logo i { font: 400 13px "Special Elite", var(--ui); color: var(--pink); letter-spacing: .12em; font-style: normal; }
-.C .tile { background: var(--rivets), var(--rust-tex) var(--ox, 0) var(--oy, 0) / 300px, var(--speck) 0 0 / 180px, var(--grain), var(--scratch), linear-gradient(175deg, #4a443a, #2a2620 55%, #1a1713);
-  box-shadow: inset 0 0 0 2px #19150f, inset 0 0 0 4px #5a5244, inset 0 8px 18px rgba(0,0,0,.35), 0 4px 0 #000; }
-.C .tile::before { content: ""; position: absolute; inset: 7px; border: 1px dashed rgba(242,228,200,.12); pointer-events: none; }
-.C .tile .w { font: 400 22px "Saira Stencil One", var(--ui); text-transform: uppercase; letter-spacing: .1em; color: #e9dcc0; opacity: .9; }
-.C .tile svg.ic { color: #e9dcc0; opacity: .88; }
-.C .tile:hover, .C .tile.focus { box-shadow: inset 0 0 0 2px #19150f, inset 0 0 0 4px var(--pink), inset 0 0 26px rgba(255,46,136,.3), 0 4px 0 #000; }
-.C .hero { background: var(--rivets), linear-gradient(180deg, rgba(20,3,11,.1), rgba(20,3,11,.7)), url(img/play_tile.webp) center / cover; }
-.C .hero .w { font: 400 40px "Saira Stencil One", var(--ui); color: var(--cream); text-shadow: 0 3px 0 #2a0614; }
-.C .sub { font: 400 12px "Special Elite", var(--ui); color: #ffd3e6; }
-.C .op .sub { color: var(--mute); }
-.C .spray { position: absolute; font: 400 15px "Special Elite", var(--ui); color: var(--pink); transform: rotate(-8deg); text-shadow: 0 0 6px rgba(255,46,136,.8); z-index: 4; pointer-events: none; }
+/* ---------- 3: Worn-edge stencil. Crisp painted stencil, cream with a pink spray shadow; only the edges are worn ---------- */
+.t3 .logo b, .t3 .w { position: relative; color: var(--cream);
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='120'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 2.25'/></filter><rect width='100%' height='100%' filter='url(%23m)'/></svg>"); }
+.t3 .logo b { font: 400 42px "Saira Stencil One", var(--ui); letter-spacing: .05em; text-shadow: 3px 3px 0 rgba(194,19,95,.9), 0 0 18px rgba(255,46,136,.5); }
+.t3 .w { font: 400 23px "Saira Stencil One", var(--ui); letter-spacing: .1em; text-transform: uppercase; text-shadow: 2px 2px 0 rgba(194,19,95,.85); }
+.t3 .hero .w { font-size: 40px; text-shadow: 3px 3px 0 #000, 0 0 20px rgba(0,0,0,.8); }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -137,11 +125,10 @@ header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 70ch; fon
     </symbol>
   </defs>
 </svg>
-
 <div class="wrap">
   <header>
-    <h1>YEET<span>POWDER</span> · grunge styles</h1>
-    <p>Three directions for the menus, shown on the home screen at phone size. Same six choices and layout as the game; only the dressing changes. Hover a tile to see its focus look. Pick one, or mix parts (for example A's rivets with B's font).</p>
+    <h1>YEET<span>POWDER</span> · Blast Zone type</h1>
+    <p>Blast Zone stays as it was: the hot pink explosion behind everything, chipped plates, starbursts and bullet holes. Only the lettering changes: three cleaner metal and stencil treatments in place of the dirty text. Hover a tile to see its focus look.</p>
   </header>
   <div id="variants"></div>
 </div>
@@ -152,45 +139,31 @@ header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 70ch; fon
 <script>
 const { operatorIcon } = window.OPI;
 const V = [
-  { id: "A", name: "Riveted Steel", tag: "Black Ops One + Oswald",
-    blurb: "Heavy riveted gunmetal plates with rust bleeding through, brushed metal and scratches. Military stencil logo with a worn edge; pink only as rim light and in the PLAY blast. The most readable of the three." },
-  { id: "B", name: "Blast Zone", tag: "Rubik Dirt + Teko",
-    blurb: "The hot pink explosion behind everything, torn and chipped plates, a distressed logo knocked off-angle with a pink drop shadow, starburst blasts and bullet holes punched through. Loudest and most arcade." },
-  { id: "C", name: "Stencil & Spray", tag: "Saira Stencil One + Special Elite",
-    blurb: "Rusted bulkhead panels with double-bolted frames, spray-stencilled words that fade where the paint failed, typewriter labels and pink spray-paint tags. Dirtiest and most hand-made." },
+  { id: "t1", name: "Riveted metal", tag: "Black Ops One",
+    blurb: "Polished steel letters on a riveted dark plate for the logo; every tile word sits on its own riveted steel nameplate with dark embossed lettering. Reads like hardware bolted onto the menu." },
+  { id: "t2", name: "Engraved metal", tag: "Russo One, italic",
+    blurb: "Words cut into brushed bronze plaques: a dark recess with a lit lower lip, and the art's pink rim light catching the logo plate's edge. Matches your engraved-plate artwork." },
+  { id: "t3", name: "Worn-edge stencil", tag: "Saira Stencil One",
+    blurb: "Clean, sharp stencil letters in cream paint with a pink spray shadow. The wear is only a light nibble at the edges, so the words stay crisp and readable." },
 ];
-const tiles = [
-  ["party", "Party"], ["bot", "Solo"], ["couch", "Couch"], ["gear", "Settings"],
-];
+const tiles = [["party", "Party"], ["bot", "Solo"], ["couch", "Couch"], ["gear", "Settings"]];
+const holes = [[300, 120, 1.1], [610, 262, 1], [640, 80, .9], [180, 330, 1], [800, 336, .8], [420, 60, .7]];
+const bursts = [[-50, 140, 230, .9], [640, -60, 170, .75], [720, 290, 130, .6]];
 function screen(v) {
-  const holes = {
-    A: [[260, 72, 1], [598, 330, .8], [812, 46, .9], [452, 210, .7]],
-    B: [[300, 120, 1.1], [520, 300, 1], [640, 80, .9], [180, 330, 1], [760, 250, .8], [420, 60, .7]],
-    C: [[240, 300, 1], [700, 140, .9], [470, 58, .8]],
-  }[v.id];
-  const bursts = {
-    A: [[-30, 200, 140, .35]],
-    B: [[-50, 140, 230, .9], [640, -60, 170, .75], [720, 290, 130, .6]],
-    C: [],
-  }[v.id];
-  const splats = v.id === "C" ? [[560, 268, 70, .55], [110, 300, 54, .5], [770, 20, 46, .45]] : [];
   return `<div class="scr ${v.id}">
     <div class="bg"></div>
-    ${bursts.map(([x, y, s, o]) => `<svg class="burst" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;opacity:${o};z-index:${v.id === "B" ? 0 : -1};filter:drop-shadow(0 0 18px #ff2e88)"><use href="#blast"/></svg>`).join("")}
-    ${splats.map(([x, y, s, o]) => `<svg class="burst" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;opacity:${o};z-index:2"><use href="#splat"/></svg>`).join("")}
-    <div class="logo"><b>YEETPOWDER</b><i>RECOIL · LAUNCH · REPEAT</i></div>
+    ${bursts.map(([x, y, s, o]) => `<svg class="burst" style="left:${x}px;top:${y}px;width:${s}px;height:${s}px;opacity:${o};z-index:0;filter:drop-shadow(0 0 18px #ff2e88)"><use href="#blast"/></svg>`).join("")}
+    <div class="logo"><b><span>YEETPOWDER</span></b><i>RECOIL · LAUNCH · REPEAT</i></div>
     <div class="grid">
-      <button class="tile hero" style="--ox:0;--oy:0"><svg class="ic"><use href="#i-bolt"/></svg><span class="w">PLAY</span><span class="sub">Jump into a match</span></button>
+      <button class="tile hero"><svg class="ic"><use href="#i-bolt"/></svg><span class="w">PLAY</span><span class="sub">Jump into a match</span></button>
       ${tiles.map(([ic, w], i) => `<button class="tile${i === 3 ? " focus" : ""}" style="--ox:${-i * 97}px;--oy:${-i * 61}px"><svg class="ic"><use href="#i-${ic}"/></svg><span class="w">${w}</span></button>`).join("")}
-      <button class="tile op" style="--ox:-300px;--oy:-90px"><span class="face" data-face></span><span class="w">Viking</span><span class="sub">Elaina</span></button>
+      <button class="tile op"><span class="face" data-face></span><span class="w">Viking</span><span class="sub">Elaina</span></button>
     </div>
-    ${v.id === "C" ? `<span class="spray" style="left:600px;top:20px">yeet or be yeeted</span>` : ""}
     <div class="fx">${holes.map(([x, y, s]) => `<svg class="hole" style="left:${x}px;top:${y}px;transform:scale(${s}) rotate(${(x * 7) % 360}deg)"><use href="#hole"/></svg>`).join("")}</div>
   </div>`;
 }
-const host = document.getElementById("variants");
-host.innerHTML = V.map((v) => `<section class="variant">
-  <div class="vhead"><h2>${v.id} · ${v.name}</h2><span class="tag">${v.tag}</span><p>${v.blurb}</p></div>
+document.getElementById("variants").innerHTML = V.map((v, i) => `<section class="variant">
+  <div class="vhead"><h2>${i + 1} · ${v.name}</h2><span class="tag">${v.tag}</span><p>${v.blurb}</p></div>
   <div class="fit"><div class="device">${screen(v)}</div></div>
 </section>`).join("");
 document.querySelectorAll("[data-face]").forEach((e) => e.append(operatorIcon("samurai-titan")));
