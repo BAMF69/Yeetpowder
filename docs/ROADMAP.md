@@ -30,7 +30,7 @@
 - [ ] 
 
 ## Parking lot (ideas, no commitment)
-- Story + tutorial campaign "Brace Before You Blast" (4 chapters of purpose-built linear platformer rooms, gunblade mini bosses): draft in `docs/STORY_CAMPAIGN.md` (rev. 2026-11-28). Each mini boss drops the chapter gunblade (Sakura, Reaper, new Grenade Axe; ch. 4 armour). Prototype Chapter 1 first.
+- Story + tutorial campaign "Brace Before You Blast" (4 chapters of purpose-built linear platformer rooms, gunblade mini bosses): draft in `docs/STORY_CAMPAIGN.md` (rev. 2026-11-28). Each mini boss drops the chapter gunblade (Sakura, Reaper, Rocket Axe; ch. 4 armour). Prototype Chapter 1 first.
 - Gatling Copter at x2 thrust climbs ~100 m in 5 s when aimed straight down: maybe a height falloff or more drag if it stops feeling like hovering
 - Limited reserve ammo and ammo pickups (magazines are in; reserve is infinite for now)
 - Fight Back win condition (knock them all out within a time? waves?) and dummies that move

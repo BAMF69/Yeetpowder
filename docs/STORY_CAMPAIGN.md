@@ -44,7 +44,7 @@ The guns from earlier rooms still matter, but the blade is the key.
 |---|---|---|---|
 | 1 | **Sakura** (The Proctor) | Slash-fire combos, dash slash | Combos interrupt the boss's slow wind-ups; dash slash is the only way past his hazard sweeps |
 | 2 | **Reaper** (The Foreman) | Flips, hook and drag | Flips clear his floor hazards; hook-and-drag pulls his core out of armour to hit it |
-| 3 | **Grenade Axe** (The Apprentice) *new blade* | Rocket jumps, grenade slashes | Rocket jumps dodge his attacks and climb the arena; grenade slashes surge you forward and break pursuing drones |
+| 3 | **Rocket Axe** (The Apprentice), rename pending | Rocket jumps, grenade slashes | Rocket jumps dodge his attacks and climb the arena; grenade slashes surge you forward and break pursuing drones |
 | 4 | *all three* + **armour** | Armour types and matchups | Boss swaps armour each phase; pick the right blade or gun for it |
 
 ## Chapter 1: Orientation (Pinkwell Training Wing) → earn the Sakura
@@ -74,19 +74,19 @@ The guns from earlier rooms still matter, but the blade is the key.
 | 2-5 Hook Gym | **Hook and drag** | Hook crates onto pressure plates, drag guards off ledges into foam, hook-swing across gaps |
 | **Chapter boss: Quality Control** | Flips + hook and drag | Armoured press robot. Its floor fills with hazard waves: flip over them. Its core sits behind armour shutters: **hook the core and drag it out**, then hit it. Phase 2: drag its feeder bots into its own press. Reward: the Stuffers show you the Smiths' forge. |
 
-## Chapter 3: The Forge (Smiths' junkyard workshop) → earn the Grenade Axe
+## Chapter 3: The Forge (Smiths' junkyard workshop) → earn the Rocket Axe
 *Theme: scrap towers, anvils, sparks. Story: the Smiths built gunblades to survive Pinkwell's faulty barrels.*
 
-**Grenade Axe (new gunblade, needs design + tuning):** a Smith axe with a grenade launcher in the
-haft. *Rocket jump:* fire the launcher at your feet for a big vertical launch (self-blast does no or
-low damage). *Grenade slash:* a swing that detonates a charge behind the blade, surging you forward
-and blasting what you hit. Fits the existing grenade blast rules (8 m radius) scaled down.
+**Rocket Axe (already in the game; new name pending, it fires rockets *and* grenades):** campaign uses
+its existing moves: rocket fire at your feet for rocket jumps, and F + Fire for the grenade slash
+(leap and forward surge that blasts what it hits). Name candidates: **Boomhatchet**, **Kaboomerax**,
+**Splitfire**, **Double-Barrel Bardiche**, **Blastjack**.
 
 | Room | Skill | Gate / challenge |
 |---|---|---|
 | 3-1 Grenade Arc | Thrown grenades, aimed vs hip, trajectory guide | Lob grenades over walls onto switches |
 | 3-2 Hold the Line | Yeet Shield, rear weakness; healing | Turret hallway; heal mid-gauntlet |
-| **Mini boss: The Apprentice** (Grenade Axe) | Uses shield, grenades, Sakura, Reaper | He rocket jumps away and grenade-slashes at you: shield the slash, hook him down out of the air. **Drops the Grenade Axe.** |
+| **Mini boss: The Apprentice** (Rocket Axe) | Uses shield, grenades, Sakura, Reaper | He rocket jumps away and grenade-slashes at you: shield the slash, hook him down out of the air. **Drops the Rocket Axe.** |
 | 3-3 Scrap Tower | **Rocket jumps** (climb, dodge) | Vertical tower; falling scrap must be dodged mid-climb |
 | 3-4 Chase Yard | **Grenade slashes** (forward surge, destroy pursuers) | Swarms of scrap drones chase you down a long corridor; surge forward and smash them |
 | **Chapter boss: The Master Smith** (brainwashed by Pinkwell) | Rocket jumps + grenade slashes | Collapsing anvil tower. His ground slams and molten sweeps are dodged only by rocket jumping, and climbing to the next tier needs rocket jumps too. Phase 2: he sends forge drones after you; grenade-slash through them to reach him. Reward: the Smiths join Dot. |
@@ -120,8 +120,8 @@ and sparks on deflected slashes, a dull thud on bullets into vests.
 - Three medals per boss (time / no heals / no hits).
 
 ## Build cost and reuse
-New systems this needs: the **Grenade Axe** gunblade and **armour** with damage types (both are
-gameplay additions that also affect Party mode: decide with an ADR whether they ship there).
+New system this needs: **armour** with damage types (also affects Party mode: decide with an ADR
+whether it ships there). The Rocket Axe exists; only its rename is open.
 Reuses: weapons, gunblades, bots' brain (as boss pattern controllers), dummies, sharks, HighlightRecorder,
 captions, tuning in `src/core/yeet/tuning.ts`. New: a linear level format (rooms, checkpoints, gates,
 triggers) in data files, a boss pattern script runner, ~30 PA lines, poster decals.
