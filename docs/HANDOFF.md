@@ -3,8 +3,8 @@
 > Rewritten at the end of every session by `/end-session`. Read first by `/start-session`.
 > Keep under ~60 lines. It is a baton, not a diary.
 
-**Last updated:** 2026-11-27 (follow-up: art and grunge pass)
-**Branch / commit:** menu-remaster (renamed from claude/nifty-faraday-7l1db4 on 2026-11-28), pushed; built on main 81fe932
+**Last updated:** 2026-11-28 (Blast Zone HUD)
+**Branch / commit:** claude/compassionate-bardeen-aapgjz (cloud session), pushed; built on main addbe63
 **Engine version:** see `docs/ENGINE.md`
 
 ## This session: icon menus and the respawn screen (ADR 0008)
@@ -43,9 +43,21 @@
   and engraved gunmetal lettering are kept behind ?menu-type= (src/shell/menuType.ts). Fonts OFL, bundled (A-0024).
   Stills: captures/progress/mk-01-home, mk-03-make, rs-02-ready, mk-11-loading-0, mk-type-riveted, mk-type-engraved.
 
+## 2026-11-28: Blast Zone HUD (ADR 0009)
+- Elaina approved the HUD concept (docs/mockups/hud/index.html v2, real captures behind sample values) with changes:
+  cascading stamps, bullet-hole touch buttons, phone weapon chip -> picker plus a swipeable bottom-right strip.
+- Built: src/game/yeet/hud.ts (rewritten, two layers), hudLayout.ts, weaponIcons.ts, bulletHole.ts; touchControls.ts
+  restyled (same controls); YeetWorld routes messages: stamps, feed (pickups, knockouts), notices. Fixed: the scope
+  mask hid the touch buttons (it now sits below them). Level name and score moved to the notice line and Tab.
+- Verified: check, 607 tests (tests/hudLook.test.ts new), smoke (play&touch&level=fightback), node
+  tools/test_hud_browser.mjs (scope under buttons, picker and strip switching, small phone landscape and portrait,
+  150 % text). Stills: captures/progress/hud-01..06 and hud-qa-*.
+- Not verified: a real phone (touch feel, the strip swipe vs look drag), real GPU frame time, ArenaWorld (couch and
+  spectators keep their old overlay). Commit and push now happen without asking (CLAUDE.md, Elaina's call).
+
 ## Next step (specific, first action)
-- Elaina plays the new menus on a phone and a laptop and dies a few times: is the respawn wait right, are any
-  icons unclear? Then `/playtest-report` and tune `TUNING.player.respawnUnlock` / the icons one change at a time.
+- Elaina plays on her phone and laptop: does the HUD read at a glance, do the strip and picker switch guns reliably,
+  are the stamps too many or too few? Also the earlier menu question: is the respawn wait right, are any icons unclear? Then `/playtest-report` and tune `TUNING.player.respawnUnlock` / the icons one change at a time.
 
 ## Current art/gameplay continuation
 - Work in `C:/Users/shane/Documents/Claude/Yeetpowder/build/art-integration`. Shane confirmed the parent checkout as his gameplay checkout; its tracked files and untracked art/shopping work are preserved. The main merge is prepared without a commit; props.ts import conflict was resolved keeping projectile previews and static batching. Do not reset this worktree to clear the pending merge.
