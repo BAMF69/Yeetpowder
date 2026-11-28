@@ -65,7 +65,8 @@ import { Viewmodel } from "./yeet/viewmodel";
 import { fovForAspect } from "../core/yeet/view";
 import { ART_WEAPONS, isArtPreview, loadGripOperators, loadMeshyArt, operativeArt } from "./yeet/meshyArt";
 import { firearmId } from "../core/yeet/tuning";
-import { equipmentStatus } from "../core/yeet/equipment";
+import { shieldStatus } from "../core/yeet/equipment";
+import { hitBearing } from "./yeet/hudLayout";
 import { SceneryViews } from "./yeet/scenery";
 import { MatchReplay } from "./yeet/matchReplay";
 import { localProfile } from "./playerProfile";
@@ -191,6 +192,9 @@ export class YeetWorld implements World {
   private readonly fx: Effects;
   private readonly sound = new YeetSound();
   private readonly hud: YeetHud;
+  /** DEBUG ?hud-demo: sample HUD feedback every 2 s (stamps, feed, notice, hit), for checking the look in play. */
+  private readonly hudDemo = shell.params.has("hud-demo");
+  private hudDemoT = 0.5;
   private readonly scoreOverlay: ScoreOverlay | null;
   private readonly fps: FpsInput;
   /** Phones and tablets (or ?touch): the on-screen stick and buttons, else null. */
@@ -351,7 +355,7 @@ export class YeetWorld implements World {
     this.fx = new Effects(this.scene);
     const host = document.getElementById("game")!;
     this.canvas = host.querySelector("canvas") ?? host;
-    this.hud = new YeetHud(host, TUNING.weaponOrder.map((w) => TUNING.weapons[w].name));
+    this.hud = new YeetHud(host, TUNING.weaponOrder);
     this.respawn = shell.params.has("mapview") ? null : new RespawnScreen(host, {
       i18n: shell.i18n, noart: shell.params.has("noart"),
       onProfile: (p) => this.profileChanged(p),
@@ -634,7 +638,8 @@ export class YeetWorld implements World {
     this.sound.update(shell.settings.audio);
     this.vm.setReload(pl.reloading > 0 ? 1 - pl.reloading / TUNING.weapons[firearmId(pl.weapon)].reload : 0);
     this.vm.setTreatment(pl.healing > 0);
-    this.touch?.setHealth(pl.healthUses, pl.healing, pl.healCooldown, pl.hp >= TUNING.player.hp);
+    const hpShown = !this.sim.level.infiniteHp && !!(this.sim.level.dummiesFight || this.link || this.botSkill);
+    this.touch?.setHealth(pl.healthUses, pl.healing, pl.healCooldown, pl.hp >= TUNING.player.hp, hpShown);
     if (this.vm.weapon !== pl.weapon) this.vm.show(pl.weapon);
     this.vm.update(dt, copterFiring);
     this.fx.update(dt);
@@ -643,6 +648,7 @@ export class YeetWorld implements World {
     const duel = this.link;
     const other = duel ? (duel.slot === 0 ? 1 : 0) : 0;
     const vsBot = this.botSkill;
+    if (this.hudDemo) { this.hudDemoT -= dt; if (this.hudDemoT <= 0) { this.hudDemoT = 2; this.hud.demo(); } }
     this.hud.update(dt, {
       weapon: TUNING.weaponOrder.indexOf(pl.weapon),
       heat: pl.heat / TUNING.copter.heatMax,
@@ -656,7 +662,7 @@ export class YeetWorld implements World {
       reduceMotion: shell.settings.access.reduce_motion,
       scoped: !this.editingGrips && this.vm.scoped,
       owned: TUNING.weaponOrder.map((w) => pl.owned.includes(w)),
-      hp: this.sim.level.infiniteHp ? null : fight || duel || vsBot ? pl.hp / TUNING.player.hp : null,
+      hp: hpShown ? pl.hp / TUNING.player.hp : null,
       banner: pl.sharkT > 0 ? "SHARK INCOMING!" : pl.dead > 0 && !this.respawn ? `KNOCKED OUT by ${this.killer}` : "",
       kos: fight ? this.kos : null,
       level: duel?.party ? `${this.sim.level.name} · ${duel.party.options.mode === "ringout" ? "HP ∞ · " : ""}You ${this.sim.kos[duel.slot]} KOs` : duel && duel.ready
@@ -666,10 +672,18 @@ export class YeetWorld implements World {
       winded: pl.winded,
       tumbling: pl.tumbling > 0 && pl.dead === 0,
       ammo: pl.mag[firearmId(pl.weapon)],
-      extra: equipmentStatus(pl) + (pl.weapon === "axe" ? ` · GRENADES ${pl.axeGrenades}/${TUNING.axe.grenadeMag}` : ""),
+      extra: shieldStatus(pl) + (pl.weapon === "axe" ? `GRENADES ${pl.axeGrenades}/${TUNING.axe.grenadeMag}` : ""),
+      heal: { uses: pl.healthUses, max: TUNING.supplies.healthUses, applying: pl.healing, cooldown: pl.healCooldown },
+      mags: TUNING.weaponOrder.map((w) => pl.mag[firearmId(w)]),
       magSize: TUNING.weapons[firearmId(pl.weapon)].mag,
       reload: pl.reloading > 0 ? pl.reloading / TUNING.weapons[firearmId(pl.weapon)].reload : 0,
     });
+  }
+
+  /** Which way a hit came from, for the HUD's damage wedge (0 = ahead when the source is unknown). */
+  private bearingFrom(src: { x: number; z: number } | undefined): number {
+    const pl = this.sim.player;
+    return src ? hitBearing(pl.yaw, pl.pos, src) : 0;
   }
 
   // ---- aiming ----------------------------------------------------------------
@@ -988,7 +1002,7 @@ export class YeetWorld implements World {
         this.stats.bonks++;
         this.sound.play("bonk");
         if (e.who === "player") {
-          this.hud.pop("BONK!");
+          this.hud.pop("BONK!", false, true); // bonks hurt: the pink impact stamp
           this.sound.play("crowd_aww"); // the crowd feels it with you
           this.announce("bonked");
           this.shake.addTrauma(TUNING.bonk.trauma);
@@ -1025,7 +1039,7 @@ export class YeetWorld implements World {
         break;
       case "pickup":
         this.vm.show(pl.weapon);
-        this.hud.pop(`GOT THE ${TUNING.weapons[e.weapon].name.toUpperCase()}!`);
+        this.hud.feedNote(`PICKED UP · ${TUNING.weapons[e.weapon].name}`);
         this.sound.play("pickup");
         if (e.weapon === "copter") this.announce("copter_yeat");
         break;
@@ -1041,7 +1055,7 @@ export class YeetWorld implements World {
         break;
       case "playerHit":
         this.sound.play("ouch");
-        this.hud.hurtFlash();
+        this.hud.hurtFlash(this.bearingFrom(this.sim.dummies[e.dummy]?.pos));
         this.shake.addTrauma(0.35);
         break;
       case "playerDown":
@@ -1056,9 +1070,9 @@ export class YeetWorld implements World {
         this.vm.setHold("none"); // respawning ends any hold move
         this.vm.show(pl.weapon);
         break;
-      case "heal": this.hud.pop(`+${Math.round(e.amount)} HEALTH`); this.sound.play("loaded"); break;
-      case "healthPack": this.hud.pop("HEALTH PACK · 3 USES · V / HEAL"); this.sound.play("popin"); break;
-      case "healing": this.hud.pop("APPLYING HEALTH · 3 SECONDS"); break;
+      case "heal": this.hud.notice(`+${Math.round(e.amount)} HEALTH`); this.sound.play("loaded"); break;
+      case "healthPack": this.hud.feedNote(`PICKED UP · HEALTH PACK ×${TUNING.supplies.healthUses}`); this.hud.notice(this.touch ? "TAP + TO HEAL" : "V TO HEAL"); this.sound.play("popin"); break;
+      case "healing": this.hud.notice("HEALING"); break;
       case "reload":
         this.sound.play("reload");
         break;
@@ -1411,7 +1425,7 @@ export class YeetWorld implements World {
     } catch {
       // storage blocked: the toggle still works for this session
     }
-    this.hud.pop(this.kickOn ? "LAUNCH CAMERA ON" : "LAUNCH CAMERA OFF");
+    this.hud.notice(this.kickOn ? "LAUNCH CAMERA ON" : "LAUNCH CAMERA OFF");
   }
 
   /** Only big launches (speed in m/s at the YEET) pop the camera out (playtest: every pistol hop was too often). */
@@ -1544,7 +1558,7 @@ export class YeetWorld implements World {
         return;
       }
       if (e.target === me) {
-        this.hud.hurtFlash();
+        this.hud.hurtFlash(this.bearingFrom(this.sim.players[e.by]?.pos));
         this.sound.play("ouch");
         this.shake.addTrauma(0.35);
       } else if (e.by === me) {
@@ -1562,7 +1576,7 @@ export class YeetWorld implements World {
         this.sound.play("crowd_aww");
       } else if (e.by === me) {
         this.hud.feedLine("KNOCKED OUT", this.playerName(e.target));
-        this.hud.pop(`KNOCKOUT! ${this.playerName(e.target)}`, true);
+        this.hud.pop("KNOCKOUT!", true);
         this.sound.play("ko");
         this.sound.play("crowd_cheer");
       }

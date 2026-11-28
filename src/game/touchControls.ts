@@ -2,7 +2,7 @@
 // touchControls.ts
 // Purpose : On-screen controls for phones and tablets: a floating move stick on the left half, look by dragging on
 //           the right half, and buttons for fire, aim (a toggle), jump, slash (hold for the hook / dash stance),
-//           reload, respawn and pause. Weapon slots in the HUD become tap targets (YeetHud.setTouch).
+//           reload, heal, respawn and pause. The HUD's weapon chip, picker and strip are tap targets (YeetHud.setTouch).
 // Usage   : if (TouchControls.wanted(params)) touch = new TouchControls(host, onFirstTouch)
 //           each frame: const t = touch.take(); merge into the frame's input; touch.dispose() when leaving
 // Notes   : Shown when the main pointer is coarse (a finger) or with ?touch (try it with a mouse on the PC).
@@ -12,7 +12,11 @@
 //           Slash latches (tablet duel, 2026-11-22: the dash slash needed Slash held and Fire tapped, two right-hand
 //           fingers): once the hold move is on (katana stance, scythe hook; the world says so through holdMove), lifting
 //           the finger keeps it held, so Fire dashes or YEETREAPs; tapping Slash again lets go (the ULTRASLASH).
-//           Sits at z-index 6: over the HUD (5), under the shell's screens (10), so the pause menu covers it.
+//           Sits at z-index 6: over the HUD (5, which holds the scope's black mask), under the HUD's tap layer (7: the
+//           weapon chip, picker and strip) and the shell's screens (10), so the pause menu covers it.
+//           Look (2026-11-28, ADR 0009): FIRE is a bullet hole in torn steel (yeet/bulletHole.ts); the other action
+//           buttons are plain metal discs in the original places; top chips are plain metal with icons; Heal sits
+//           right of the HUD's health chip.
 //           DEBUG: ?debug logs each control's press on the "touch" channel.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
@@ -23,6 +27,21 @@ import type { ShakeDir } from "../core/yeet/shake";
 import { Gyro } from "./gyro";
 import { canFullscreen, toggleFullscreen } from "./fullscreen";
 import { buildTouchPanel, loadTouchSettings, PANEL_CSS, type TouchSettings } from "./touchSettings";
+import { bulletHoleUrl, type HoleTone } from "./yeet/bulletHole";
+
+/** Small icons for the top chips (16x16, filled with the text colour). */
+const ICON = {
+  pause: "M3 2h4v12H3zM9 2h4v12H9z",
+  respawn: "M8 2a6 6 0 1 1-5.6 3.9l1.9.7A4 4 0 1 0 8 4v2.5L4.5 3.2 8 0z",
+  gear: "M7 0h2l.4 2.1 1.5.6 1.8-1.2 1.4 1.4-1.2 1.8.6 1.5L16 7v2l-2.1.4-.6 1.5 1.2 1.8-1.4 1.4-1.8-1.2-1.5.6L9 16H7l-.4-2.1-1.5-.6-1.8 1.2-1.4-1.4 1.2-1.8-.6-1.5L0 9V7l2.1-.4.6-1.5L1.5 3.3l1.4-1.4 1.8 1.2 1.5-.6zM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z",
+  fullscreen: "M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z",
+};
+const iconSvg = (d: string): string => `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${d}"/></svg>`;
+
+/** Buttons drawn as bullet holes: only FIRE (Elaina, 2026-11-28); its rim seed and lit colour. */
+export const HOLES: Record<string, { seed: number; tone: HoleTone }> = {
+  "yt-fire": { seed: 41, tone: "fire" },
+};
 
 export interface TouchFrame {
   moveX: number;
@@ -49,37 +68,69 @@ export interface TouchFrame {
   shake: ShakeDir | null;
 }
 
+/** Button size: the original layout's (about 56 px on a 375 px tall phone), capped on tablets. */
+const B = "min(15vmin, 96px)";
+/** How far from the right edge the HUD's weapon strip ends, so it clears Jump (hud.ts uses it). */
+export const TOUCH_STRIP_RIGHT = `calc(4vmin + ${B} * 1.9 + 6px)`;
+/** The HUD's touch health chip width (it grows with text size); Heal sits right after it. */
+export const TOUCH_HP_WIDTH = "calc(52px * var(--ui-scale, 1) * var(--text-scale, 1) + 98px * var(--ui-scale, 1))";
+
 const CSS = `
 .yt { position: fixed; inset: 0; z-index: 6; touch-action: none; user-select: none; -webkit-user-select: none;
-  -webkit-touch-callout: none; font-family: system-ui, "Segoe UI", sans-serif; --b: min(15vmin, 96px); }
+  -webkit-touch-callout: none; font-family: "Saira Stencil One", "Black Ops One", Impact, sans-serif; --b: ${B};
+  --k: var(--ui-scale, 1); --cream: #e8dcc4; --pink: #ff2e88;
+  --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px); --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px); }
 .yt-zone { position: absolute; top: 0; bottom: 0; }
 .yt-left { left: 0; width: 50%; }
 .yt-right { left: 50%; right: 0; }
 .yt-stick { position: absolute; width: calc(${TUNING.touch.stickRadius * 2}px); height: calc(${TUNING.touch.stickRadius * 2}px);
   margin: -${TUNING.touch.stickRadius}px 0 0 -${TUNING.touch.stickRadius}px; border-radius: 50%; display: none;
-  border: 3px solid rgba(255, 255, 255, 0.35); background: rgba(20, 24, 34, 0.25); pointer-events: none; }
+  border: 2px solid rgba(232, 220, 196, 0.35); background: rgba(14, 14, 16, 0.25); pointer-events: none; }
 .yt-knob { position: absolute; left: 50%; top: 50%; width: 46%; height: 46%; margin: -23% 0 0 -23%; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55); }
-.yt-stick.sprint .yt-knob { background: #ffd84a; }
+  background: rgba(232, 220, 196, 0.5); }
+.yt-stick.sprint .yt-knob { background: var(--pink); }
+/* action buttons: plain metal discs with a thin cream ring, in the original layout's places and sizes (Elaina,
+   2026-11-28: the torn rims on every button were too much). Only FIRE is a bullet hole (bulletHole.ts). */
 .yt-btn { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 50%;
-  width: calc(var(--b) * 0.68); height: calc(var(--b) * 0.68); background: rgba(20, 24, 34, 0.55); color: #fff;
-  border: 3px solid rgba(255, 255, 255, 0.4); font-weight: 900; font-size: calc(var(--b) * 0.15); letter-spacing: 0.5px; }
-.yt-btn.down, .yt-btn.on { background: rgba(255, 216, 74, 0.8); color: #1b1b1b; border-color: #ffd84a; }
-.yt-fire { width: var(--b); height: var(--b); right: 4vmin; bottom: calc(var(--b) * 0.9); font-size: calc(var(--b) * 0.2);
-  background: rgba(255, 63, 164, 0.45); border-color: #ff3fa4; }
-.yt-aim { right: calc(4vmin + var(--b) * 0.16); bottom: calc(var(--b) * 2.05); }
-.yt-jump { right: calc(4vmin + var(--b) * 1.15); bottom: calc(var(--b) * 0.45); }
-.yt-slash { right: calc(4vmin + var(--b) * 1.1); bottom: calc(var(--b) * 1.4); }
-.yt-reload { right: calc(4vmin + var(--b) * 1.05); bottom: calc(var(--b) * 2.35); width: calc(var(--b) * 0.55);
+  width: calc(var(--b) * 0.68); height: calc(var(--b) * 0.68); color: var(--cream); letter-spacing: .06em;
+  font-size: calc(var(--b) * 0.15); text-shadow: 0 1px 0 #000;
+  background: radial-gradient(circle at 50% 35%, rgba(62,64,70,.82), rgba(20,21,24,.82) 72%);
+  box-shadow: inset 0 0 0 1.5px rgba(232,220,196,.5), 0 1px 0 rgba(0,0,0,.6); }
+.yt-btn.down, .yt-btn.on { background: radial-gradient(circle at 50% 35%, #e8dcc4, #a9a08d 75%); color: #141416; text-shadow: none; }
+.yt-fire { width: calc(var(--b) * 1.1); height: calc(var(--b) * 1.1); right: calc(4vmin - var(--b) * 0.05 + var(--sr));
+  bottom: calc(var(--b) * 0.85 + var(--sb)); font-size: calc(var(--b) * 0.2);
+  background: var(--hole) center / 100% 100% no-repeat; box-shadow: none; }
+.yt-fire.down { background: var(--hole-on) center / 100% 100% no-repeat; }
+.yt-aim { right: calc(4vmin + var(--b) * 0.16 + var(--sr)); bottom: calc(var(--b) * 2.05 + var(--sb)); }
+.yt-jump { right: calc(4vmin + var(--b) * 1.15 + var(--sr)); bottom: calc(var(--b) * 0.45 + var(--sb)); }
+.yt-slash { right: calc(4vmin + var(--b) * 1.1 + var(--sr)); bottom: calc(var(--b) * 1.4 + var(--sb)); }
+.yt-reload { right: calc(4vmin + var(--b) * 1.05 + var(--sr)); bottom: calc(var(--b) * 2.35 + var(--sb)); width: calc(var(--b) * 0.55);
   height: calc(var(--b) * 0.55); font-size: calc(var(--b) * 0.12); }
-.yt-bar { position: absolute; left: 10px; top: 10px; display: flex; gap: 8px; }
-.yt-rotate { display: none; position: fixed; left: 50%; top: 42%; transform: translateX(-50%); padding: 8px 14px;
-  border-radius: 10px; background: rgba(20, 24, 34, 0.85); color: #fff; font: 600 15px system-ui, sans-serif;
+/* top-left chips: Pause, then the HUD's health chip, then Heal; Respawn, settings and fullscreen in a row below */
+.yt-bar { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.yt-top { position: absolute; border-radius: 0; width: calc(34px * var(--k)); height: calc(34px * var(--k)); font-size: calc(15px * var(--k));
+  color: var(--cream); background: linear-gradient(180deg, rgba(40,42,46,.9), rgba(20,21,24,.9));
+  box-shadow: inset 0 0 0 1px rgba(232,220,196,.35); font-family: Teko, "Arial Narrow", sans-serif; font-weight: 600;
+  clip-path: polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px); }
+.yt-top.down { background: var(--cream); color: #141416; }
+.yt-top svg { width: 46%; height: 46%; fill: currentColor; }
+.yt-pause { left: calc(10px + var(--sl)); top: calc(10px + var(--st)); }
+.yt-heal { left: calc(56px * var(--k) + ${TOUCH_HP_WIDTH} + var(--sl)); top: calc(10px + var(--st)); width: auto; min-width: calc(48px * var(--k)); padding: 0 calc(7px * var(--k));
+  gap: 4px; font-size: calc(19px * var(--k)); letter-spacing: .04em; }
+.yt-heal::before { content: ""; width: calc(11px * var(--k)); height: calc(11px * var(--k)); flex: none;
+  background: linear-gradient(var(--pink), var(--pink)) center / 34% 100% no-repeat, linear-gradient(var(--pink), var(--pink)) center / 100% 34% no-repeat; }
+.yt-respawn, .yt-gear, .yt-fs { top: calc(48px * var(--k) + var(--st)); width: calc(30px * var(--k)); height: calc(30px * var(--k)); opacity: .8; }
+.yt-respawn { left: calc(10px + var(--sl)); }
+.yt-gear { left: calc(44px * var(--k) + var(--sl)); }
+.yt-fs { left: calc(78px * var(--k) + var(--sl)); }
+.yt-rotate { display: none; position: fixed; left: 50%; top: 42%; transform: translateX(-50%); padding: 8px 14px 5px;
+  background: rgba(14, 14, 16, 0.85); color: var(--cream); font: 500 18px/1 Teko, sans-serif; letter-spacing: .06em; text-transform: uppercase;
   pointer-events: none; white-space: nowrap; animation: yt-hint-fade 6s forwards; }
-@media (orientation: portrait) { .yt-rotate { display: block; } }
+@media (orientation: portrait) { .yt-rotate { display: block; }
+  /* narrow: Heal joins the second row so the weapon chip keeps the top right */
+  .yt-heal { left: calc(112px * var(--k) + var(--sl)); top: calc(48px * var(--k) + var(--st)); height: calc(30px * var(--k)); } }
 /* fades after a few seconds (showing it again on each turn to portrait restarts the fade) */
 @keyframes yt-hint-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
-.yt-top { position: static; border-radius: 12px; width: auto; height: auto; padding: 8px 12px; font-size: 14px; }
 /* the shell's "Esc Pause" prompt means nothing on a tablet: the Pause button replaces it */
 body.yt-touch .hudbar { display: none; }
 ${PANEL_CSS}`;
@@ -210,13 +261,13 @@ export class TouchControls {
     });
     this.button("yt-reload", "RELOAD", () => (this.reload = true));
     const bar = div("yt-bar", this.root);
-    this.button("yt-top", "❚❚ Pause", () => (this.pause = true), undefined, bar);
-    this.button("yt-top", "↺ Respawn", () => (this.reset = true), undefined, bar);
-    this.healButton = this.button("yt-top yt-heal", "HEAL", () => (this.heal = true), undefined, bar);
+    this.icon(this.button("yt-top yt-pause", "Pause", () => (this.pause = true), undefined, bar), ICON.pause);
+    this.icon(this.button("yt-top yt-respawn", "Respawn", () => (this.reset = true), undefined, bar), ICON.respawn);
+    this.healButton = this.button("yt-top yt-heal", "", () => (this.heal = true), undefined, bar);
     const panel = buildTouchPanel(document.body, this.settings, (s) => this.applySettings(s), () => this.gyro.blockedReason);
-    this.button("yt-top", "⚙", () => panel.show(panel.root.style.display === "none"), undefined, bar);
+    this.icon(this.button("yt-top yt-gear", "Touch settings", () => panel.show(panel.root.style.display === "none"), undefined, bar), ICON.gear);
     // fullscreen from a tap (Android, iPad): the finger lifting counts as the tap browsers require
-    if (canFullscreen()) this.button("yt-top", "⛶", () => {}, () => toggleFullscreen(), bar);
+    if (canFullscreen()) this.icon(this.button("yt-top yt-fs", "Fullscreen", () => {}, () => toggleFullscreen(), bar), ICON.fullscreen);
     // held upright the view is narrow: say so (only shown in portrait, by CSS)
     div("yt-rotate", this.root).textContent = "Turn sideways for the best view";
     this.openPanel = () => panel.show(true);
@@ -282,9 +333,11 @@ export class TouchControls {
   }
 
   /** Turns the Aim toggle off (knocked out of aim, weapon switched, respawned). */
-  setHealth(uses: number, applying: number, cooldown: number, full: boolean): void {
+  setHealth(uses: number, applying: number, cooldown: number, full: boolean, shown = true): void {
     if (!this.healButton) return;
-    this.healButton.textContent = applying > 0 ? `HEAL ${applying.toFixed(1)}s` : cooldown > 0 ? `HEAL ${Math.ceil(cooldown)}s` : `HEAL ${uses}/3`;
+    this.healButton.style.display = shown ? "" : "none"; // nothing can hurt you (Sandbox): no health chip, no Heal
+    // the chip: a pink cross (CSS) and the uses left, or the seconds of the treatment / cooldown
+    this.healButton.textContent = applying > 0 ? `${applying.toFixed(1)}s` : cooldown > 0 ? `${Math.ceil(cooldown)}s` : `${uses}`;
     this.healButton.style.opacity = uses === 0 || cooldown > 0 || applying > 0 || full ? "0.5" : "1";
     this.healButton.setAttribute("aria-label", `Health pack: ${uses} uses, ${Math.ceil(cooldown)} second cooldown`);
   }
@@ -397,6 +450,11 @@ export class TouchControls {
   ): HTMLDivElement {
     const b = div(`yt-btn ${cls}`, parent);
     b.textContent = label;
+    const hole = HOLES[cls];
+    if (hole) {
+      b.style.setProperty("--hole", bulletHoleUrl(hole));
+      b.style.setProperty("--hole-on", bulletHoleUrl({ seed: hole.seed, tone: "on" }));
+    }
     this.capture(b, (e) => {
       b.classList.add("down");
       if (this.debug) Log.debug("touch", label);
@@ -407,6 +465,13 @@ export class TouchControls {
       up?.(e);
     });
     return b;
+  }
+
+  /** An icon-only chip: the label becomes its accessible name, the icon its face. */
+  private icon(b: HTMLDivElement, path: string): void {
+    b.setAttribute("aria-label", b.textContent ?? "");
+    b.setAttribute("role", "button");
+    b.innerHTML = iconSvg(path);
   }
 
   /** pointerdown that keeps the finger: later moves and the lift come to this element wherever the finger goes. */
