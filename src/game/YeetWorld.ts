@@ -490,7 +490,7 @@ export class YeetWorld implements World {
     const endLock = f.firePressed && !this.shakeRun.active && this.shakeRun.locking > 0;
     if (this.forceAim) f.aimHeld = true;
     this.aimKnock = Math.max(0, this.aimKnock - dt);
-    // the Rocket Axe with F held is raised for the grenade slash: no scope zoom then (playtest 2026-11-24)
+    // the Kaboomerax with F held is raised for the grenade slash: no scope zoom then (playtest 2026-11-24)
     const axeHeld = pl.weapon === "axe" && f.slashHeld;
     const aiming = this.gripEditor?.aiming() ?? (f.aimHeld && (this.forceAim || this.aimKnock === 0) && !this.sim.helpless && !axeHeld);
     if (pl.weapon === "axe") this.vm.setHold(axeHeld ? "raise" : "none");
@@ -1040,7 +1040,7 @@ export class YeetWorld implements World {
         this.sound.play("swish");
         break;
       case "grenadeSlash":
-        // Rocket Axe, F + Fire: the leap and flip are watched from outside (playtest 2026-11-24)
+        // Kaboomerax, F + Fire: the leap and flip are watched from outside (playtest 2026-11-24)
         this.hud.pop("GRENADE SLASH!", true);
         this.sound.play("swish");
         this.startKick(0, TUNING.axe.camera);

@@ -319,7 +319,7 @@ function grenade(kit: ModelKit): Built {
 }
 
 /**
- * Rocket Axe (until the Meshy model loads), drawn in its aimed (over the shoulder) pose: the block at the back by
+ * Kaboomerax (until the Meshy model loads), drawn in its aimed (over the shoulder) pose: the block at the back by
  * the hand, the haft running forward to the knobbed butt the rockets leave from, the blade on top along the haft.
  * From the hip the view tilts it butt-down (viewmodel.ts HOLD.axe).
  */

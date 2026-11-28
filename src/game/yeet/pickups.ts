@@ -24,7 +24,7 @@ const LOOK: Record<WeaponId | "health", { color: string; size: [number, number, 
   sakura: { color: "#f48fb1", size: [0.06, 0.12, 1.2] }, // the katana
   rocket: { color: "#556b2f", size: [0.2, 0.2, 1.1] }, // the tube
   grenade: { color: "#ff3fa4", size: [0.2, 0.24, 0.2] }, // a pink grenade
-  axe: { color: "#b0503a", size: [0.1, 0.45, 1.3] }, // the Rocket Axe
+  axe: { color: "#b0503a", size: [0.1, 0.45, 1.3] }, // the Kaboomerax
 };
 
 interface View {

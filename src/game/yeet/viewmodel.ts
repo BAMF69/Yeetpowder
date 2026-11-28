@@ -51,7 +51,7 @@ const HOLD: Partial<Record<WeaponId, Hold>> = {
     aim: { hand: new THREE.Vector3(0, -0.43, -0.3), tilt: new THREE.Euler(0.08, 0, 0) },
   },
   reaper: { hand: new THREE.Vector3(0.02, -0.05, 0.06), tilt: new THREE.Euler(0.12, -0.22, 0) },
-  // Rocket Axe (playtests 2026-11-24): from the hip the knobbed butt points down at your feet, the blade forward and
+  // Kaboomerax (playtests 2026-11-24): from the hip the knobbed butt points down at your feet, the blade forward and
   // the block up by your hand; aimed it is up above your right shoulder, butt forward, blade on top
   axe: {
     hand: new THREE.Vector3(-0.04, 0.1, -0.14), // held up high, a little in and out from the eye (playtest: "should be up higher")
@@ -91,7 +91,7 @@ const SWING = { time: 0.2, back: 0.14, reaper: 1.5, sakura: 1.1, axe: 1.7, tilt:
 /** A grenade throw (playtest: "should look like a throw"): s winding the arm up overhead, swinging it through, and
  *  settling back; the arm's turn at the top of the wind-up and at the end of the swing (rad, + raises it). */
 const THROW = { wind: 0.12, swing: 0.1, settle: 0.28, up: 1.3, through: -0.6 };
-/** Rocket Axe with F held: raised this much (m) and turned 20 degrees clockwise as you see it. */
+/** Kaboomerax with F held: raised this much (m) and turned 20 degrees clockwise as you see it. */
 const RAISE = { up: 0.14, roll: -(20 * Math.PI) / 180 };
 /** Reaper's Kick hooking: the gunblade rolls this far counter-clockwise (as you look down it), blade to the left. */
 const HOOK_ROLL = Math.PI / 2;
@@ -162,7 +162,7 @@ export class Viewmodel {
   private stancePose = 0;
   private hookPose = 0;
   private holdKind: "none" | "stance" | "hook" | "raise" = "none";
-  /** 0..1: the Rocket Axe raised with F held. */
+  /** 0..1: the Kaboomerax raised with F held. */
   private raisePose = 0;
   /** s since a grenade throw (99 = none). */
   private throwT = 99;
@@ -388,7 +388,7 @@ export class Viewmodel {
     this.armR.rotation.x += this.hookPose * 0.35;
     this.armR.rotation.y += this.hookPose * 0.45;
     this.mount.rotation.z += this.hookPose * HOOK_ROLL; // + about the view axis (toward you) turns it counter-clockwise
-    this.mount.rotation.z += this.raisePose * RAISE.roll; // the Rocket Axe with F held: clockwise
+    this.mount.rotation.z += this.raisePose * RAISE.roll; // the Kaboomerax with F held: clockwise
     // a slash: sweep from right to left (or back), the blade laid flat for the cut, then settle
     this.swingT += dt;
     if (this.swingT < SWING.time + SWING.back) {

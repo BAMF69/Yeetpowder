@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // projectiles.test.ts
-// Purpose : The Rocket Launcher, Grenades and the Rocket Axe (Elaina, 2026-11-24): rockets fly straight and blow up
+// Purpose : The Rocket Launcher, Grenades and the Kaboomerax (Elaina, 2026-11-24): rockets fly straight and blow up
 //           on what they hit, a rocket at your feet is a rocket jump that hurts only a little, grenades arc, bounce
 //           and go off on their fuse (or on touching someone), the axe's rocket throws you FORWARD, its slash throws
 //           a grenade behind you and flips you in the air, and a rocket knockout scores for whoever fired it.
@@ -92,7 +92,7 @@ describe("Grenades", () => {
   });
 });
 
-describe("Rocket Axe", () => {
+describe("Kaboomerax", () => {
   it("hip fire sends the rocket into your feet and launches you up", () => {
     const s = sim("axe");
     s.step({ ...NO_INPUT, firePressed: true });
@@ -168,7 +168,7 @@ describe("magazines and the throw (playtest 2026-11-24)", () => {
     }
   });
 
-  it("the Rocket Axe's grenade launcher holds 4 grenade slashes, then reloads on its own; the rocket is separate", () => {
+  it("the Kaboomerax's grenade launcher holds 4 grenade slashes, then reloads on its own; the rocket is separate", () => {
     const s = sim("axe");
     let slashes = 0;
     for (let i = 0; i < 6; i++) {

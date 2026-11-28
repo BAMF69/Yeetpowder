@@ -5,16 +5,34 @@
 > gunblades and combine the chapter's techniques; 4 chapters. Not yet scheduled (tier: Vertical slice):
 > it sits in the ROADMAP Parking lot. Lore names are *proposals* for Elaina to keep, change or cut.
 
-## The story in one paragraph
-Yeetpowder was discovered by accident at **Pinkwell Munitions** when night-shift janitor **Dot
-Kowalczyk** swept spilled saltpetre into a vat of bubblegum dye. CEO **Grandall Pinkwell** patented it,
-flooded the market and never told anyone it kicks ten times harder. The player is a new hire on
-Pinkwell's **"Recoil Safety Certification"** course (sign the waiver, survive the course). Dot, the
-uncredited inventor, now runs the course over a crackly PA. Each chapter goes deeper into the plant:
-the training wing, the Stuffers' shop floor, the Smiths' hidden forge, and the core where Pinkwell
-keeps **Batch 0**, a powder strong enough to fling the whole island. Each mini boss is a Pinkwell
-"certification examiner" carrying a gunblade he stole from the Smiths. Funny first: no gore, every
-death is a rubber "FAILED" stamp and an instant retry.
+## The story (simple enough for a 12-year-old)
+Story rule: short sentences, everyday words, one clear goal per chapter. Every line of story fits on a
+poster or a two-line caption.
+
+**The setup.** **Dot** cleans floors at a gun factory. One night she spills some powder into pink
+bubblegum dye, and it makes a super-strong pink gunpowder: **yeetpowder**. It's cheap, so everyone
+buys it. But it kicks so hard that every gun throws you across the room.
+
+**The bad guy.** Dot's boss, **Mr. Pinkwell**, steals the idea, puts his name on it and gets rich. He
+doesn't care that it's dangerous. Now he's making **Batch 0**, a powder so strong it could launch the
+whole island into the sky. He wants to sell it to everyone.
+
+**You.** You're a new worker on Pinkwell's safety course. Dot is your teacher. She tells you the truth
+and asks for help: get through the factory, win the special blades, and stop Pinkwell.
+
+| Chapter | Goal in one sentence |
+|---|---|
+| 1. Training Wing | Learn to shoot and fly, and win the Sakura from Pinkwell's guard. |
+| 2. Shop Floor | Meet the **Stuffers** (workers who put yeetpowder in old guns) and win the Reaper. |
+| 3. The Forge | Find the **Smiths** (workers who build new blades for yeetpowder) and win the Kaboomerax. |
+| 4. The Core | Learn armour, use everything, and stop Pinkwell before he fires Batch 0. |
+
+**The ending.** Pinkwell is knocked off his own cannon. Dot's name goes up on the factory sign.
+"Now go yeet your friends!"
+
+No twists to follow, no long cutscenes: Dot says one or two short lines at the start of a room, and
+posters and notes you find tell the rest. Funny, not scary: no blood, and every fail is a big
+rubber "FAILED" stamp and an instant retry.
 
 ## Map design rules (all chapters)
 - **Purpose-built, linear, readable.** Short platformer rooms strung in a line (corridor → skill room
@@ -44,11 +62,11 @@ The guns from earlier rooms still matter, but the blade is the key.
 |---|---|---|---|
 | 1 | **Sakura** (The Proctor) | Slash-fire combos, dash slash | Combos interrupt the boss's slow wind-ups; dash slash is the only way past his hazard sweeps |
 | 2 | **Reaper** (The Foreman) | Flips, hook and drag | Flips clear his floor hazards; hook-and-drag pulls his core out of armour to hit it |
-| 3 | **Rocket Axe** (The Apprentice), rename pending | Rocket jumps, grenade slashes | Rocket jumps dodge his attacks and climb the arena; grenade slashes surge you forward and break pursuing drones |
+| 3 | **Kaboomerax** (The Apprentice) | Rocket jumps, grenade slashes | Rocket jumps dodge his attacks and climb the arena; grenade slashes surge you forward and break pursuing drones |
 | 4 | *all three* + **armour** | Armour types and matchups | Boss swaps armour each phase; pick the right blade or gun for it |
 
 ## Chapter 1: Orientation (Pinkwell Training Wing) → earn the Sakura
-*Theme: white tiles, foam pits, safety posters. Story: sign the waiver; Dot hints she invented the powder.*
+*Theme: white tiles, foam pits, safety posters. Story: Dot tells you she invented yeetpowder and Pinkwell stole it.*
 
 | Room | Skill | Gate / challenge |
 |---|---|---|
@@ -62,7 +80,7 @@ The guns from earlier rooms still matter, but the blade is the key.
 | **Chapter boss: Head Proctor** | Combos + dash slash | Giant safety robot with slow, telegraphed hammer swings: combo him mid-swing to stagger and open his core. Phase 2: he floods the floor with sweeping hazards; dash slash through them to reach the core. Reward: a key to the shop floor. |
 
 ## Chapter 2: The Shop Floor (Stuffers' workshop) → earn the Reaper
-*Theme: conveyors, presses, steam, taped guns. Story: the Stuffers load Pinkwell's cheap guns; first Batch 0 crate found.*
+*Theme: conveyors, presses, steam, taped guns. Story: you find the first box of Batch 0 and learn what Pinkwell is planning.*
 
 | Room | Skill | Gate / challenge |
 |---|---|---|
@@ -74,25 +92,24 @@ The guns from earlier rooms still matter, but the blade is the key.
 | 2-5 Hook Gym | **Hook and drag** | Hook crates onto pressure plates, drag guards off ledges into foam, hook-swing across gaps |
 | **Chapter boss: Quality Control** | Flips + hook and drag | Armoured press robot. Its floor fills with hazard waves: flip over them. Its core sits behind armour shutters: **hook the core and drag it out**, then hit it. Phase 2: drag its feeder bots into its own press. Reward: the Stuffers show you the Smiths' forge. |
 
-## Chapter 3: The Forge (Smiths' junkyard workshop) → earn the Rocket Axe
-*Theme: scrap towers, anvils, sparks. Story: the Smiths built gunblades to survive Pinkwell's faulty barrels.*
+## Chapter 3: The Forge (Smiths' junkyard workshop) → earn the Kaboomerax
+*Theme: scrap towers, anvils, sparks. Story: the Smiths make blades that handle yeetpowder safely, and they join the fight.*
 
-**Rocket Axe (already in the game; new name pending, it fires rockets *and* grenades):** campaign uses
-its existing moves: rocket fire at your feet for rocket jumps, and F + Fire for the grenade slash
-(leap and forward surge that blasts what it hits). Name candidates: **Boomhatchet**, **Kaboomerax**,
-**Splitfire**, **Double-Barrel Bardiche**, **Blastjack**.
+**Kaboomerax (already in the game, renamed from Kaboomerax 2026-11-28):** fires rockets *and*
+grenades. Rocket at your feet = rocket jump; F + Fire = grenade slash (leap and forward surge that
+blasts what it hits).
 
 | Room | Skill | Gate / challenge |
 |---|---|---|
 | 3-1 Grenade Arc | Thrown grenades, aimed vs hip, trajectory guide | Lob grenades over walls onto switches |
 | 3-2 Hold the Line | Yeet Shield, rear weakness; healing | Turret hallway; heal mid-gauntlet |
-| **Mini boss: The Apprentice** (Rocket Axe) | Uses shield, grenades, Sakura, Reaper | He rocket jumps away and grenade-slashes at you: shield the slash, hook him down out of the air. **Drops the Rocket Axe.** |
+| **Mini boss: The Apprentice** (Kaboomerax) | Uses shield, grenades, Sakura, Reaper | He rocket jumps away and grenade-slashes at you: shield the slash, hook him down out of the air. **Drops the Kaboomerax.** |
 | 3-3 Scrap Tower | **Rocket jumps** (climb, dodge) | Vertical tower; falling scrap must be dodged mid-climb |
 | 3-4 Chase Yard | **Grenade slashes** (forward surge, destroy pursuers) | Swarms of scrap drones chase you down a long corridor; surge forward and smash them |
-| **Chapter boss: The Master Smith** (brainwashed by Pinkwell) | Rocket jumps + grenade slashes | Collapsing anvil tower. His ground slams and molten sweeps are dodged only by rocket jumping, and climbing to the next tier needs rocket jumps too. Phase 2: he sends forge drones after you; grenade-slash through them to reach him. Reward: the Smiths join Dot. |
+| **Chapter boss: The Master Smith** (tricked into working for Pinkwell) | Rocket jumps + grenade slashes | Collapsing anvil tower. His ground slams and molten sweeps are dodged only by rocket jumping, and climbing to the next tier needs rocket jumps too. Phase 2: he sends forge drones after you; grenade-slash through them to reach him. Reward: the Smiths join Dot. |
 
 ## Chapter 4: The Core (Batch 0 reactor) → armour and everything together
-*Theme: pink reactor, rising powder flood, shark cooling pond. Story: stop Pinkwell loading Batch 0 into the island's launch cannon.*
+*Theme: pink reactor, rising powder flood, shark cooling pond. Story: stop Pinkwell before he fires Batch 0 from his giant cannon.*
 
 **Armour (from the design doc's Future systems):** damage types Bullet / Slash / Blast; armour
 None, Modern vest, Medium, Chainmail, Plate. Vests shrug off bullets, plate shrugs off slashes, heavy
@@ -121,7 +138,7 @@ and sparks on deflected slashes, a dull thud on bullets into vests.
 
 ## Build cost and reuse
 New system this needs: **armour** with damage types (also affects Party mode: decide with an ADR
-whether it ships there). The Rocket Axe exists; only its rename is open.
+whether it ships there). The Kaboomerax already exists.
 Reuses: weapons, gunblades, bots' brain (as boss pattern controllers), dummies, sharks, HighlightRecorder,
 captions, tuning in `src/core/yeet/tuning.ts`. New: a linear level format (rooms, checkpoints, gates,
 triggers) in data files, a boss pattern script runner, ~30 PA lines, poster decals.

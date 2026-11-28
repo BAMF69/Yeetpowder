@@ -2,7 +2,7 @@
 // meshyArt.ts
 // Purpose : Approved Meshy weapons and equipment in release and development builds, plus the original Tactical
 //           operative. The sniper scythe is Reaper's Kick and the katana
-//           gunblade as the Six-Shot Sakura, the Rocket Axe (first person and third person), and the rigged tactical character as the operative (your body in third person, duel
+//           gunblade as the Six-Shot Sakura, the Kaboomerax (first person and third person), and the rigged tactical character as the operative (your body in third person, duel
 //           opponents and bots; operativeSkin.ts drives its bones from the code figure's poses). Loaded during the world's loading screen; until then, or if a file fails, the code-built
 //           models stay (gunModels.ts), so nothing depends on the art being there.
 // Usage   : await loadMeshyArt(progress)   in a world's load(); then vm.rebuildGun("reaper") for guns already built

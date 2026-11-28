@@ -97,7 +97,7 @@ Make a Room selects map, 2–8 combatants, public/private visibility and bot fil
 | Run-and-gun tumble | A shot fired while moving may knock you into a tumble (no control; the camera pops out to third person to watch). Chance grows with speed and recoil, halves when aimed; the copter never tumbles you (Elaina's call) *(playtest 3)* | yes |
 | Levels | Shark Island, Industrial Yard and Junkyard (first builds 2026-11-24, placeholder props: water knockouts, exploding vehicles, car stacks); Sandbox (the open test room, every gun), Fight Back (dummies shoot back; start with Pea Pistol + Boomstick; Spin Doctor on the ground; Gatling Copter on an 11 m tower only a Boomstick launch reaches) *(playtest 3)* and the Duel room (30 x 30 m, two spawns, Gatling and gunblade pickups) | yes |
 | Wall bonk | Impact above a speed threshold stuns ~0.5 s with a splat; no damage unless "Hard Walls" | yes |
-| Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol; explosives since 2026-11-24: Rocket Launcher, Grenades and the Rocket Axe gunblade (projectiles, blasts, rocket jumps) | 3 standard guns + the Gatling Copter as one rare pickup (Elaina) |
+| Weapons | Per-gun recoil force, spin, damage, fire mode; map pickups, spawn with pistol; explosives since 2026-11-24: Rocket Launcher, Grenades and the Kaboomerax gunblade (projectiles, blasts, rocket jumps) | 3 standard guns + the Gatling Copter as one rare pickup (Elaina) |
 | Hit knockback | Being shot pushes you too | yes |
 | Health and damage | Cartoon damage, respawn | yes |
 | Ragdoll-lite | Tumble/flail animation over a physics capsule; full ragdoll only on death (client-side) | yes |

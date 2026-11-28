@@ -177,9 +177,9 @@ export interface PlayerState {
   /** Gunblades: sim time of the last gun shot (Reap window), slash cooldown, the Sakura's swing recovery (a revolver
    * shot during it cancels it and lunges), the combo count and when the last slash landed. */
   lastShotAt: number;
-  /** s until the Rocket Axe's grenade slash can be used again. */
+  /** s until the Kaboomerax's grenade slash can be used again. */
   grenadeCd: number;
-  /** The Rocket Axe's grenade launcher: grenades left, and s until its reload is done (0 = not reloading). */
+  /** The Kaboomerax's grenade launcher: grenades left, and s until its reload is done (0 = not reloading). */
   axeGrenades: number;
   axeGrenadeReload: number;
   /** The player who last hurt this one (-1 = none) and when (s): a knockout by water or blast credits them. */
@@ -980,7 +980,7 @@ export class YeetSim {
     const dash = pl.weapon === "sakura" && pl.stance;
     const lunge = pl.weapon === "sakura" && pl.slashRecover > 0 && !dash;
     const kick = addScaled(vec(), aim, lunge || dash ? 0 : -w.recoil * (aimed ? b.recoil : 1) * (grounded ? 1 : w.airRecoil));
-    // Rocket Axe from the hip: the nozzle points at your feet, so the kick is straight up (aimed: as any gun, back)
+    // Kaboomerax from the hip: the nozzle points at your feet, so the kick is straight up (aimed: as any gun, back)
     if (pl.weapon === "axe" && !aimed) {
       kick.x = 0;
       kick.z = 0;
@@ -1134,7 +1134,7 @@ export class YeetSim {
   }
 
   /**
-   * Rocket Axe, F held + Fire: the grenade slash. A cleave, a leap forward in a front flip, and a grenade fired out
+   * Kaboomerax, F held + Fire: the grenade slash. A cleave, a leap forward in a front flip, and a grenade fired out
    * of the back of the blade behind you (TUNING.axe).
    */
   private grenadeSlash(ev: YeetEvent[]): void {

@@ -203,7 +203,7 @@ export function junkyardLevel(): Level {
       { weapon: "reaper", pos: v(-6, 6, -13.6) }, // on the tallest north stack
       { weapon: "sniper", pos: v(15, 6, -0.6) },
       { weapon: "sakura", pos: v(-22, 0, -14) },
-      { weapon: "axe", pos: v(-10, 4.5, 14.3) }, // on a stack: the Rocket Axe flies you between them
+      { weapon: "axe", pos: v(-10, 4.5, 14.3) }, // on a stack: the Kaboomerax flies you between them
       { weapon: "rocket", pos: v(13, 0, 21) },
     ],
     dummiesFight: true, dummyRespawn: 6, seed: 17,

@@ -37,7 +37,7 @@ describe("operative poses", () => {
     expect(targetPose({ ...base, weapon: "sakura" }, 0, 0).leftArm).not.toBe("fore");
   });
 
-  it("a Rocket Launcher or Rocket Axe shot swings the legs up like a Boomstick launch; a Pea Pistol shot does not", () => {
+  it("a Rocket Launcher or Kaboomerax shot swings the legs up like a Boomstick launch; a Pea Pistol shot does not", () => {
     const fling = (weapon: "rocket" | "axe" | "shotgun" | "pistol") => {
       const sim = new YeetSim(structuredClone(TUNING), sandboxLevel());
       const pl = sim.player;

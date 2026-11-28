@@ -43,7 +43,7 @@ export interface HudState {
   ammo: number;
   magSize: number;
   reload: number;
-  /** A second ammo line (the Rocket Axe's grenade launcher), or "". */
+  /** A second ammo line (the Kaboomerax's grenade launcher), or "". */
   extra?: string;
 }
 

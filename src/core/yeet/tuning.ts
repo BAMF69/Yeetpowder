@@ -227,7 +227,7 @@ export const TUNING = {
     // the third gunblade (TUNING.axe): from the hip the nozzle points at your feet (the rocket launches you up);
     // aimed it is held like a bazooka (the rocket goes forward, the kick throws you back like the Boomstick)
     axe: {
-      name: "Rocket Axe", auto: false, cooldown: 0.8, recoil: 28, airRecoil: 2, airTwist: 2, airLiftCap: 999,
+      name: "Kaboomerax", auto: false, cooldown: 0.8, recoil: 28, airRecoil: 2, airTwist: 2, airLiftCap: 999,
       // the rocket: reload after each shot; its grenade launcher is TUNING.axe.grenadeMag
       mag: 1, reload: 1.6, twist: 0, aimedTwist: 0, hop: 0, damage: 0, pellets: 0,
       spread: 0, knockback: 0, range: 0, trauma: 0.45, projectile: "rocket",
@@ -250,7 +250,7 @@ export const TUNING = {
   },
 
   /**
-   * Rocket Axe (Elaina, playtest 2026-11-24): hip fire points the nozzle at your feet: the rocket goes straight down
+   * Kaboomerax (Elaina, playtest 2026-11-24): hip fire points the nozzle at your feet: the rocket goes straight down
    * and you get `hipRecoil` m/s up (x the weapon's airRecoil in the air) on top of its blast; aimed, the rocket goes
    * forward and the weapon's `recoil` throws you back. F is a heavy cleave. Hold F and fire for the grenade slash: a
    * cleave, a leap forward (`leap` m/s, `leapUp` up) in a front flip, a grenade fired out behind you at
