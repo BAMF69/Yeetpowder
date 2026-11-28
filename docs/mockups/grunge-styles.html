@@ -65,24 +65,25 @@ header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 72ch; fon
 .burst { position: absolute; pointer-events: none; }
 .w { position: relative; z-index: 1; }
 
-/* ---------- 1: Riveted metal. Steel letters (polished gradient, dark edge); tile words on riveted steel nameplates ---------- */
-.t1 .logo b { position: relative; padding: 4px 30px 2px; font: 400 38px "Black Ops One", var(--ui); letter-spacing: .03em;
-  background: var(--rivets), linear-gradient(180deg, #2c2622, #17120f); box-shadow: inset 0 1px 0 rgba(255,236,210,.15), inset 0 0 0 1px #4d4237, 0 4px 0 #000;
+/* ---------- 1: Riveted metal on diamond plate. Steel tread plates bolted on; polished steel letters with a hard shadow ---------- */
+.t1 { --tread: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22'><g transform='rotate(45 5.5 5.5)'><rect x='1' y='4.2' width='9' height='2.6' rx='1.3' fill='%23000' opacity='.55' transform='translate(.7 .9)'/><rect x='1' y='4.2' width='9' height='2.6' rx='1.3' fill='%23c9ced4'/><rect x='1.6' y='4.4' width='7.8' height='1' rx='.5' fill='%23fff' opacity='.7'/></g><g transform='rotate(-45 16.5 16.5)'><rect x='12' y='15.2' width='9' height='2.6' rx='1.3' fill='%23000' opacity='.55' transform='translate(.7 .9)'/><rect x='12' y='15.2' width='9' height='2.6' rx='1.3' fill='%23c9ced4'/><rect x='12.6' y='15.4' width='7.8' height='1' rx='.5' fill='%23fff' opacity='.7'/></g></svg>");
+  --steel-plate: var(--tread) 0 0 / 15px, linear-gradient(180deg, #8c9198 0%, #5d6168 45%, #43464b 60%, #6c7077 100%); }
+.t1 .logo b { position: relative; padding: 5px 30px 3px; font: 400 38px "Black Ops One", var(--ui); letter-spacing: .03em;
+  background: var(--rivets), var(--steel-plate); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -2px 0 rgba(0,0,0,.5), inset 0 0 0 1px #2a2c30, 0 4px 0 #000, 0 0 16px rgba(255,46,136,.3);
   clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
-.t1 .logo b span { background: linear-gradient(180deg, #ffffff 0%, #d9dde2 30%, #8b9097 52%, #e7e9ec 66%, #9aa0a7 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
-  filter: drop-shadow(0 2px 0 #000) drop-shadow(0 0 10px rgba(255,46,136,.45)); }
-.t1 .w { padding: 3px 20px 1px; font: 400 18px "Black Ops One", var(--ui); letter-spacing: .1em; text-transform: uppercase; color: #1d1a17;
-  text-shadow: 0 1px 0 rgba(255,255,255,.45);
-  background: radial-gradient(circle at 8px 50%, #f4f4f4 0 1px, #6d7178 1.6px, #2b2d31 3px, transparent 4px), radial-gradient(circle at calc(100% - 8px) 50%, #f4f4f4 0 1px, #6d7178 1.6px, #2b2d31 3px, transparent 4px),
-    linear-gradient(180deg, #e9ebee 0%, #b9bec4 45%, #8e949b 55%, #c9cdd2 100%);
-  box-shadow: 0 2px 0 #000, inset 0 -1px 0 rgba(0,0,0,.35); }
-.t1 .hero .w { font-size: 30px; padding: 4px 30px 2px; background: radial-gradient(circle at 10px 50%, #f4f4f4 0 1.2px, #6d7178 2px, #2b2d31 3.6px, transparent 5px), radial-gradient(circle at calc(100% - 10px) 50%, #f4f4f4 0 1.2px, #6d7178 2px, #2b2d31 3.6px, transparent 5px), linear-gradient(180deg, #e9ebee 0%, #b9bec4 45%, #8e949b 55%, #c9cdd2 100%); }
+.t1 .logo b span { background: linear-gradient(180deg, #ffffff 0%, #eef0f2 35%, #a9aeb5 52%, #f2f3f5 68%, #c3c7cc 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 1px #000) drop-shadow(2px 3px 0 #111) drop-shadow(0 0 8px rgba(0,0,0,.6)); }
+.t1 .w { padding: 4px 22px 2px; font: 400 18px "Black Ops One", var(--ui); letter-spacing: .1em; text-transform: uppercase; color: #f4f5f6;
+  text-shadow: 0 0 1px #000, 2px 2px 0 #111, 0 0 6px rgba(0,0,0,.8);
+  background: radial-gradient(circle at 8px 50%, #f4f4f4 0 1px, #6d7178 1.6px, #2b2d31 3px, transparent 4px), radial-gradient(circle at calc(100% - 8px) 50%, #f4f4f4 0 1px, #6d7178 1.6px, #2b2d31 3px, transparent 4px), var(--steel-plate);
+  box-shadow: 0 2px 0 #000, inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.45); }
+.t1 .hero .w { font-size: 30px; padding: 5px 32px 3px; background: radial-gradient(circle at 10px 50%, #f4f4f4 0 1.2px, #6d7178 2px, #2b2d31 3.6px, transparent 5px), radial-gradient(circle at calc(100% - 10px) 50%, #f4f4f4 0 1.2px, #6d7178 2px, #2b2d31 3.6px, transparent 5px), var(--steel-plate); }
 
-/* ---------- 2: Engraved metal. Letters cut into brushed bronze plaques: dark recess, lit lower lip ---------- */
+/* ---------- 2: Engraved metal on dark gunmetal. Letters cut into brushed gunmetal plaques: dark recess, lit lower lip ---------- */
 .t2 .logo b, .t2 .w { position: relative;
-  background: var(--brushed), linear-gradient(180deg, #b48f66 0%, #8d6b4a 40%, #6d5238 60%, #a07e5a 100%);
-  box-shadow: inset 0 1px 0 rgba(255,230,190,.45), inset 0 -2px 0 rgba(0,0,0,.45), inset 0 0 0 1px #3b2a1c, 0 3px 0 #000, 0 0 14px rgba(255,46,136,.25);
-  color: #2a1d12; text-shadow: 0 1px 0 rgba(255,228,190,.55), 0 -1px 0 rgba(0,0,0,.75), 0 0 1px rgba(0,0,0,.6); }
+  background: var(--brushed), var(--scratch), linear-gradient(180deg, #6e737b 0%, #50555b 42%, #3d4146 60%, #5a5f65 100%);
+  box-shadow: inset 0 1px 0 rgba(220,230,240,.28), inset 0 -2px 0 rgba(0,0,0,.55), inset 0 0 0 1px #1a1c1f, 0 3px 0 #000, 0 0 14px rgba(255,46,136,.25);
+  color: #0e0f11; text-shadow: 0 1.5px 0 rgba(215,224,235,.6), 0 -1px 0 rgba(0,0,0,.9), 0 0 1px rgba(0,0,0,.8); }
 .t2 .logo b { padding: 5px 26px 2px; font: 400 36px "Russo One", var(--ui); letter-spacing: .05em; font-style: italic;
   clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
 .t2 .logo b::before { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 0 70%, rgba(255,46,136,.5) 96%, rgba(255,46,136,.8)); mix-blend-mode: screen; pointer-events: none; }
@@ -128,7 +129,7 @@ header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 72ch; fon
 <div class="wrap">
   <header>
     <h1>YEET<span>POWDER</span> · Blast Zone type</h1>
-    <p>Blast Zone stays as it was: the hot pink explosion behind everything, chipped plates, starbursts and bullet holes. Only the lettering changes: three cleaner metal and stencil treatments in place of the dirty text. Hover a tile to see its focus look.</p>
+    <p>Blast Zone stays as it was: the hot pink explosion behind everything, chipped plates, starbursts and bullet holes. Only the lettering changes. Round 2: riveted on diamond-plate tread, engraved into dark gunmetal, and the worn-edge stencil you liked best, unchanged. Hover a tile to see its focus look.</p>
   </header>
   <div id="variants"></div>
 </div>
@@ -139,10 +140,10 @@ header p { margin: 0; color: var(--mute); line-height: 1.5; max-width: 72ch; fon
 <script>
 const { operatorIcon } = window.OPI;
 const V = [
-  { id: "t1", name: "Riveted metal", tag: "Black Ops One",
-    blurb: "Polished steel letters on a riveted dark plate for the logo; every tile word sits on its own riveted steel nameplate with dark embossed lettering. Reads like hardware bolted onto the menu." },
-  { id: "t2", name: "Engraved metal", tag: "Russo One, italic",
-    blurb: "Words cut into brushed bronze plaques: a dark recess with a lit lower lip, and the art's pink rim light catching the logo plate's edge. Matches your engraved-plate artwork." },
+  { id: "t1", name: "Riveted diamond plate", tag: "Black Ops One",
+    blurb: "Steel diamond-plate tread bolted on with rivets: the logo plate and a nameplate under every tile word. Polished steel letters with a hard black shadow so they stay readable over the tread." },
+  { id: "t2", name: "Engraved gunmetal", tag: "Russo One, italic",
+    blurb: "Words cut into brushed dark gunmetal plaques: a near-black recess with a cool lit lower lip, scratches across the plate, and the pink rim light catching the logo plate's edge." },
   { id: "t3", name: "Worn-edge stencil", tag: "Saira Stencil One",
     blurb: "Clean, sharp stencil letters in cream paint with a pink spray shadow. The wear is only a light nibble at the edges, so the words stay crisp and readable." },
 ];
