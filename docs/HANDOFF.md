@@ -4,7 +4,7 @@
 > Keep under ~60 lines. It is a baton, not a diary.
 
 **Last updated:** 2026-11-27 (follow-up: art and grunge pass)
-**Branch / commit:** claude/nifty-faraday-7l1db4 (cloud session), pushed; built on main 862f84e
+**Branch / commit:** menu-remaster (renamed from claude/nifty-faraday-7l1db4 on 2026-11-28), pushed; built on main 81fe932
 **Engine version:** see `docs/ENGINE.md`
 
 ## This session: icon menus and the respawn screen (ADR 0008)
