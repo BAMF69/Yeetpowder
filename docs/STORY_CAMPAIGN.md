@@ -1,6 +1,6 @@
 # Story & Tutorial Campaign: "Brace Before You Blast"
 
-> Design draft, revised 2026-11-28 after Elaina's notes: purpose-built linear scenario maps (platformer
+> Design draft, revised 2026-11-28 (twice) after Elaina's notes: each mini boss wields and drops its chapter's gunblade, the chapter boss needs it; purpose-built linear scenario maps (platformer
 > style, skill jumps, gated by mastery), not the arena maps; regular mini bosses that show off the
 > gunblades and combine the chapter's techniques; 4 chapters. Not yet scheduled (tier: Vertical slice):
 > it sits in the ROADMAP Parking lot. Lore names are *proposals* for Elaina to keep, change or cut.
@@ -35,76 +35,97 @@ death is a rubber "FAILED" stamp and an instant retry.
 - Campaign is optional: Quick Play is never locked. Chapter 1's first three rooms double as a
   90-second "Basic Certification" offered once from the menu.
 
-## Chapter 1: Orientation (Pinkwell Training Wing)
-*Theme: white tiles, foam pits, safety posters. Story: you sign the waiver; Dot hints she invented this stuff.*
+## The gunblade spine (one per chapter)
+Each chapter's **mini boss wields that chapter's gunblade**. Beat it and you **earn the blade**; the
+rooms after the mini boss teach its moves, and **the chapter boss cannot be beaten without them**.
+The guns from earlier rooms still matter, but the blade is the key.
 
-| Room | Skill taught | Gate / challenge |
+| Ch. | Blade (earned from) | Moves you master | Why the chapter boss needs it |
+|---|---|---|---|
+| 1 | **Sakura** (The Proctor) | Slash-fire combos, dash slash | Combos interrupt the boss's slow wind-ups; dash slash is the only way past his hazard sweeps |
+| 2 | **Reaper** (The Foreman) | Flips, hook and drag | Flips clear his floor hazards; hook-and-drag pulls his core out of armour to hit it |
+| 3 | **Grenade Axe** (The Apprentice) *new blade* | Rocket jumps, grenade slashes | Rocket jumps dodge his attacks and climb the arena; grenade slashes surge you forward and break pursuing drones |
+| 4 | *all three* + **armour** | Armour types and matchups | Boss swaps armour each phase; pick the right blade or gun for it |
+
+## Chapter 1: Orientation (Pinkwell Training Wing) → earn the Sakura
+*Theme: white tiles, foam pits, safety posters. Story: sign the waiver; Dot hints she invented the powder.*
+
+| Room | Skill | Gate / challenge |
 |---|---|---|
-| 1-1 Sign Here | Walk, jump, look, pick up | Step-up blocks, pick up the Pea Pistol |
+| 1-1 Sign Here | Walk, jump, look, pick up | Step-up blocks; pick up the Pea Pistol |
 | 1-2 Little Nudges | Hip fire pushes you opposite your aim | Shoot backward to slide across ice to a door |
-| 1-3 Hop Scotch | Shoot down to hop; double hop mid-air | Floating platforms over foam, gap too wide to jump |
-| **Mini boss: The Proctor** | | Slow examiner with a **Sakura** gunblade. Telegraphed dash across the room: hop over it with a downward shot, shoot his back. Shows Sakura dash so the player sees it before owning it. |
-| 1-4 Brace Yourself | Aim (braced) vs hip fire | Hit small targets while standing on a crumbling ledge (hip fire would push you off) |
-| 1-5 Reload Discipline | Magazine and reload timing | Long hop chain with a reload station halfway; reload in the air or fall |
-| 1-6 Bonk Room | Wall-bonk, comic stun, knocking dummies | Knock dummies into switches to open the exit |
-| **Chapter boss: Head Proctor Pinkwell Jr.** | Combines hop, braced fire, reload | Two Sakuras, arena of shrinking foam platforms. Phase 2 he dashes at platforms you stand on. Reward: Dot steals you a key to the shop floor. |
+| 1-3 Hop Scotch | Shoot down to hop; double hop | Floating platforms over foam |
+| 1-4 Brace Yourself | Aimed vs hip fire; reload timing | Small targets from a crumbling ledge; reload mid hop chain |
+| **Mini boss: The Proctor** (Sakura) | Uses hop + braced fire | He dashes and slash-combos; you hop over the dash and shoot his back. **Drops the Sakura.** |
+| 1-5 Combo Drills | **Sakura slash-fire combos** | Training dummies wind up slow swings (pink glow); a combo staggers them before the swing lands |
+| 1-6 Hazard Run | **Dash slash** | Sweeping laser bars and closing shutters, too fast to jump; dash slash carries you through the gap |
+| **Chapter boss: Head Proctor** | Combos + dash slash | Giant safety robot with slow, telegraphed hammer swings: combo him mid-swing to stagger and open his core. Phase 2: he floods the floor with sweeping hazards; dash slash through them to reach the core. Reward: a key to the shop floor. |
 
-## Chapter 2: The Shop Floor (Stuffers' workshop)
-*Theme: conveyors, taped-up guns, presses, steam. Story: the Stuffers load cheap guns for Pinkwell; you find the first Batch 0 crate.*
+## Chapter 2: The Shop Floor (Stuffers' workshop) → earn the Reaper
+*Theme: conveyors, presses, steam, taped guns. Story: the Stuffers load Pinkwell's cheap guns; first Batch 0 crate found.*
 
-| Room | Skill taught | Gate / challenge |
+| Room | Skill | Gate / challenge |
 |---|---|---|
-| 2-1 Boomstick 101 | Shotgun self-launch | Launch up a vertical shaft by blasting the floor |
-| 2-2 Pinball Wizard | Bounce off walls on purpose | Zig-zag chimney: blast into wall, bounce, blast again |
-| 2-3 Double Tap | Two blasts in mid-air (airborne x2 kick) | Long gap over a conveyor of crushers |
-| **Mini boss: The Foreman** | | Big Stuffer with a **Reaper** gunblade: hook pulls you in, then a slam. Counter: blast backwards away from the hook, then launch over him. |
-| 2-4 Run and Gun | Firing on the run can tumble you; recovering | Sprinting moving-belt course with targets on the sides |
-| 2-5 Spin Cycle | Spin Doctor twist; scope to steady | Snipe hanging switches while spinning on a turntable |
-| 2-6 Zoom Out | Zoom knock-out, long shots across gaps | Snipe a guard off a far ledge to cross |
-| **Chapter boss: Quality Control** | Combines launch, wall bounce, double blast, sniping | Gantry crane robot driven by an examiner with a **Reaper**. Hook drags you toward the press; snipe its weak points from wall-bounce perches. Reward: the Stuffers reveal the Smiths' secret forge. |
+| 2-1 Boomstick 101 | Shotgun self-launch | Blast the floor to climb a shaft |
+| 2-2 Pinball Wizard | Wall bounces, two blasts in mid-air | Zig-zag chimney; long gap over crushers |
+| 2-3 Spin Cycle | Spin Doctor twist, scope, zoom knock-out | Snipe switches on a turntable; snipe a guard off a far ledge |
+| **Mini boss: The Foreman** (Reaper) | Uses launch + sniping, Sakura still useful | Hooks you toward a press: blast away from the hook, snipe him from a bounce perch, combo him when stunned. **Drops the Reaper.** |
+| 2-4 Flip Course | **Reaper flips** | Floor of grinders, steam jets and electrified belts; flips clear them where a jump can't |
+| 2-5 Hook Gym | **Hook and drag** | Hook crates onto pressure plates, drag guards off ledges into foam, hook-swing across gaps |
+| **Chapter boss: Quality Control** | Flips + hook and drag | Armoured press robot. Its floor fills with hazard waves: flip over them. Its core sits behind armour shutters: **hook the core and drag it out**, then hit it. Phase 2: drag its feeder bots into its own press. Reward: the Stuffers show you the Smiths' forge. |
 
-## Chapter 3: The Forge (Smiths' hidden junkyard workshop)
-*Theme: scrap towers, anvils, sparks. Story: the Smiths built gunblades to survive Pinkwell's bad barrels. Now you get your own.*
+## Chapter 3: The Forge (Smiths' junkyard workshop) → earn the Grenade Axe
+*Theme: scrap towers, anvils, sparks. Story: the Smiths built gunblades to survive Pinkwell's faulty barrels.*
 
-| Room | Skill taught | Gate / challenge |
+**Grenade Axe (new gunblade, needs design + tuning):** a Smith axe with a grenade launcher in the
+haft. *Rocket jump:* fire the launcher at your feet for a big vertical launch (self-blast does no or
+low damage). *Grenade slash:* a swing that detonates a charge behind the blade, surging you forward
+and blasting what you hit. Fits the existing grenade blast rules (8 m radius) scaled down.
+
+| Room | Skill | Gate / challenge |
 |---|---|---|
-| 3-1 Grenade Arc | Aimed vs hip throw, trajectory guide | Lob grenades over walls onto switches |
-| 3-2 Blast Jump | Jumping on your own grenade's blast | Tall scrap tower only a blast jump climbs |
-| 3-3 Hold the Line | Yeet Shield: frontal block, halved knockback | Bullet hallway; face turrets to push forward, flanking turret teaches the rear weakness |
-| 3-4 Patch Up | Carried heals, 3 s heal, cooldown | Damage gauntlet with heal pads; must heal mid-run |
-| **Mini boss: The Apprentice** | | Smith rival with **Sakura**: dashes through your shield's flanks. Win: turn to face him, block, counter with a grenade. *Reward: you get the Sakura.* |
-| 3-5 Sakura Dash | Dash and ultra; dash + recoil chains | Gaps only a recoil hop followed by a dash crosses |
-| 3-6 Reaper's Hook | Hook to grapple points, Yeetreap | Grapple across ceiling hooks; hook enemies off ledges. *You get the Reaper.* |
-| **Chapter boss: The Master Smith (brainwashed by Pinkwell)** | Combines shield, grenades, both gunblades | Sakura vs Reaper duel on a collapsing anvil tower. He switches blades each phase; you must answer each with the other blade. Reward: the Smiths join Dot's plan. |
+| 3-1 Grenade Arc | Thrown grenades, aimed vs hip, trajectory guide | Lob grenades over walls onto switches |
+| 3-2 Hold the Line | Yeet Shield, rear weakness; healing | Turret hallway; heal mid-gauntlet |
+| **Mini boss: The Apprentice** (Grenade Axe) | Uses shield, grenades, Sakura, Reaper | He rocket jumps away and grenade-slashes at you: shield the slash, hook him down out of the air. **Drops the Grenade Axe.** |
+| 3-3 Scrap Tower | **Rocket jumps** (climb, dodge) | Vertical tower; falling scrap must be dodged mid-climb |
+| 3-4 Chase Yard | **Grenade slashes** (forward surge, destroy pursuers) | Swarms of scrap drones chase you down a long corridor; surge forward and smash them |
+| **Chapter boss: The Master Smith** (brainwashed by Pinkwell) | Rocket jumps + grenade slashes | Collapsing anvil tower. His ground slams and molten sweeps are dodged only by rocket jumping, and climbing to the next tier needs rocket jumps too. Phase 2: he sends forge drones after you; grenade-slash through them to reach him. Reward: the Smiths join Dot. |
 
-## Chapter 4: The Core (Batch 0 reactor and Pinkwell's tower)
-*Theme: pink-lit reactor, rising powder flood below, sharks in the cooling pond. Story: stop Pinkwell from loading Batch 0 into the island's launch cannon.*
+## Chapter 4: The Core (Batch 0 reactor) → armour and everything together
+*Theme: pink reactor, rising powder flood, shark cooling pond. Story: stop Pinkwell loading Batch 0 into the island's launch cannon.*
 
-| Room | Skill taught | Gate / challenge |
+**Armour (from the design doc's Future systems):** damage types Bullet / Slash / Blast; armour
+None, Modern vest, Medium, Chainmail, Plate. Vests shrug off bullets, plate shrugs off slashes, heavy
+armour can't escape by recoil, so blasts, ledges and ring outs beat it. Visible at a glance: clanks
+and sparks on deflected slashes, a dull thud on bullets into vests.
+
+| Room | Skill | Gate / challenge |
 |---|---|---|
-| 4-1 Shark Pond | Knockback hazards, ring-out | Knock guards into the shark pond to clear a path (sharks approach visibly before biting) |
-| 4-2 Full Loadout | Picking the right gun per obstacle | Gauntlet that rotates which gun is available |
-| 4-3 Copter Up | Gatling Copter: hover, overheat, crash landing | Vertical shaft climb, overheat vents to manage |
-| **Mini boss: The Twins** | | Two examiners, one **Reaper**, one **Sakura**, attacking together. Hook pulls you into the dash: break the combo by shielding or blasting away. |
-| 4-4 Rising Tide | Everything, timed | Climb ahead of the rising pink powder flood using any route; medal for the skill route |
-| **Final boss: Grandall Pinkwell** | All four chapters | Pinkwell in a recoil-powered suit with a giant Batch 0 gunblade. Phase 1: Pea-pistol-only hop dodging. Phase 2: wall bounces and sniping vents. Phase 3: shield and grenades vs his slam. Phase 4: you take the Copter and he takes a Sakura+Reaper hybrid; finish him with a Yeetreap off the tower. |
+| 4-1 Read the Armour | Damage types | Guards in vests, chainmail and plate; one weapon fails on each, a tooltip shows why once |
+| 4-2 Heavy Problem | Heavy armour weakness: knockback, ledges, sharks | Plate guards can't be cut: hook them into the shark pond or blast them off ledges |
+| 4-3 Suit Up | Wearing armour yourself and the recoil trade-off | Plate makes a crossing safe but stops your launch; swap at stations to clear each part |
+| 4-4 Copter Up | Gatling Copter: hover, overheat | Shaft climb with overheat vents |
+| **Mini boss: The Twins** | All three blades vs two armours | One in plate with a Reaper, one in a vest with a Sakura: shoot the plate one, slash the vest one, or hook one into the other's blast |
+| 4-5 Rising Tide | Everything, timed | Climb ahead of the rising pink flood; skill routes use every blade |
+| **Final boss: Grandall Pinkwell** | All moves + armour matchups | Recoil-powered suit that swaps armour each phase. P1 vest: Sakura combos and dash slash past sweeps. P2 chainmail: Reaper flips over hazards, hook-drag his core. P3 plate: rocket jumps to dodge, grenade slashes and blasts (blast beats plate). P4 armour shattered, he flees on the launch cannon: Gatling Copter chase, finish with a Yeetreap off the cannon. |
 
-**Epilogue (15 s):** Dot's name goes up on the factory sign in pink. "Certified. Now go yeet your
-friends." Unlocks the Pinkwell cosmetic and opens Party / Quick Play with a nod.
+**Epilogue (15 s):** Dot's name goes up on the factory sign in pink. "Certified. Now go yeet your friends."
 
 ## Boss design rules
-- One new gunblade move shown per mini boss *before* the player gets it, so owning it later feels earned.
-- Bosses only demand moves already taught in that chapter; chapter bosses combine all of them.
-- Readable tells: pink glow 0.6 s before an attack, a sound cue, a caption for deaf/hard-of-hearing players.
-- Funny failures: getting hooked into a press, launched into your own grenade. Failure clips can
-  reuse `HighlightRecorder` as "Yeet of the Fail".
+- Mini boss = the blade's showcase. The player sees every move it will teach before owning it.
+- Chapter boss = the blade's exam. It must be **unbeatable without the chapter's blade moves**, but
+  forgiving with them; guns from that chapter help, never replace.
+- Readable tells: pink glow 0.6 s before an attack, a sound cue, a caption.
+- Funny failures: hooked into a press, launched by your own grenade. Reuse `HighlightRecorder` for "Yeet of the Fail".
 - Three medals per boss (time / no heals / no hits).
 
 ## Build cost and reuse
+New systems this needs: the **Grenade Axe** gunblade and **armour** with damage types (both are
+gameplay additions that also affect Party mode: decide with an ADR whether they ship there).
 Reuses: weapons, gunblades, bots' brain (as boss pattern controllers), dummies, sharks, HighlightRecorder,
 captions, tuning in `src/core/yeet/tuning.ts`. New: a linear level format (rooms, checkpoints, gates,
 triggers) in data files, a boss pattern script runner, ~30 PA lines, poster decals.
-**Prototype first:** Chapter 1 rooms 1-2, 1-3 and The Proctor mini boss, in gray box, then playtest
+**Prototype first:** Chapter 1 rooms 1-3, The Proctor, room 1-6 and the Head Proctor (one full blade arc), in gray box, then playtest
 before building the rest.
 
 ## Open questions for Elaina
