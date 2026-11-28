@@ -1,7 +1,7 @@
 # ADR 0009: Blast Zone HUD
 
 - **Status:** Accepted (Elaina approved the concept 2026-11-28; implemented the same day)
-- **Approved reference:** `docs/mockups/hud/index.html` v2 (published privately as the "Yeetpowder HUD Concepts"
+- **Approved reference:** `docs/mockups/hud/index.html` v3 (published privately as the "Yeetpowder HUD Concepts"
   artifact). Its backgrounds are real gameplay captures; the HUD values in it are samples.
 
 ## Context
@@ -26,7 +26,9 @@ which put the scope's black mask above the touch buttons (z 6). The menus had mo
 - **Touch (landscape first, portrait works):** pause, health chip and Heal chip top left; respawn, settings and
   fullscreen in a small row below; the current-weapon chip top right (tap: picker of every weapon, owned ones
   tappable); a strip of owned weapons at the bottom right between the move area and the buttons (tap switches,
-  swipe scrolls). Action buttons are bullet holes in torn steel (Elaina's request), generated per button from a seed.
+  swipe scrolls). FIRE is a bullet hole in torn steel (bulletHole.ts); the other action buttons are plain metal discs
+  in the original layout's places and sizes (Elaina, v3: rims on every button were too much and took more room).
+- **Damage stamps:** BONK hurts, so it lands on a pink starburst (`pop(text, red, impact)`).
 - **Layers:** `.yh` (z 5, scope and everything non-interactive) < `.yt` touch buttons (z 6) < `.yhT` (z 7, only the
   weapon chip, picker and strip, touch only) < shell screens (z 10). Decorative layers never take input.
 - **Hit direction:** the damage wedge sits on the screen edge facing the attacker (`hitBearing`).

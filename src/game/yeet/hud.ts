@@ -136,6 +136,10 @@ export const HUD_CSS = `
   transition: transform .22s cubic-bezier(.2,.9,.3,1.2), opacity .22s; will-change: transform, opacity; }
 .yh-stamp b { display: inline-block; font-weight: 400; padding: .06em .32em 0; border: .09em solid currentColor; }
 .yh-stamp.red { color: var(--pink); text-shadow: 3px 3px 0 rgba(0,0,0,.55); }
+/* impact: stamps for hits that hurt (BONK) land on a pink starburst, inked with the same grit */
+.yh-stamp.impact { text-shadow: 3px 3px 0 rgba(0,0,0,.6); }
+.yh-stamp.impact::before { content: ""; position: absolute; left: -16%; right: -16%; top: -55%; bottom: -55%; z-index: -1;
+  background: var(--pink); opacity: .88; transform: rotate(9deg); clip-path: polygon(50.0% 0.0%, 55.4% 19.5%, 67.1% 3.0%, 68.0% 18.8%, 82.1% 11.7%, 73.7% 30.1%, 93.3% 25.0%, 83.8% 37.7%, 99.2% 41.3%, 81.0% 50.0%, 99.2% 58.7%, 83.8% 62.3%, 93.3% 75.0%, 73.7% 69.9%, 82.1% 88.3%, 68.0% 81.2%, 67.1% 97.0%, 55.4% 80.5%, 50.0% 100.0%, 43.7% 85.5%, 32.9% 97.0%, 34.5% 76.8%, 17.9% 88.3%, 22.4% 73.1%, 6.7% 75.0%, 20.9% 60.6%, 0.8% 58.7%, 14.0% 50.0%, 0.8% 41.3%, 20.9% 39.4%, 6.7% 25.0%, 22.4% 26.9%, 17.9% 11.7%, 34.5% 23.2%, 32.9% 3.0%, 43.7% 14.5%); }
 .yh-stamp.gone { opacity: 0 !important; transition: opacity .3s; }
 .yh-stamp.land { animation: yh-land .18s ease-out; }
 @keyframes yh-land { from { opacity: 0; } to { opacity: 1; } }
@@ -563,10 +567,11 @@ export class YeetHud {
   /**
    * A stamp ("YEET!", "BONK!"): it lands in the middle and pushes the older ones out to their sides (alternating),
    * smaller and fainter; at most HUD_TUNING.stamp.max on screen. Hidden while scoped so the reticle stays clear.
+   * `impact`: the hit hurt (BONK): the stamp lands on a pink starburst.
    */
-  pop(text: string, red = false): void {
+  pop(text: string, red = false, impact = false): void {
     const side: -1 | 1 = this.stampN++ % 2 ? 1 : -1;
-    const d = el(`yh-stamp land${red ? " red" : ""}`, this.stampBox);
+    const d = el(`yh-stamp land${red ? " red" : ""}${impact ? " impact" : ""}`, this.stampBox);
     const b = document.createElement("b");
     b.textContent = text;
     d.append(b);
@@ -765,7 +770,7 @@ export class YeetHud {
    */
   demo(): void {
     this.holdStamps = true;
-    for (const [t, red] of [["YEET!", false], ["KABOOM!", true], ["BONK!", false]] as const) this.pop(t, red);
+    for (const [t, red, hit] of [["YEET!", false, false], ["KABOOM!", true, false], ["BONK!", false, true]] as const) this.pop(t, red, hit);
     this.feedLine("KNOCKED OUT", "Spectre");
     this.feedNote("PICKED UP · Spin Doctor");
     this.notice("LAUNCH CAMERA ON");

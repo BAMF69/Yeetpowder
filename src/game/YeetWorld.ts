@@ -1002,7 +1002,7 @@ export class YeetWorld implements World {
         this.stats.bonks++;
         this.sound.play("bonk");
         if (e.who === "player") {
-          this.hud.pop("BONK!");
+          this.hud.pop("BONK!", false, true); // bonks hurt: the pink impact stamp
           this.sound.play("crowd_aww"); // the crowd feels it with you
           this.announce("bonked");
           this.shake.addTrauma(TUNING.bonk.trauma);

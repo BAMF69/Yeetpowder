@@ -14,8 +14,9 @@
 //           the finger keeps it held, so Fire dashes or YEETREAPs; tapping Slash again lets go (the ULTRASLASH).
 //           Sits at z-index 6: over the HUD (5, which holds the scope's black mask), under the HUD's tap layer (7: the
 //           weapon chip, picker and strip) and the shell's screens (10), so the pause menu covers it.
-//           Look (2026-11-28, ADR 0009): action buttons are bullet holes in torn steel (yeet/bulletHole.ts), the
-//           top chips are plain metal with icons; Heal sits right of the HUD's health chip.
+//           Look (2026-11-28, ADR 0009): FIRE is a bullet hole in torn steel (yeet/bulletHole.ts); the other action
+//           buttons are plain metal discs in the original places; top chips are plain metal with icons; Heal sits
+//           right of the HUD's health chip.
 //           DEBUG: ?debug logs each control's press on the "touch" channel.
 // Authored: Written with Claude (Opus 5.5, claude-opus-5-5)
 // ---------------------------------------------------------------------------
@@ -37,10 +38,9 @@ const ICON = {
 };
 const iconSvg = (d: string): string => `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${d}"/></svg>`;
 
-/** Each action button's rim seed and lit colour (the same shapes as the approved mockup). */
-const HOLES: Record<string, { seed: number; tone: HoleTone }> = {
-  "yt-reload": { seed: 11, tone: "idle" }, "yt-aim": { seed: 23, tone: "idle" }, "yt-slash": { seed: 37, tone: "idle" },
-  "yt-fire": { seed: 41, tone: "fire" }, "yt-jump": { seed: 53, tone: "idle" },
+/** Buttons drawn as bullet holes: only FIRE (Elaina, 2026-11-28); its rim seed and lit colour. */
+export const HOLES: Record<string, { seed: number; tone: HoleTone }> = {
+  "yt-fire": { seed: 41, tone: "fire" },
 };
 
 export interface TouchFrame {
@@ -68,10 +68,10 @@ export interface TouchFrame {
   shake: ShakeDir | null;
 }
 
-/** Button size: about 69 px on a 375 px tall phone (the approved mockup), capped on tablets. */
-const B = "min(18.5vmin, 104px)";
+/** Button size: the original layout's (about 56 px on a 375 px tall phone), capped on tablets. */
+const B = "min(15vmin, 96px)";
 /** How far from the right edge the HUD's weapon strip ends, so it clears Jump (hud.ts uses it). */
-export const TOUCH_STRIP_RIGHT = `calc(3vmin + ${B} * 2.1 + 6px)`;
+export const TOUCH_STRIP_RIGHT = `calc(4vmin + ${B} * 1.9 + 6px)`;
 /** The HUD's touch health chip width (it grows with text size); Heal sits right after it. */
 export const TOUCH_HP_WIDTH = "calc(52px * var(--ui-scale, 1) * var(--text-scale, 1) + 98px * var(--ui-scale, 1))";
 
@@ -89,18 +89,23 @@ const CSS = `
 .yt-knob { position: absolute; left: 50%; top: 50%; width: 46%; height: 46%; margin: -23% 0 0 -23%; border-radius: 50%;
   background: rgba(232, 220, 196, 0.5); }
 .yt-stick.sprint .yt-knob { background: var(--pink); }
-/* action buttons: bullet holes in torn steel (bulletHole.ts); the label sits in the hole, the round hit area matches it */
+/* action buttons: plain metal discs with a thin cream ring, in the original layout's places and sizes (Elaina,
+   2026-11-28: the torn rims on every button were too much). Only FIRE is a bullet hole (bulletHole.ts). */
 .yt-btn { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 50%;
-  width: calc(var(--b) * 0.84); height: calc(var(--b) * 0.84); color: var(--cream); letter-spacing: .06em;
-  font-size: calc(var(--b) * 0.16); text-shadow: 0 1px 0 #000; background: var(--hole) center / 100% 100% no-repeat; }
-.yt-btn.down, .yt-btn.on { background-image: var(--hole-on); color: #141416; text-shadow: none; }
-.yt-fire { width: calc(var(--b) * 1.15); height: calc(var(--b) * 1.15); right: calc(3vmin + var(--sr)); bottom: calc(var(--b) * 0.75 + var(--sb));
-  font-size: calc(var(--b) * 0.21); }
-.yt-aim { right: calc(3vmin + var(--b) * 0.15 + var(--sr)); bottom: calc(var(--b) * 2.05 + var(--sb)); }
-.yt-jump { right: calc(3vmin + var(--b) * 1.2 + var(--sr)); bottom: calc(var(--b) * 0.2 + var(--sb)); }
-.yt-slash { right: calc(3vmin + var(--b) * 1.18 + var(--sr)); bottom: calc(var(--b) * 1.2 + var(--sb)); }
-.yt-reload { right: calc(3vmin + var(--b) * 1.2 + var(--sr)); bottom: calc(var(--b) * 2.2 + var(--sb)); width: calc(var(--b) * 0.66);
-  height: calc(var(--b) * 0.66); font-size: calc(var(--b) * 0.13); }
+  width: calc(var(--b) * 0.68); height: calc(var(--b) * 0.68); color: var(--cream); letter-spacing: .06em;
+  font-size: calc(var(--b) * 0.15); text-shadow: 0 1px 0 #000;
+  background: radial-gradient(circle at 50% 35%, rgba(62,64,70,.82), rgba(20,21,24,.82) 72%);
+  box-shadow: inset 0 0 0 1.5px rgba(232,220,196,.5), 0 1px 0 rgba(0,0,0,.6); }
+.yt-btn.down, .yt-btn.on { background: radial-gradient(circle at 50% 35%, #e8dcc4, #a9a08d 75%); color: #141416; text-shadow: none; }
+.yt-fire { width: calc(var(--b) * 1.1); height: calc(var(--b) * 1.1); right: calc(4vmin - var(--b) * 0.05 + var(--sr));
+  bottom: calc(var(--b) * 0.85 + var(--sb)); font-size: calc(var(--b) * 0.2);
+  background: var(--hole) center / 100% 100% no-repeat; box-shadow: none; }
+.yt-fire.down { background: var(--hole-on) center / 100% 100% no-repeat; }
+.yt-aim { right: calc(4vmin + var(--b) * 0.16 + var(--sr)); bottom: calc(var(--b) * 2.05 + var(--sb)); }
+.yt-jump { right: calc(4vmin + var(--b) * 1.15 + var(--sr)); bottom: calc(var(--b) * 0.45 + var(--sb)); }
+.yt-slash { right: calc(4vmin + var(--b) * 1.1 + var(--sr)); bottom: calc(var(--b) * 1.4 + var(--sb)); }
+.yt-reload { right: calc(4vmin + var(--b) * 1.05 + var(--sr)); bottom: calc(var(--b) * 2.35 + var(--sb)); width: calc(var(--b) * 0.55);
+  height: calc(var(--b) * 0.55); font-size: calc(var(--b) * 0.12); }
 /* top-left chips: Pause, then the HUD's health chip, then Heal; Respawn, settings and fullscreen in a row below */
 .yt-bar { position: absolute; left: 0; top: 0; width: 0; height: 0; }
 .yt-top { position: absolute; border-radius: 0; width: calc(34px * var(--k)); height: calc(34px * var(--k)); font-size: calc(15px * var(--k));

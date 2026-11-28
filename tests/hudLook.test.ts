@@ -13,7 +13,7 @@ import { bulletHoleSvg, HOLE_COLOURS } from "../src/game/yeet/bulletHole";
 import { HUD_TUNING, hitBearing, stampSlot, wedgeAt } from "../src/game/yeet/hudLayout";
 import { WEAPON_ICON_PATHS, weaponIconSvg } from "../src/game/yeet/weaponIcons";
 import { HUD_CSS } from "../src/game/yeet/hud";
-import { TOUCH_STRIP_RIGHT } from "../src/game/touchControls";
+import { HOLES, TOUCH_STRIP_RIGHT } from "../src/game/touchControls";
 
 const rule = (css: string, selector: string): string => {
   const i = css.indexOf(`\n${selector} {`);
@@ -60,6 +60,17 @@ describe("HUD look (approved concept)", () => {
     expect(HUD_CSS).toContain("env(safe-area-inset-left");
     expect(HUD_CSS).toContain("var(--ui-scale, 1)");
     expect(HUD_CSS).toContain("var(--text-scale, 1)");
+  });
+});
+
+describe("touch buttons and damage stamps (v3)", () => {
+  it("draws only FIRE as a bullet hole", () => {
+    expect(Object.keys(HOLES)).toEqual(["yt-fire"]);
+  });
+
+  it("gives hurting stamps (BONK) a pink starburst", () => {
+    expect(rule(HUD_CSS, ".yh-stamp.impact::before")).toContain("var(--pink)");
+    expect(rule(HUD_CSS, ".yh-stamp.impact::before")).toContain("clip-path: polygon(");
   });
 });
 
